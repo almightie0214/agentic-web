@@ -93,9 +93,9 @@ export async function checkConformance({ root = new URL('../', import.meta.url) 
   const checks = [];
   const sites = [];
   let valid = true;
-  const add = (site, ruleId, status, path, message, networkName) => {
+  const add = (site, ruleId, status, path, message, context = {}) => {
     if (status === 'fail') valid = false;
-    checks.push({ site, ...(networkName === undefined ? {} : { networkName }), ruleId, status, path, message });
+    checks.push({ site, ...context, ruleId, status, path, message });
   };
 
   for (const name of ['site-a', 'site-b']) {
@@ -103,7 +103,7 @@ export async function checkConformance({ root = new URL('../', import.meta.url) 
     const site = { name, manifest: undefined, links: undefined, networks: [], artifacts: [] };
     sites.push(site);
 
-    async function readArtifact(reference, path, { json = true, optional = false } = {}) {
+    async function readArtifact(reference, path, { json = true, optional = false, context = {} } = {}) {
       try {
         // Our deployment bundles own their assets. A reference to a sibling site,
         // absolute host path, remote URL, or escaping symlink cannot be verified
@@ -131,10 +131,10 @@ export async function checkConformance({ root = new URL('../', import.meta.url) 
         const source = await readFile(resolved, 'utf8');
         const value = json ? JSON.parse(source) : source;
         if (json) site.artifacts.push(url.pathname.slice(base.pathname.length - 1));
-        add(name, 'publication.file', 'pass', path, `${reference}: readable ${json ? 'JSON' : 'file'}.`);
+        add(name, 'publication.file', 'pass', path, `${reference}: readable ${json ? 'JSON' : 'file'}.`, context);
         return value;
       } catch (error) {
-        add(name, 'publication.file', 'fail', path, `${display(reference)}: ${error.message}`);
+        add(name, 'publication.file', 'fail', path, `${display(reference)}: ${error.message}`, context);
         return undefined;
       }
     }
@@ -164,7 +164,20 @@ export async function checkConformance({ root = new URL('../', import.meta.url) 
       valid &&= report.valid;
       checks.push(...report.checks.map(check => ({ site: name, networkName: entry?.name, ...check })));
       inspectPrivateContext(network, (status, path, message) =>
-        add(name, 'publication.private_context', status, path, message, entry?.name));
+        add(name, 'publication.private_context', status, path, message, { networkName: entry?.name }));
+    }
+    if (name === 'site-a') {
+      const reference = 'samples/test-slydata.network.json';
+      const path = `/${reference}`;
+      const context = { sample: reference };
+      // Like the other inspector samples, this is a manifest/network input
+      // envelope, not an additional published network or invocation context.
+      const sample = await readArtifact(reference, path, { context });
+      const report = validateNetwork(sample);
+      valid &&= report.valid;
+      checks.push(...report.checks.map(check => ({ site: name, ...context, ...check, path: `${path}${check.path}` })));
+      inspectPrivateContext(sample?.network, (status, here, message) =>
+        add(name, 'publication.private_context', status, `${path}${here}`, message, context));
     }
     // Check existence only: never import publisher action code in this CLI.
     if (site.manifest?.actions?.module !== undefined) {
@@ -199,16 +212,16 @@ export async function checkConformance({ root = new URL('../', import.meta.url) 
         [`/links/networks/${pointer(entry?.name)}`, published]]) {
         if (bindings === undefined) continue;
         add(site.name, 'publication.links.bindings', object(bindings) ? 'pass' : 'fail', source,
-          'Peer bindings must be a map.', entry?.name);
+          'Peer bindings must be a map.', { networkName: entry?.name });
         if (!object(bindings)) continue;
         for (const [slot, target] of Object.entries(bindings)) {
           const path = `${source}/${pointer(slot)}`;
           add(site.name, 'publication.links.slot', object(network?.link_slots) && Object.hasOwn(network.link_slots, slot) ? 'pass' : 'fail',
-            path, 'A published binding must name a declared link slot.', entry?.name);
+            path, 'A published binding must name a declared link slot.', { networkName: entry?.name });
           let requested;
           try { if (typeof target === 'string') requested = new URL(target).pathname.split('/').at(-1); } catch { /* A mismatch below. */ }
           add(site.name, 'publication.links.target', peerNames.has(requested) ? 'pass' : 'fail', path,
-            `The binding's final URL component must exactly match a network published in the local ${peer.name} manifest. This does not verify the remote origin or execute its loader.`, entry?.name);
+            `The binding's final URL component must exactly match a network published in the local ${peer.name} manifest. This does not verify the remote origin or execute its loader.`, { networkName: entry?.name });
         }
       }
     }
@@ -220,7 +233,7 @@ export async function checkConformance({ root = new URL('../', import.meta.url) 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   const report = await checkConformance();
   for (const check of report.checks) {
-    console.log(`[${check.status}] ${check.site}${check.networkName === undefined ? '' : `/${display(check.networkName)}`} ${check.ruleId} ${check.path}: ${check.message}`);
+    console.log(`[${check.status}] ${check.site}${check.sample === undefined ? '' : `/sample:${check.sample}`}${check.networkName === undefined ? '' : `/${display(check.networkName)}`} ${check.ruleId} ${check.path}: ${check.message}`);
     if (check.hint) console.log(`  ${check.hint}`);
   }
   console.log(`Static repository conformance: ${report.valid ? 'PASS' : 'FAIL'}. Browser behavior, exact-name loader refusal, live HTTPS/CORS, consent, keys, router isolation, private context, cycles, and execution-limit enforcement remain unverified. demo-kit must observe duplicate-agent and wrong explicit peer-name refusal before any model call in a real browser; Node does not run the vendor loader.`);
