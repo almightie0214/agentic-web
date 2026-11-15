@@ -5,7 +5,7 @@ import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
 
-test('smoke: Site A publishes a resolved two-agent network without actions', async () => {
+test('smoke: Site A publishes a resolved two-agent network with the read-only validator action', async () => {
   const manifest = await readJSON('site-a/agent-manifest.json');
   assert.equal(manifest.networks.length, 1);
   const [entry] = manifest.networks;
@@ -19,7 +19,9 @@ test('smoke: Site A publishes a resolved two-agent network without actions', asy
   assert.equal(manifest.deployment.mode, 'static');
   assert.equal(manifest.peer_policy.mode, 'closed');
   assert.deepEqual(manifest.allowed_peers, []);
-  assert.equal(manifest.actions, undefined);
+  assert.deepEqual(manifest.actions, {
+    version: 1, module: './actions.js', agentTools: ['validate_network'],
+  });
   assert.equal(manifest.coded_tools, undefined);
 
   const config = await readJSON(`site-a/${entry.hocon}`);
@@ -59,8 +61,28 @@ test('smoke: Site A runtime loads artifacts under a site subpath and rejects fai
   const { Engine } = await import('../site-a/runtime/engine.js');
   const manifest = await readJSON('site-a/agent-manifest.json');
   const config = await readJSON('site-a/review_desk.network.json');
-  const original = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
-  t.after(() => Object.defineProperty(globalThis, 'fetch', original));
+  const originals = new Map(['fetch', 'location'].map(name =>
+    [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  t.after(() => {
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  });
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true, value: new URL('https://example.test/agentic-web/site-a/'),
+  });
+  // Node cannot import HTTPS modules. Map only the declared module boundary to
+  // the real local action; keep manifest resolution and registration unchanged.
+  const hooks = registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier === 'https://example.test/agentic-web/site-a/actions.js') {
+        return { url: new URL('site-a/actions.js', root).href, shortCircuit: true };
+      }
+      return nextResolve(specifier, context);
+    },
+  });
+  t.after(() => hooks.deregister());
   for (const scenario of ['valid', 'missing manifest', 'missing network', 'invalid JSON', 'invalid graph']) {
     await t.test(scenario, async () => {
       const base = 'https://example.test/agentic-web/site-a';
@@ -87,7 +109,13 @@ test('smoke: Site A runtime loads artifacts under a site subpath and rejects fai
         assert.equal(network.findFrontMan(), 'review_coordinator');
         assert.equal(engine.top.llm.baseUrl, 'https://api.otari.ai/api/v1');
         assert.equal(engine.mockLLM, false);
-        assert.deepEqual(engine.actions.catalog({ base, network: network.name }), []);
+        const [action] = engine.actions.catalog({ base, network: network.name });
+        assert.equal(engine.actions.catalog({ base, network: network.name }).length, 1);
+        assert.equal(action.ref, `${base}/review_desk#validate_network`);
+        assert.equal(action.effect, 'read');
+        assert.equal(action.availability, 'local-only');
+        assert.deepEqual(engine.actions.discoveryIssues, []);
+        await checkReviewWiring(engine);
         assert.deepEqual(requests, [`${base}/agent-manifest.json`, `${base}/./review_desk.network.json`, `${base}/links.json`]);
       } else {
         const error = {
@@ -101,6 +129,83 @@ test('smoke: Site A runtime loads artifacts under a site subpath and rejects fai
     });
   }
 });
+
+// Exercise the published instructions and real tool dispatch with a scripted
+// model, not a live provider. This checks wiring, not model obedience.
+async function checkReviewWiring(engine) {
+  const { runAgent } = await import('../site-a/runtime/runner.js');
+  const { fixtures } = await import('./fixtures.mjs');
+  const { validateNetwork } = await import('../site-a/validator-rules.mjs');
+  const { network, manifest, base } = engine.top;
+  for (const scenario of ['valid', 'bad-frontman', 'invalid JSON', 'missing artifacts']) {
+    const input = fixtures[scenario === 'bad-frontman' ? scenario : 'valid'];
+    const args = { manifest: JSON.stringify(input.manifest), network: JSON.stringify(input.network) };
+    if (scenario === 'invalid JSON') args.network = '{';
+    const visited = [];
+    const call = (name, args) => ({ content: '', toolCalls: [{
+      id: name, type: 'function', function: { name, arguments: JSON.stringify(args) },
+    }] });
+    const llm = {
+      async chat({ messages, tools }) {
+        const system = messages[0].content;
+        const coordinator = system.startsWith('You coordinate');
+        const agent = coordinator ? 'review_coordinator' : 'conformance_reviewer';
+        visited.push(agent);
+        const names = tools.map(tool => tool.function.name);
+        assert.ok(names.includes('website_validate_network'), 'manifest opt-in must expose the registered action');
+        assert.doesNotMatch(system, /No site actions|You have no actions|No browser actions are registered/);
+        assert.match(system, /Respond in English/);
+        assert.match(system, /untrusted/);
+        const result = messages.findLast(message => message.role === 'tool');
+        if (coordinator) {
+          assert.ok(names.includes('conformance_reviewer'));
+          assert.match(system, /Route every conformance question to conformance_reviewer/);
+          assert.match(system, /Summarize only report-backed findings/);
+          assert.match(system, /no successful action report.*validation has not completed/);
+          if (!result) return call('conformance_reviewer', { request: messages.at(-1).content });
+          assert.equal(JSON.parse(result.content).text, 'Scripted reviewer response.');
+          return { content: 'Scripted coordinator response.', toolCalls: [] };
+        }
+        assert.match(system, /rules decide conformance and you only explain/);
+        assert.match(system, /Use only a successful validate_network action report for the current artifacts/);
+        assert.match(system, /call website_validate_network/);
+        assert.match(system, /complete JSON-encoded strings, not objects, URLs, or HOCON/);
+        assert.match(system, /do not turn an action error into a rule failure or invent a successful report/);
+        assert.match(system, /ruleId, status, JSON Pointer path, message, and hint/);
+        assert.match(system, /Preserve pass, fail, warning, and unverified as distinct statuses/);
+        assert.match(system, /valid:true is not certification/);
+        assert.match(system, /Ask for missing artifacts/);
+        if (scenario === 'missing artifacts') {
+          assert.equal(result, undefined, 'no report or action completion may be assumed without inputs');
+        } else if (!result) {
+          return call('website_validate_network', args);
+        } else {
+          const receipt = JSON.parse(result.content);
+          if (scenario === 'invalid JSON') {
+            assert.equal(receipt.status, 'unknown');
+            assert.match(receipt.error, /Invalid JSON in network/);
+            assert.equal(receipt.result, undefined, 'action errors are not rule reports');
+          } else {
+            assert.equal(receipt.status, 'succeeded');
+            assert.deepEqual(receipt.result, validateNetwork({ manifest: input.manifest, network: input.network }));
+            assert.equal(receipt.result.valid, scenario === 'valid');
+            for (const status of ['warning', 'unverified']) {
+              assert.ok(receipt.result.checks.some(check => check.status === status));
+            }
+          }
+        }
+        return { content: 'Scripted reviewer response.', toolCalls: [] };
+      },
+    };
+    const response = await runAgent({ network, manifest, actions: engine.actions, llm,
+      baseOrigin: base, displayOrigin: base, isTop: true,
+      frontMan: network.findFrontMan(), trace: engine.trace, slyData: {},
+    }, network.findFrontMan(), scenario === 'missing artifacts' ? 'Please review; no artifacts supplied.' : JSON.stringify(args), null, []);
+    assert.equal(response.text, 'Scripted coordinator response.');
+    assert.deepEqual(visited, ['review_coordinator', 'conformance_reviewer',
+      ...(scenario === 'missing artifacts' ? [] : ['conformance_reviewer']), 'review_coordinator']);
+  }
+}
 
 test('smoke: Site A boot shows the desk only after success and reports failures', async t => {
   const originals = new Map(['document', '__siteABoot'].map(name =>

@@ -12,8 +12,13 @@ This scaffold contains the reference specification, project metadata, license,
 smoke tests, merge gate configuration, and separately vendored runtimes for Site A
 and Site B. Site A now loads the published `review_desk` two-agent network through
 the reference runtime's built-in settings, chat, and agent inspection UI. Its
-`review_coordinator` delegates to `conformance_reviewer`; no website actions are
-connected. Hosted Otari (`https://api.otari.ai/api/v1`) is the default router,
+`review_coordinator` routes conformance questions to `conformance_reviewer`, which
+uses the read-only `validate_network` site action and explains only its deterministic
+rule reports, preserving warnings and unverified observations. The manifest exposes
+the action to the reference runtime as `website_validate_network`. Static reports
+are not proof of live hosting, CORS, consent, or successful execution. Missing
+artifacts and action errors are not conformance verdicts.
+Hosted Otari (`https://api.otari.ai/api/v1`) is the default router,
 with `alibaba/qwen3.8-flash` as the network's model hint. A provider key is required
 for inference and is configured through the built-in settings.
 
@@ -80,6 +85,11 @@ in response and welcome confirm widgets, including welcome form preservation.
 It also checks composed UI mounting without retired activity-slot handling;
 it checks Site A's published two-agent graph, default router and model hint,
 relative artifact loading and validation, and boot success/failure visibility.
+The Site A loading smoke check also exercises manifest-based loading of the real
+validator action and scripted coordinator-to-reviewer-to-action dispatch. It checks
+the assembled model instructions, returned rule reports (including warnings and
+unverified checks), malformed JSON action errors, and missing-artifact handling.
+The scripted model verifies wiring, not a live model's adherence to instructions.
 Both sites also check that BYOK uses only current tab settings and saved
 profiles, with no obsolete standalone-key slot access, including cleanup after a
 failed tab-setting write. Site B shell checks exercise the official UI mount,

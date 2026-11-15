@@ -13,6 +13,11 @@
     "mock": false,
     "byok_router": "https://api.otari.ai/api/v1"
   },
+  "actions": {
+    "version": 1,
+    "module": "./actions.js",
+    "agentTools": ["validate_network"]
+  },
   "allowed_peers": [],
   "peer_policy": {
     "mode": "closed"
