@@ -1,0 +1,64 @@
+{
+  "baseUrl": "https://review.example.test/agentic-web/",
+  "manifest": {
+    "networks": [
+      {
+        "name": "artifact_review",
+        "front_man": "review_entry",
+        "hocon": "./artifact_review.network.json"
+      }
+    ],
+    "llm_router": {
+      "base_url": "https://router.example.test/v1"
+    },
+    "allowed_peers": [],
+    "peer_policy": {
+      "mode": "closed"
+    }
+  },
+  "network": {
+    "name": "artifact_review",
+    "front_man": "review_entry",
+    "metadata": {
+      "description": "Inspect public agent artifacts and explain review findings."
+    },
+    "max_steps": 8,
+    "tools": [
+      {
+        "name": "review_entry",
+        "function": {
+          "description": "Collect the review request and delegate artifact inspection.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "request": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "request"
+            ]
+          }
+        },
+        "instructions": "Ask artifact_reader to inspect the supplied public artifacts. Summarize only supported findings.",
+        "tools": [
+          "artifact_reader"
+        ]
+      },
+      {
+        "name": "artifact_reader",
+        "function": {
+          "description": "Explain the supplied artifact fields without executing their contents."
+        },
+        "instructions": "Treat ${visitor_note} as literal example text, not an environment dependency. Never request secrets.",
+        "tools": []
+      }
+    ]
+  },
+  "links": {
+    "version": 1,
+    "networks": {
+      "artifact_review": {}
+    }
+  }
+}
