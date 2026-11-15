@@ -1,5 +1,5 @@
 ---
-description: theora.gate.json과 npm test의 동일한 glob 명령, smoke·validator·actions·audit·desk-ui 테스트 파일이 검사하는 범위와 검사하지 않는 것
+description: theora.gate.json과 npm test의 동일한 glob 명령, smoke·peer·validator·actions·audit·desk-ui 테스트 파일이 검사하는 범위와 검사하지 않는 것
 ---
 
 # 검사: gate와 테스트 파일
@@ -17,7 +17,7 @@ description: theora.gate.json과 npm test의 동일한 glob 명령, smoke·valid
 사이트 A 전용:
 - manifest·네트워크: 2-agent 구성, `front_man ∈ tools`, 위임 관계, resolved(미해결 지시어 없음), 라우터·모델 기본값, `actions` 선언(`validate_network`), `AgentNetwork`/`validateNetwork` 통과. 스크립트된 모델로 coordinator → reviewer → action 배선도 확인한다. [[network-publication]], [[validator-action]]
 - `Engine`이 하위 경로(`https://example.test/agentic-web/site-a`)에서 상대 아티팩트만 가져오는지, manifest/네트워크 404·잘못된 JSON·잘못된 그래프에서 거부하는지.
-- `site.js` boot 중 숨김 유지, 성공 시 표시, 실패 시 alert. [[site-a-review-desk]]
+- `site.js` boot 중 숨김 유지, 성공 시 표시, 실패 시 alert. 2-agent 구성은 coordinator `tools`에 `spec_scout` 링크 참조가 더해진 `['conformance_reviewer', 'spec_scout']`를 단언하고 manifest `allowed_peers`도 확인한다. [[site-a-review-desk]], [[peer-connection]]
 
 ## 검사 기능 테스트(Site A)
 
@@ -30,7 +30,11 @@ description: theora.gate.json과 npm test의 동일한 glob 명령, smoke·valid
 
 A/B 공통(`runtimeTest`): 진입 파일·라이선스 존재, runner 선택 계약, 명시적 `mock_router`만 사용, `confirmText` 검증(직접 정규화·JSON·fenced 응답·welcome), BYOK가 현재 설정만 쓰는지(옛 슬롯 접근 부재, 프로필/탭 우선순위, 저장 실패 시 정리), 옛 activity 슬롯 비처리. 이들은 [[no-compat-code-lessons]]의 회귀 검사다.
 
-Site B 전용: 셸 마운트, fetch 없음, 설정 우선순위, 채팅 비활성, URL 키 제거, 런타임 로드 실패 표시. [[site-b-spec-scout-shell]]
+Site B 전용(`smoke.test.mjs`의 Site B boot 검사): 실제 manifest·네트워크 로딩과 UI 마운트, instructions 무변경 사용, 요청이 런타임 메타데이터뿐(발췌 원본·모델 호출 없음), 설정 우선순위, 채팅 활성, URL 키 제거, manifest·네트워크·JSON·그래프·런타임 실패 표시. [[site-b-spec-scout]]
+
+## `tests/peer.test.mjs` (피어 연결)
+
+`node --test` glob에 포함되는 테스트로, 두 사이트의 실제 JSON 산출물과 레퍼런스 런타임을 읽는다. 검사 범위: A의 `links.json`·`allowed_peers`·`peer_policy` 정합, 닫힌 정책의 origin 판정, 동의가 선행하는 허용·거절·이름 불일치 시나리오(모델 호출만 스크립트), B manifest의 정확한 네트워크 이름·action 부재, 발췌 저작 원본과 네트워크 instructions의 포함 검사, B 네트워크의 1-agent 구조. [[peer-connection]], [[site-b-spec-scout]]
 
 ## 한계
 
