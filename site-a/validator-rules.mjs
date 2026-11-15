@@ -290,8 +290,11 @@ function inspectIntegrity(input, entry, agents, emit) {
     if (Array.isArray(refs)) refs.filter(ref => typeof ref === 'string' && byName.has(ref)).forEach(visit);
   }
   visit(entry?.front_man);
+  // Invalid manifest names already have a failure check; never coerce them into
+  // publication lookup keys while collecting the remaining integrity checks.
+  const published = text(entry?.name) ? links?.networks?.[entry.name] : undefined;
   const bindings = { ...(object(network.links) ? network.links : {}),
-    ...(object(links?.networks?.[entry?.name]) ? links.networks[entry.name] : {}) };
+    ...(object(published) ? published : {}) };
   function peer(ref, path, active) {
     const identity = peerIdentity(ref);
     emit('tool.peer.url', identity ? 'pass' : 'fail', path,

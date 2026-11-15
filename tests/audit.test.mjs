@@ -156,6 +156,20 @@ test('audit: invalid manifest structure and unsafe definition references are rep
     assert.ok(result.report.checks.every(check => check.ruleId.startsWith('manifest.')));
     assert.deepEqual(site.calls.map(call => call.url), [manifestUrl, linksUrl]);
   }
+  for (const name of [{ toString: null }, [{ toString: null }]]) {
+    const input = structuredClone(fixtures.valid);
+    input.manifest.networks[0].name = name;
+    const site = publication(input);
+    const result = await auditUrl(base, { fetchImpl: site.fetchImpl });
+    assert.deepEqual(site.calls.map(call => call.url), [manifestUrl, networkUrl, linksUrl]);
+    assert.deepEqual(result.errors, [], 'an invalid name is not an acquisition error');
+    assert.equal(result.readiness.status, 'blocked');
+    assert.equal(result.report.valid, false);
+    assert.ok(result.report.checks.some(check => check.ruleId === 'manifest.name'
+      && check.path === '/manifest/networks/0/name' && check.status === 'fail'));
+    assert.deepEqual(result.report, validateNetwork(input));
+    assert.deepEqual(result.input, input, 'all three parsed artifacts must be retained');
+  }
   for (const hocon of [null, 42, '', ' ', 'file:///private/network.json', 'javascript:alert(1)', 'https://name:secret@host.test/definition.json', 'https://[invalid']) {
     const site = publication();
     const manifest = structuredClone(fixtures.valid.manifest);

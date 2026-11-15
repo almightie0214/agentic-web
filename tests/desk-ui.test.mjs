@@ -138,6 +138,8 @@ test('desk UI: key-free samples and paste retain rule statuses, paths, hints and
   assert.match($('#review-status').textContent, /No rule verdict/);
   assert.equal(failureRows().length, 0);
   const invalidText = { toString: null };
+  const malformedName = structuredClone(fixtures.valid);
+  malformedName.manifest.networks[0].name = invalidText;
   const malformedGraph = structuredClone(fixtures.valid);
   malformedGraph.network.tools[1].name = invalidText;
   malformedGraph.network.tools[0].tools = ['peer', { url: invalidText }];
@@ -153,6 +155,7 @@ test('desk UI: key-free samples and paste retain rule statuses, paths, hints and
       peer_policy: { mode: invalidText }, allowed_peers: [invalidText], llm_router: { base_url: invalidText } }, network: [], links: { networks: {} } },
       rule: 'manifest.front_man', graph: ['front agent: [{"toString":null}]', 'Definition: {"toString":null}',
         'peer policy: {"toString":null}', 'allowed peers: [{"toString":null}]', 'Router declaration: {"toString":null}'] },
+    { input: malformedName, rule: 'manifest.name', graph: 'Manifest → {"toString":null} → front agent: review_entry' },
     { input: malformedGraph, rule: 'agent.name', graph: 'peer → {"toString":null} · MCP: {"toString":null}' },
   ];
   for (const { input, rule, graph } of cases) {
@@ -160,6 +163,11 @@ test('desk UI: key-free samples and paste retain rule statuses, paths, hints and
     await $('#validate-form').fire('submit');
     assert.ok(failureRows().length > 0, 'valid JSON with wrong shape is a rule failure, not a parser error');
     assert.ok($('#rule-report').textContent.includes(`FAIL · ${rule}`));
+    if (input === malformedName) {
+      const nameFailure = failureRows().find(row => row.textContent.includes('FAIL · manifest.name'));
+      assert.match(nameFailure.textContent, /\/manifest\/networks\/0\/name/);
+      assert.match(nameFailure.textContent, /Minimal fix \/ next step: Supply the published network's name\./);
+    }
     assert.match($('#rule-report').textContent, /Minimal fix \/ next step:/);
     assert.match($('#review-status').textContent, /Static review is not ready/);
     assert.equal($('#review-status').dataset.state, 'error');

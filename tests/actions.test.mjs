@@ -133,4 +133,12 @@ test('actions: runtime rejects malformed arguments and JSON errors never become 
     assert.equal(receipt.status, 'succeeded');
     assert.equal(receipt.result.valid, false);
   }
+  const input = structuredClone(fixtures.valid);
+  input.manifest.networks[0].name = { toString: null };
+  const [receipt] = await execute(argumentsFor(input));
+  assert.equal(receipt.status, 'succeeded', 'valid JSON must return a rule report, not a handler error');
+  assert.equal(receipt.result.valid, false);
+  assert.ok(receipt.result.checks.some(check => check.ruleId === 'manifest.name'
+    && check.path === '/manifest/networks/0/name' && check.status === 'fail'));
+  assert.deepEqual(receipt.result, validateNetwork(input));
 });

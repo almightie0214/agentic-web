@@ -191,11 +191,15 @@ test('samples: published JSON inputs produce the same reports as their fixtures'
 
 test('rules: required manifest strings and agent function descriptions reject missing, blank, and non-string values', () => {
   for (const key of ['name', 'front_man', 'hocon']) {
-    for (const value of [undefined, null, '', '  ', 42, {}, []]) {
+    for (const value of [undefined, null, '', '  ', 42, {}, [], { toString: null }, [{ toString: null }]]) {
       const input = structuredClone(fixtures.valid);
       if (value === undefined) delete input.manifest.networks[0][key];
       else input.manifest.networks[0][key] = value;
-      failsAt(input, `manifest.${key}`, `/manifest/networks/0/${key}`);
+      const before = structuredClone(input);
+      const report = failsAt(input, `manifest.${key}`, `/manifest/networks/0/${key}`);
+      assert.deepEqual(input, before);
+      assert.ok(report.checks.some(check => check.ruleId === 'runtime.safety'),
+        'normal network and links must reach integrity inspection even with an invalid manifest field');
     }
   }
   for (const index of [0, 1]) {
