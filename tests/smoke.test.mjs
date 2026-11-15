@@ -299,7 +299,7 @@ test('smoke: merge gate and npm test use the test file glob', async () => {
   ]);
 
   assert.deepEqual(gate, {
-    commands: [['node', '--test', 'tests/**/*.test.mjs']],
+    commands: [['node', '--test', 'tests/**/*.test.mjs'], ['node', 'tools/check-conformance.mjs']],
     timeout: '5m',
   });
   assert.equal(packageJSON.scripts.test, 'node --test "tests/**/*.test.mjs"');
