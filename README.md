@@ -39,8 +39,9 @@ npm test
 The script is `node --test "tests/**/*.test.mjs"`. The merge gate in
 `theora.gate.json` uses the same glob with a five-minute timeout. The smoke test
 currently checks the gate configuration, npm test command, and the presence of
-Site A's runtime entry point and license; it does not yet check site pages or
-networks. No npm dependencies are required.
+Site A's runtime entry point and license. It also checks the current runner
+selection contract and explicit mock-router settings; it does not yet check site
+pages or networks. No npm dependencies are required.
 
 ## Reference and license
 
@@ -49,9 +50,11 @@ The specification is copied from
 at commit `63a956cf4653f610b1c238c70946f4d7647d17a8`, file
 `docs/worldwide_agentic_web_mvp_spec.md` (MVP Profile 0.2). Its original text is
 preserved below an added provenance note in the local copy. Site A's runtime is
-copied unchanged from `skills/agentify-website/runtime/` at the same pinned commit,
-including its `README.md` and `LICENSE.txt`. Site B's runtime will use the same
-source.
+copied from `skills/agentify-website/runtime/` at the same pinned commit, with
+only the obsolete runner alias and legacy mock-router inference removed. Its
+`LICENSE.txt` and upstream documentation are preserved; local changes are noted
+in [site-a/runtime/README.md](site-a/runtime/README.md). Site B's runtime will use
+the same pinned source.
 
 This project and the upstream reference material are licensed under
 [Apache License 2.0](LICENSE). The specification retains its Cognizant AI Lab

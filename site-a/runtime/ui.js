@@ -1,5 +1,6 @@
 // ui.js — the themeable chat + execution-trace inspector.
 // Changed by agentic-web. See README.md in this folder for what changed.
+// Changed by Agent Review Desk + Spec Scout: removed legacy mock-router inference.
 //
 // Renders three surfaces from the trace bus: a chat pane, a live network/origin
 // graph, and a chronological execution log. Businesses restyle via CSS variables
@@ -948,11 +949,7 @@ export function mountApp(root, { engine, trace, manifest }) {
   const refreshKeyHelp = () => {
     if (keyHelpEl) keyHelpEl.hidden = keyEl.value.trim().length > 0;
   };
-  // The compiled LLM may already point at BYOK after a saved-profile upgrade.
-  // New manifests identify an opt-in mock separately; retain compatibility with
-  // older manifests where the mock was the declared default base URL.
-  const mockUrl = manifest?.llm_router?.mock_router
-    || (manifest?.llm_router?.mock ? manifest?.llm_router?.base_url : "");
+  const mockUrl = manifest?.llm_router?.mock_router || "";
   const byokRouter = engine.byokRouter || "";
   const staticMode = manifest?.deployment?.mode === "static";
   // Without a visitor-chosen model, each agent sends its declared model, then the
