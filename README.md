@@ -10,8 +10,10 @@ part of this project.
 
 This scaffold contains the reference specification, project metadata, license,
 smoke tests, merge gate configuration, and separately vendored runtimes for Site A
-and Site B. Site pages and network publication will be added in subsequent tasks;
-there is not yet a runnable site.
+and Site B. Both sites have runnable settings and chat shells. Site B (Spec Scout)
+mounts its own official runtime's built-in AI model settings and chat UI; its
+network will be connected in AW3. Chat input and agent inspection are unavailable
+until a network is connected. No network is loaded by the Site B shell.
 
 ## Repository layout
 
@@ -19,13 +21,33 @@ there is not yet a runnable site.
 - [docs/worldwide_agentic_web_mvp_spec.md](docs/worldwide_agentic_web_mvp_spec.md):
   pinned reference specification with source and license attribution.
 - `site-a/runtime/`, `site-b/runtime/`: separate vendored browser runtimes.
-- `site-a/`, `site-b/`: independent static site bundles; pages are planned.
+- `site-a/`, `site-b/`: independent static site bundles with `index.html` and `site.js` shells.
 - `tests/`: Node.js smoke test scaffold.
 - `tools/`: reserved for development tools when needed.
 
 Directories are created only when they contain files; no empty placeholders are
 tracked. Site-owned asset references must use relative paths so deployment under
 a GitHub Pages subpath works.
+
+## Preview Site B
+
+Serve the files over HTTP or HTTPS rather than opening `index.html` as a file.
+For example, with Python 3 available, run from the repository root:
+
+```sh
+python -m http.server 8000 --bind 127.0.0.1
+```
+
+Open `http://127.0.0.1:8000/site-b/`. The built-in settings panel supports
+Provider URL, model entry and suggestions, BYOK, and saved profiles using the
+runtime's existing browser storage behavior. Saving settings does not connect a
+network; the shell keeps chat disabled until AW3 supplies one.
+
+For an independent Site B deployment, use `site-b/` as the static publish root:
+`index.html`, `site.js`, and `runtime/` must stay together. Site B's page styles
+are inline and its runtime references are relative, so no files from Site A are
+needed. The same files can be served beneath a URL subpath. Hosting configuration
+and deployment are not provided by this shell task.
 
 ## Tests
 
@@ -41,10 +63,13 @@ currently checks the gate configuration, npm test command, and the presence of
 both sites' runtime entry points and licenses. For each runtime it also checks the
 current runner selection contract, explicit mock-router settings, and required confirmation text
 in response and welcome confirm widgets, including welcome form preservation.
-It also checks composed UI mounting without retired activity-slot handling; it
-does not yet check site pages or networks. Site B additionally checks that BYOK
-uses only current tab settings and saved profiles, with no obsolete standalone-key
-slot access, including cleanup after a failed tab-setting write. No npm
+It also checks composed UI mounting without retired activity-slot handling.
+Site B additionally checks that BYOK uses only current tab settings and saved
+profiles, with no obsolete standalone-key slot access, including cleanup after a
+failed tab-setting write. Site B shell checks exercise the official UI mount,
+profile and tab settings precedence, no initial network load, disabled chat,
+URL key removal and ignored URL inference settings, and runtime-load failure
+feedback. Site A pages and published networks are not yet tested. No npm
 dependencies are required.
 
 ## Reference and license

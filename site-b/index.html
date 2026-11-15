@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Spec Scout — a browser-based workspace for exploring agentic web specifications.">
+  <title>Spec Scout</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, sans-serif;
+      color: #172033;
+      background: #f4f6fa;
+      --ns-font: system-ui, sans-serif;
+      --ns-primary: #2454b8;
+      --ns-fg: #172033;
+      --ns-muted: #526075;
+      --ns-border: #d4dce8;
+      --ns-panelbg: #ffffff;
+    }
+    body { margin: 0; }
+    .site-shell {
+      box-sizing: border-box;
+      width: 100%;
+      max-width: 80rem;
+      margin-inline: auto;
+      padding: clamp(1rem, 3vw, 2.5rem);
+    }
+    .site-heading h1 { margin: 0; font-size: clamp(1.75rem, 4vw, 2.5rem); }
+    .site-heading p { line-height: 1.6; }
+    .site-eyebrow { color: #526075; font-size: 0.875rem; font-weight: 600; }
+    .site-status, .scout-settings {
+      border: 1px solid #d4dce8;
+      border-radius: 0.75rem;
+      background: #ffffff;
+      overflow-wrap: anywhere;
+    }
+    .site-status { padding: 1rem; line-height: 1.6; }
+    .site-status[data-state="error"] { border-color: #b42318; color: #8a1c13; }
+    .scout-workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+      grid-template-areas: "chat settings";
+      align-items: start;
+      gap: 1rem;
+    }
+    .scout-settings { grid-area: settings; min-width: 0; }
+    .scout-chat { grid-area: chat; min-width: 0; }
+    .scout-chat > [data-ns-slot="chat"] { height: 36rem; }
+    @media (max-width: 56rem) {
+      .scout-workspace { grid-template-columns: minmax(0, 1fr); grid-template-areas: "settings" "chat"; }
+    }
+  </style>
+  <script type="module" src="./site.js"></script>
+</head>
+<body>
+  <main class="site-shell">
+    <header class="site-heading">
+      <p class="site-eyebrow">Spec Scout · Site B</p>
+      <h1>Spec Scout</h1>
+      <p>A browser-based workspace for exploring agentic web specifications.</p>
+    </header>
+
+    <p id="site-status" class="site-status" role="status">Loading the settings and chat interface…</p>
+    <noscript><p class="site-status">JavaScript is required to load the settings and chat interface.</p></noscript>
+
+    <section id="agent-app" aria-label="AI settings and chat" aria-describedby="site-status" hidden>
+      <!-- Network-dependent controls stay unavailable until AW3 connects the network. -->
+      <div data-ns-slot="header" hidden inert></div>
+      <div class="scout-workspace">
+        <aside class="scout-settings" aria-label="AI model settings">
+          <div data-ns-slot="settings"></div>
+        </aside>
+        <section class="scout-chat" aria-label="Chat">
+          <div data-ns-slot="chat"></div>
+        </section>
+      </div>
+      <div data-ns-slot="agents" hidden inert></div>
+    </section>
+  </main>
+</body>
+</html>

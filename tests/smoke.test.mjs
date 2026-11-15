@@ -372,3 +372,135 @@ runtimeTest('composed UI leaves retired activity slots untouched', async (t, run
   assert.equal(activity.hidden, false);
   assert.doesNotMatch(styles[0].textContent, /\[data-ns-slot="activity"\]/);
 });
+
+test('smoke: Site B shell mounts the official UI without a network', async (t) => {
+  const html = await readFile(new URL('site-b/index.html', root), 'utf8');
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /<script type="module" src="\.\/site\.js"><\/script>/);
+  assert.doesNotMatch(html, /(?:src|href)="(?:\/|https?:|\.\.\/site-a)/);
+  assert.match(html, /<noscript>/);
+  assert.match(html, /<section id="agent-app"[^>]*aria-describedby="site-status"[^>]* hidden>/);
+  assert.match(html, /id="site-status"[^>]*role="status"/);
+  for (const slot of ['header', 'agents']) {
+    assert.match(html, new RegExp(`data-ns-slot="${slot}" hidden inert`));
+  }
+  const originals = new Map(['document', 'location', 'history', 'window', 'sessionStorage', 'localStorage', 'fetch']
+    .map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  t.after(() => {
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  });
+  const setGlobal = (name, value) => Object.defineProperty(globalThis, name, { configurable: true, value });
+  const element = () => ({
+    value: '', innerHTML: '', hidden: false, dataset: {}, style: {}, fields: new Map(), attributes: new Map(),
+    classList: { add() {}, toggle() {} },
+    appendChild() {}, insertAdjacentHTML() {}, addEventListener() {},
+    setAttribute(name, value) { this.attributes.set(name, value); },
+    getAttribute(name) { return this.attributes.get(name) ?? null; },
+    closest() { return null; }, querySelectorAll() { return []; },
+    querySelector(selector) {
+      if (selector === '#ns-split') return null;
+      if (!this.fields.has(selector)) this.fields.set(selector, element());
+      return this.fields.get(selector);
+    },
+  });
+  const runtime = new URL('site-b/runtime/', root);
+  // Keep the actual Engine and UI, while observing any attempt to load a network.
+  const observedEngine = `import { Engine as RuntimeEngine } from ${JSON.stringify(new URL('engine.js', runtime).href)};
+    export class Engine extends RuntimeEngine {
+      static instances = [];
+      constructor(options) { super(options); Engine.instances.push(this); }
+      async loadTop() { this.loadAttempts = (this.loadAttempts || 0) + 1; throw new Error('No network in this shell'); }
+    }`;
+  const engineURL = `data:text/javascript,${encodeURIComponent(observedEngine)}`;
+  const { Engine } = await import(engineURL);
+  const hooks = registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier === './engine.js' && context.parentURL === new URL('index.js', runtime).href) {
+        return { url: engineURL, shortCircuit: true };
+      }
+      if (specifier === './runtime/index.js' && context.parentURL?.endsWith('?shell-failure')) {
+        return { url: 'data:text/javascript,throw new Error("Runtime unavailable")', shortCircuit: true };
+      }
+      return nextResolve(specifier, context);
+    },
+  });
+  t.after(() => hooks.deregister());
+  const { upsertByokProfile, saveTabByokSetup } = await import(new URL('byok.js', runtime));
+  const profile = { key: 'test-profile-key', router: 'https://profile.example.test/v1', model: 'profile-model' };
+  const tab = { key: 'test-tab-key', router: 'https://tab.example.test/v1', model: 'tab-model' };
+
+  for (const scenario of ['empty', 'profile', 'tab', 'failure']) {
+    await t.test(scenario, async () => {
+      const app = element();
+      app.hidden = true;
+      for (const slot of ['header', 'agents', 'chat', 'settings']) {
+        assert.match(html, new RegExp(`data-ns-slot="${slot}"`));
+      }
+      const status = element();
+      const storage = () => {
+        const values = new Map();
+        return { getItem: name => values.get(name) ?? null,
+          setItem: (name, value) => values.set(name, String(value)), removeItem: name => values.delete(name) };
+      };
+      const requests = [];
+      let replaced;
+      setGlobal('document', { head: element(), createElement: element,
+        querySelector: selector => selector === '#agent-app' ? app : status });
+      setGlobal('location', new URL('https://example.test/nested/scout/?key=url-secret&key=duplicate&router=https%3A%2F%2Funtrusted.test&model=url-model&keep=yes#chat'));
+      setGlobal('history', { replaceState(_state, _title, url) { replaced = url; } });
+      setGlobal('localStorage', storage());
+      setGlobal('sessionStorage', storage());
+      setGlobal('window', { localStorage });
+      setGlobal('fetch', async (...args) => { requests.push(args); throw new Error('Unexpected fetch'); });
+      if (scenario === 'profile' || scenario === 'tab') upsertByokProfile({ ...profile, id: 'shell-profile', name: 'Test setup' });
+      if (scenario === 'tab') saveTabByokSetup(tab);
+      const previousCount = Engine.instances.length;
+      await import(new URL(`site-b/site.js?shell-${scenario}`, root));
+      const cleaned = new URL(replaced, location);
+      assert.equal(cleaned.searchParams.has('key'), false);
+      assert.equal(cleaned.searchParams.get('keep'), 'yes');
+      assert.equal(cleaned.searchParams.get('router'), 'https://untrusted.test');
+      assert.equal(cleaned.searchParams.get('model'), 'url-model');
+      assert.equal(cleaned.pathname, location.pathname);
+      assert.equal(cleaned.hash, '#chat');
+      assert.deepEqual(requests, [], 'initial mount must not fetch a manifest or contact a provider');
+      if (scenario === 'failure') {
+        assert.equal(app.hidden, true);
+        assert.equal(status.attributes.get('role'), 'alert');
+        assert.equal(status.dataset.state, 'error');
+        assert.match(status.textContent, /could not be loaded/);
+        assert.match(status.textContent, /HTTP or HTTPS/);
+        assert.doesNotMatch(status.textContent, /url-secret|duplicate/);
+        assert.equal(Engine.instances.length, previousCount);
+        return;
+      }
+      const engine = Engine.instances.at(-1);
+      const expected = scenario === 'tab' ? tab : scenario === 'profile' ? profile : { key: '', router: '', model: '' };
+      assert.equal(Engine.instances.length, previousCount + 1);
+      assert.equal(engine.byokKey, expected.key);
+      assert.equal(engine.routerOverride, expected.router);
+      assert.equal(engine.modelOverride, expected.model);
+      assert.equal(engine.originUrl, new URL('site-b/', root).href.replace(/\/$/, ''));
+      assert.equal(engine.sandboxWorkerUrl, new URL('sandbox-worker.js', runtime).href);
+      assert.equal(engine.top, null);
+      assert.equal(engine.loadAttempts, undefined);
+      assert.equal(app.hidden, false);
+      assert.equal(app.dataset.nsLayout, 'composed');
+      const settings = app.querySelector('[data-ns-slot="settings"]').innerHTML;
+      for (const id of ['ns-key', 'ns-router', 'ns-model', 'ns-model-options', 'ns-profile', 'ns-save-profile']) {
+        assert.match(settings, new RegExp(`id="${id}"`));
+      }
+      assert.match(app.querySelector('[data-ns-slot="chat"]').innerHTML, /id="ns-msgs"/);
+      assert.equal(app.querySelector('#ns-input').disabled, true);
+      assert.equal(app.querySelector('#ns-send').disabled, true);
+      assert.match(app.querySelector('#ns-input').placeholder, /network is connected/);
+      assert.match(status.textContent, /Network not connected yet/);
+      assert.equal(app.querySelector('#ns-router').value, expected.router);
+      assert.equal(app.querySelector('#ns-model').value, expected.model);
+      assert.equal(app.querySelector('#ns-key').value, expected.key);
+    });
+  }
+});
