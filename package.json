@@ -1,0 +1,10 @@
+{
+  "name": "agent-review-desk-spec-scout",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent Review Desk and Spec Scout static agent sites",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.mjs\""
+  }
+}
