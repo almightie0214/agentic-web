@@ -200,7 +200,7 @@ function pattern(value) {
 }
 
 // Inspect configuration positions, not prose or schema instance data. A quoted
-// ${...} example in instructions is not evidence of a build-time dependency.
+// ${...} example in instructions or command is not a build-time dependency.
 function inspectResolved(value, path, emit, commondefs, literal = false) {
   if (Array.isArray(value)) return value.forEach((item, index) => inspectResolved(item, `${path}/${index}`, emit, commondefs, literal));
   if (object(value)) {
@@ -212,7 +212,7 @@ function inspectResolved(value, path, emit, commondefs, literal = false) {
           'Expand the dependency during publication and supply resolved JSON.');
       } else if (path !== '/network' || key !== 'commondefs') {
         inspectResolved(item, here, emit, commondefs,
-          literal || (!nameMap && ['instructions', 'description', 'metadata', 'parameters', 'title', '$comment'].includes(key)));
+          literal || (!nameMap && ['instructions', 'command', 'description', 'metadata', 'parameters', 'title', '$comment'].includes(key)));
       }
     }
   } else if (typeof value === 'string') {
@@ -293,11 +293,7 @@ function inspectIntegrity(input, entry, agents, emit) {
   const bindings = { ...(object(network.links) ? network.links : {}),
     ...(object(links?.networks?.[entry?.name]) ? links.networks[entry.name] : {}) };
   function peer(ref, path, active) {
-    let target = ref;
-    if (typeof target === 'string' && target.startsWith('/') && !target.startsWith('//') && base) {
-      target = new URL(target, base).href;
-    }
-    const identity = peerIdentity(target);
+    const identity = peerIdentity(ref);
     emit('tool.peer.url', identity ? 'pass' : 'fail', path,
       'A peer URL must use HTTPS (loopback HTTP for development) and end with the exact published network name.',
       'Use https://host/site-base/network-name, not a site base or a local file path.');
@@ -323,7 +319,10 @@ function inspectIntegrity(input, entry, agents, emit) {
         else emit('tool.link', 'fail', here, 'The declared named peer link has no published binding.',
           'Bind this reference in links.json under networks[network-name], or supply a direct peer-network URL.');
       } else if (typeof ref === 'string' && (/^[a-z][a-z\d+.-]*:/i.test(ref) || ref.startsWith('/'))) {
-        peer(ref, here, text(agent.name) && reachable.has(agent.name.trim()));
+        // resolveRemote accepts root-relative direct references; resolveLink
+        // requires complete URLs in published bindings and must not use this base.
+        const target = ref.startsWith('/') && !ref.startsWith('//') && base ? new URL(ref, base).href : ref;
+        peer(target, here, text(agent.name) && reachable.has(agent.name.trim()));
       } else emit('tool.local', 'fail', here, 'The tool reference does not name a defined local agent or a bound peer.',
         'Define the referenced agent, correct its exact name, or bind a declared peer link to a network URL.');
     });
@@ -356,7 +355,8 @@ function inspectIntegrity(input, entry, agents, emit) {
  * baseUrl is the publication base, not the definition URL. activePeerChain is an
  * optional array of active ancestor peer URLs, excluding the current network.
  * links optionally supplies links.json; named peer references require runtime
- * link_slots and a binding in network.links or links.networks[selectedName].
+ * link_slots and an absolute peer URL in network.links or links.networks[selectedName].
+ * Only direct peer references may use root-relative paths resolved against baseUrl.
  */
 export function validateNetwork(input = {}) {
   const { manifest, network, networkName } = input ?? {};

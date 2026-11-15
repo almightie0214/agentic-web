@@ -4,6 +4,7 @@ import test from 'node:test';
 import { AgentNetwork, validateNetwork } from '../site-a/runtime/kernel.js';
 import { schemaFor } from '../site-a/runtime/runner.js';
 import { RemoteRegistry } from '../site-a/runtime/remote.js';
+import { Engine } from '../site-a/runtime/engine.js';
 import { fixtures } from './fixtures.mjs';
 import { validateNetwork as reviewNetwork } from '../site-a/validator-rules.mjs';
 
@@ -464,6 +465,23 @@ test('rules: resolved publication rejects structural dependencies but permits li
     edit(input.network);
     failsAt(input, 'network.resolved', path);
   }
+  for (const field of ['instructions', 'command']) {
+    const input = structuredClone(fixtures.valid);
+    const literal = 'Explain ${visitor_note} as literal syntax.';
+    input.network.tools[1][field] = literal;
+    assert.equal(new AgentNetwork(input.network, input.network.name).getAgentSpec('artifact_reader')[field], literal,
+      'without commondefs, prompt text must reach the runtime unchanged');
+    assert.equal(reviewNetwork(input).valid, true, `${field} is public prompt text, not a structural dependency`);
+    for (const commondefs of [
+      { replacement_strings: { visitor_note: 'resolved' } },
+      { replacement_values: { [literal]: 'Resolved public prompt.' } },
+    ]) {
+      input.network.commondefs = commondefs;
+      assert.notEqual(new AgentNetwork(input.network, input.network.name).getAgentSpec('artifact_reader')[field], literal,
+        'this case must actually depend on runtime configuration replacement');
+      failsAt(input, 'network.resolved', `/network/tools/1/${field}`);
+    }
+  }
   const input = structuredClone(fixtures.valid);
   input.network.tools[0].instructions = 'Explain include "file.conf", ${ENV}, and ${?ENV} as literal syntax.';
   input.network.metadata.description = 'Documentation of ${ENV} and include syntax.';
@@ -517,7 +535,30 @@ test('rules: tool references require local definitions, valid peer URLs, or vali
   }
 });
 
-test('rules: named links use published network bindings and do not replace local agents', () => {
+test('rules: named links use published network bindings and do not replace local agents', async () => {
+  for (const source of ['network.links', 'links.json']) {
+    const input = structuredClone(fixtures.valid);
+    input.network.link_slots = { scout: {} };
+    input.network.tools[1].tools = ['scout'];
+    input.network.links = {};
+    const bindings = source === 'network.links' ? input.network.links : input.links.networks.artifact_review;
+    for (const target of ['/agentic-web/other_network', './other_network', '//review.example.test/agentic-web/other_network',
+      'https://review.example.test/agentic-web/other_network']) {
+      bindings.scout = target;
+      const loaded = new AgentNetwork({ ...input.network,
+        links: { ...input.network.links, ...input.links.networks.artifact_review } }, input.network.name);
+      const context = { _storedLink: () => '', runtimeAllowedPeers: new Set(),
+        _persistLink: async () => {}, trace: { note() {} } };
+      const runtime = Engine.prototype.resolveLink.call(context, 'scout', loaded, input.baseUrl);
+      if (target.startsWith('https://')) {
+        assert.equal(await runtime, target);
+        assert.equal(reviewNetwork(input).valid, true, `${source}: complete same-origin bindings are valid`);
+      } else {
+        await assert.rejects(runtime, /Stored link 'scout' is not a valid http\(s\) URL/);
+        failsAt(input, 'tool.peer.url', '/network/tools/1/tools/0');
+      }
+    }
+  }
   const input = structuredClone(fixtures.valid);
   input.network.link_slots = { scout: {} };
   input.network.tools[1].tools = ['scout'];
