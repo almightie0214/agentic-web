@@ -1,5 +1,6 @@
 import { filterConfig } from './runtime/kernel.js';
-import { find_front_man } from './runtime/generated/graph.gen.mjs';
+import { find_front_man, is_mcp_ref } from './runtime/generated/graph.gen.mjs';
+import { RemoteRegistry } from './runtime/remote.js';
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const text = value => typeof value === 'string' && value.trim().length > 0;
@@ -198,11 +199,164 @@ function pattern(value) {
   try { new RegExp(value); return true; } catch { return false; }
 }
 
+// Inspect configuration positions, not prose or schema instance data. A quoted
+// ${...} example in instructions is not evidence of a build-time dependency.
+function inspectResolved(value, path, emit, commondefs, literal = false) {
+  if (Array.isArray(value)) return value.forEach((item, index) => inspectResolved(item, `${path}/${index}`, emit, commondefs, literal));
+  if (object(value)) {
+    for (const [key, item] of Object.entries(value)) {
+      const here = `${path}/${pointer(key)}`;
+      const nameMap = ['/network/link_slots', '/network/links', '/network/link_labels'].includes(path);
+      if (!literal && !nameMap && ['include', '$include', '$env'].includes(key)) {
+        emit('network.resolved', 'fail', here, 'Published configuration must not depend on includes or environment directives.',
+          'Expand the dependency during publication and supply resolved JSON.');
+      } else if (path !== '/network' || key !== 'commondefs') {
+        inspectResolved(item, here, emit, commondefs,
+          literal || (!nameMap && ['instructions', 'description', 'metadata', 'parameters', 'title', '$comment'].includes(key)));
+      }
+    }
+  } else if (typeof value === 'string') {
+    const replacement = own(commondefs?.replacement_values, value)
+      || [...value.matchAll(/\{([A-Za-z0-9_]+)\}/g)].some(match => own(commondefs?.replacement_strings, match[1]));
+    if (replacement || (!literal && /\$\{[^}]*\}/.test(value))) {
+      emit('network.resolved', 'fail', path, 'A configuration value depends on an unresolved substitution.',
+        'Expand configuration replacements during publication; keep non-dependent literal examples in prose fields.');
+    }
+  }
+}
+
+function webUrl(value) {
+  // Artifact URLs use browser URL parsing, not JSON Schema's ASCII URI grammar.
+  if (!text(value) || !/^https?:\/\//.test(value) || /[\x00-\x20\x7f<>"{}|\\^`]|\s/.test(value)
+    || /%(?![a-f\d]{2})/i.test(value)) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) return null;
+    return url.username || url.password ? null : url;
+  } catch { return null; }
+}
+
+function peerIdentity(value) {
+  const url = webUrl(value);
+  if (!url || url.pathname.endsWith('/')) return null;
+  return { base: new URL('./', url).href.replace(/\/$/, ''), name: url.pathname.split('/').at(-1) };
+}
+
+function inspectIntegrity(input, entry, agents, emit) {
+  const { network, baseUrl, activePeerChain, links } = input;
+  let unresolved = false;
+  inspectResolved(network, '/network', (...args) => { unresolved = true; emit(...args); }, network.commondefs);
+  if (!unresolved) emit('network.resolved', 'pass', '/network', 'No structural include or substitution dependencies were found.', '');
+
+  const chain = [];
+  const registry = new RemoteRegistry({ maxDepth: Infinity });
+  function reentry(target, path) {
+    try { registry.checkCycle(chain, target.base, target.name); }
+    catch (error) {
+      if (error.code !== 'COMPOSITION_CYCLE') throw error;
+      emit('peer.composition', 'fail', path,
+        'This declared peer hop would re-enter an active network. Static analysis does not prove that the hop executes or that the browser stops it.',
+        'Remove the re-entry from the active peer call chain; verify runtime interruption separately.');
+    }
+  }
+  if (activePeerChain !== undefined) {
+    const valid = Array.isArray(activePeerChain) && activePeerChain.every(value => peerIdentity(value));
+    emit('peer.chain', valid ? 'pass' : 'fail', '/activePeerChain',
+      'activePeerChain must list only currently active ancestor network URLs, not completed calls.', 'Supply an array of complete HTTPS peer-network URLs.');
+    if (valid) activePeerChain.forEach((value, index) => {
+      const target = peerIdentity(value);
+      reentry(target, `/activePeerChain/${index}`);
+      chain.push(registry.cacheKey(target.base, target.name));
+    });
+  }
+  let base = webUrl(baseUrl);
+  if (base && (base.search || base.hash)) base = null;
+  if (baseUrl !== undefined) emit('peer.base', base ? 'pass' : 'fail', '/baseUrl',
+    'baseUrl must identify the publication site base, including its subpath.', 'Supply an HTTPS site base without a query or fragment.');
+  if (base && text(entry?.name)) {
+    const target = { base: base.href.replace(/\/$/, ''), name: entry.name };
+    reentry(target, '/network');
+    chain.push(registry.cacheKey(target.base, target.name));
+  }
+
+  const byName = new Map(agents.filter(agent => text(agent?.name)).map(agent => [agent.name.trim(), agent]));
+  // Internal recursion is legal. Reachability merely excludes unused agents from
+  // the conditional peer re-entry diagnosis; it is not an agent-cycle detector.
+  const reachable = new Set();
+  function visit(name) {
+    if (reachable.has(name) || !byName.has(name)) return;
+    reachable.add(name);
+    const refs = byName.get(name).tools;
+    if (Array.isArray(refs)) refs.filter(ref => typeof ref === 'string' && byName.has(ref)).forEach(visit);
+  }
+  visit(entry?.front_man);
+  const bindings = { ...(object(network.links) ? network.links : {}),
+    ...(object(links?.networks?.[entry?.name]) ? links.networks[entry.name] : {}) };
+  function peer(ref, path, active) {
+    let target = ref;
+    if (typeof target === 'string' && target.startsWith('/') && !target.startsWith('//') && base) {
+      target = new URL(target, base).href;
+    }
+    const identity = peerIdentity(target);
+    emit('tool.peer.url', identity ? 'pass' : 'fail', path,
+      'A peer URL must use HTTPS (loopback HTTP for development) and end with the exact published network name.',
+      'Use https://host/site-base/network-name, not a site base or a local file path.');
+    if (identity && active) reentry(identity, path);
+  }
+  agents.forEach((agent, index) => {
+    if (!object(agent)) return;
+    const path = `/network/tools/${index}`;
+    emit('agent.tools', Array.isArray(agent.tools) ? 'pass' : 'fail', `${path}/tools`,
+      'Each agent must declare a tools array.', 'Use an array of local names, peer URLs, or MCP descriptors; use [] for no calls.');
+    if (Array.isArray(agent.tools)) agent.tools.forEach((ref, at) => {
+      const here = `${path}/tools/${at}`;
+      if (typeof ref === 'string' && byName.has(ref) && !is_mcp_ref(ref)) {
+        emit('tool.local', 'pass', here, 'The local reference names a defined agent.', '');
+      } else if (object(ref) || (typeof ref === 'string' && is_mcp_ref(ref))) {
+        const url = object(ref) ? ref.url : ref;
+        const valid = !!webUrl(url) && (!object(ref) || !own(ref, 'tools') || (strings(ref.tools) && ref.tools.every(text)));
+        emit('tool.mcp', valid ? 'pass' : 'fail', here,
+          'An MCP reference needs an HTTP(S) endpoint and an optional array of distinct tool names.',
+          'Supply { url: "https://host/mcp", tools: ["tool_name"] } or a complete MCP endpoint URL.');
+      } else if (typeof ref === 'string' && own(network.link_slots, ref)) {
+        if (own(bindings, ref)) peer(bindings[ref], here, text(agent.name) && reachable.has(agent.name.trim()));
+        else emit('tool.link', 'fail', here, 'The declared named peer link has no published binding.',
+          'Bind this reference in links.json under networks[network-name], or supply a direct peer-network URL.');
+      } else if (typeof ref === 'string' && (/^[a-z][a-z\d+.-]*:/i.test(ref) || ref.startsWith('/'))) {
+        peer(ref, here, text(agent.name) && reachable.has(agent.name.trim()));
+      } else emit('tool.local', 'fail', here, 'The tool reference does not name a defined local agent or a bound peer.',
+        'Define the referenced agent, correct its exact name, or bind a declared peer link to a network URL.');
+    });
+    for (const key of ['max_steps', 'max_execution_seconds']) {
+      const owner = own(agent, key) ? agent : network;
+      const here = own(agent, key) ? `${path}/${key}` : `/network/${key}`;
+      if (!own(owner, key)) emit('execution.limit', 'warning', `${path}/${key}`,
+        `No ${key} is declared for this agent; the caller runtime may supply defaults.`,
+        'Declare a finite positive execution limit; check effective caller budgets during execution.');
+      else emit('execution.limit', typeof owner[key] === 'number' && Number.isFinite(owner[key]) && owner[key] > 0
+        && (key !== 'max_steps' || Number.isInteger(owner[key])) ? 'pass' : 'fail', here,
+        `${key} must be a finite positive ${key === 'max_steps' ? 'integer' : 'number'} when declared; this is not proof of enforcement.`,
+        'Replace the limit with a finite positive value.');
+    }
+  });
+  emit('runtime.composition', 'unverified', '/network/tools',
+    'Only re-entry into the known active peer chain is diagnosed. Other peer graphs, actual calls, repeated completed calls, and browser cycle interruption are unverified.',
+    'Inspect peer artifacts and observe an actual browser run; provide baseUrl to diagnose self-peer re-entry.');
+  emit('runtime.safety', 'unverified', '/network',
+    'Execution-limit enforcement, consent, CORS, peer availability, and private-context isolation cannot be established from static JSON.',
+    'Verify these behaviors in the browser using runtime events, not declaration-only checks.');
+}
+
 /**
  * Inspect parsed JSON artifacts without fetching, running agents, or changing input.
- * Paths are JSON Pointers into { manifest, network }. valid means all included
- * checks passed, not live readiness; an unverified schema does not count as valid.
+ * Paths are JSON Pointers into the input. valid covers static checks: warnings and
+ * runtime.* unverified observations are non-blocking, not proof of live readiness.
+ * An unverified schema still prevents a valid static report.
  * networkName selects an exact published entry; otherwise the first is inspected.
+ * baseUrl is the publication base, not the definition URL. activePeerChain is an
+ * optional array of active ancestor peer URLs, excluding the current network.
+ * links optionally supplies links.json; named peer references require runtime
+ * link_slots and a binding in network.links or links.networks[selectedName].
  */
 export function validateNetwork(input = {}) {
   const { manifest, network, networkName } = input ?? {};
@@ -276,5 +430,9 @@ export function validateNetwork(input = {}) {
         'Correct the network configuration and its replacement values so the reference runtime can select an entry agent.');
     }
   }
-  return { valid: checks.every(item => item.status === 'pass'), checks };
+  inspectIntegrity(input, entry, agents, (ruleId, status, path, message, hint) => {
+    checks.push({ ruleId, status, path, message, hint: status === 'pass' ? '' : hint });
+  });
+  return { valid: checks.every(item => item.status === 'pass' || item.status === 'warning'
+    || (item.status === 'unverified' && item.ruleId.startsWith('runtime.'))), checks };
 }

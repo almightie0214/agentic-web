@@ -131,22 +131,23 @@ function failsAt(input, ruleId, path) {
   return report;
 }
 
-test('rules: fixture reports are deterministic, read-only, and scoped to core checks', t => {
+test('rules: fixture reports are deterministic, read-only, and distinguish static checks from runtime observations', t => {
   const fetch = t.mock.method(globalThis, 'fetch', () => { throw new Error('Rules must not fetch.'); });
   for (const [id, input] of Object.entries(fixtures)) {
     const before = structuredClone(input);
     const report = reviewNetwork(input);
     assert.deepEqual(input, before);
     assert.deepEqual(reviewNetwork(JSON.parse(JSON.stringify(input))), report);
-    assert.equal(report.valid, id === 'valid' || id === 'bad-cycle');
+    assert.equal(report.valid, id === 'valid');
     for (const check of report.checks) {
       assert.ok(check.ruleId && check.path.startsWith('/') && check.message);
-      assert.ok(['pass', 'fail'].includes(check.status));
-      if (check.status === 'fail') assert.ok(check.hint);
+      assert.ok(['pass', 'fail', 'warning', 'unverified'].includes(check.status));
+      if (check.status !== 'pass') assert.ok(check.hint);
     }
   }
   failsAt(fixtures['bad-frontman'], 'manifest.front_man', '/manifest/networks/0/front_man');
   failsAt(fixtures['bad-schema'], 'agent.parameters', '/network/tools/1/function/parameters/type');
+  failsAt(fixtures['bad-cycle'], 'peer.composition', '/network/tools/1/tools/0');
   const omitted = reviewNetwork(fixtures.valid).checks.find(check => check.path === '/network/tools/1/function/parameters');
   assert.equal(omitted.status, 'pass');
   assert.match(omitted.message, /default.*request:string/);
@@ -253,7 +254,8 @@ test('rules: malformed artifact containers return structured failures instead of
     input.network.tools[1].name = name;
     failsAt(input, 'agent.name', '/network/tools/1/name');
   }
-  for (const value of [null, [], 'agent', {}, { name: 'review_entry' }]) {
+  for (const value of [null, [], 'agent', {}, { name: 'review_entry' },
+    { name: 42, tools: ['https://peer.example.test/agents/scout'] }]) {
     const input = structuredClone(fixtures.valid);
     input.network.tools[1] = value;
     assert.equal(reviewNetwork(input).valid, false);
@@ -283,7 +285,9 @@ test('rules: malformed artifact containers return structured failures instead of
   const input = structuredClone(fixtures.valid);
   input.network.commondefs = { replacement_strings: { x: 'the public artifacts' } };
   input.network.tools[0].instructions = 'Explain {x}';
-  assert.equal(reviewNetwork(input).valid, true, 'processable configuration must still reach entry-agent selection');
+  const report = failsAt(input, 'network.resolved', '/network/tools/0/instructions');
+  assert.equal(report.checks.find(check => check.ruleId === 'network.front_man.selected').status, 'pass',
+    'processable configuration must still reach entry-agent selection, but publication must expand replacements');
 });
 
 test('rules: network selection never falls back from a missing requested name', () => {
@@ -416,7 +420,7 @@ test('rules: custom schema dialects stay unverified and embedded dialects requir
     const report = reviewNetwork(input);
     assert.equal(report.valid, false, 'unverified is not an all-pass result');
     assert.deepEqual(failures(report), [], 'an unknown dialect is not an invalid schema');
-    assert.equal(report.checks.filter(check => check.status === 'unverified').length, 1);
+    assert.equal(report.checks.filter(check => check.status === 'unverified' && check.ruleId === 'agent.parameters').length, 1);
     const result = report.checks.find(check => check.path === `${path}/$schema`);
     assert.equal(result.status, 'unverified');
     assert.ok(result.message.includes(uri));
@@ -443,4 +447,184 @@ test('rules: custom schema dialects stay unverified and embedded dialects requir
     definitions: { child: { $id: 'nested', $schema: 'https://json-schema.org/draft/2020-12/schema' } },
   };
   failsAt(input, 'agent.parameters', `${path}/definitions/child/$schema`);
+});
+
+test('rules: resolved publication rejects structural dependencies but permits literal prose and schema data', () => {
+  const cases = [
+    { edit(n) { n.include = './private.conf'; }, path: '/network/include' },
+    { edit(n) { n.llm_config = { model_name: '${MODEL_NAME}' }; }, path: '/network/llm_config/model_name' },
+    { edit(n) { n.tools[1].tools = ['${PEER_URL}']; }, path: '/network/tools/1/tools/0' },
+    { edit(n) { n.tools[0].llm_config = { $env: 'MODEL' }; }, path: '/network/tools/0/llm_config/$env' },
+    { edit(n) { n.max_steps = '${?STEP_LIMIT}'; }, path: '/network/max_steps' },
+    { edit(n) { n.commondefs = { replacement_values: { LIMIT: 8 } }; n.max_steps = 'LIMIT'; }, path: '/network/max_steps' },
+    { edit(n) { n.commondefs = { replacement_strings: { note: 'resolved' } }; n.tools[0].instructions = 'Read {note}'; }, path: '/network/tools/0/instructions' },
+  ];
+  for (const { edit, path } of cases) {
+    const input = structuredClone(fixtures.valid);
+    edit(input.network);
+    failsAt(input, 'network.resolved', path);
+  }
+  const input = structuredClone(fixtures.valid);
+  input.network.tools[0].instructions = 'Explain include "file.conf", ${ENV}, and ${?ENV} as literal syntax.';
+  input.network.metadata.description = 'Documentation of ${ENV} and include syntax.';
+  input.network.tools[1].function.parameters = {
+    type: 'object', properties: { include: { type: 'string', default: '${ENV}' } },
+    examples: [{ include: '${ENV}' }], description: 'Explain ${SCHEMA}.',
+  };
+  input.network.commondefs = { replacement_strings: { unused: 'public' } };
+  assert.equal(reviewNetwork(input).valid, true, 'unused reusable definitions and quoted examples are not dependencies');
+});
+
+test('rules: tool references require local definitions, valid peer URLs, or valid MCP descriptors', () => {
+  const valid = [
+    'review_entry', 'artifact_reader', 'https://peer.example.test/agents/scout',
+    'https://例え.example.test/agents/scout',
+    'https://peer.example.test/scout?version=1#info', '/agentic-web/other_network',
+    'http://localhost:8080/agents/scout', 'http://127.0.0.1/scout', 'http://[::1]:8080/scout',
+    { url: 'https://tools.example.test/endpoint', tools: ['search'] },
+    { url: 'https://tools.example.test/mcp' }, 'https://mcp.example.test/service',
+  ];
+  for (const ref of valid) {
+    const input = structuredClone(fixtures.valid);
+    input.network.tools[1].tools = [ref];
+    const loaded = new AgentNetwork(input.network, input.network.name);
+    assert.notEqual(loaded.classifyTool(ref).kind, 'missing', 'the runtime must recognize this reference kind');
+    assert.equal(reviewNetwork(input).valid, true, JSON.stringify(reviewNetwork(input)));
+  }
+  const invalid = [
+    ['missing_agent', 'tool.local'], ['', 'tool.local'], [null, 'tool.local'], [42, 'tool.local'], [[], 'tool.local'],
+    ['file:///private/agent', 'tool.peer.url'], ['ftp://peer.example.test/scout', 'tool.peer.url'],
+    ['https://peer.example.test/', 'tool.peer.url'], ['https://peer.example.test/agents/', 'tool.peer.url'],
+    ['http://peer.example.test/scout', 'tool.peer.url'], ['https://bad host/scout', 'tool.peer.url'],
+    ['https://peer.example.test/%zz', 'tool.peer.url'], ['//peer.example.test/scout', 'tool.peer.url'],
+    ['https://user:secret@peer.example.test/scout', 'tool.peer.url'],
+    ['https://[invalid/scout', 'tool.peer.url'],
+    [{}, 'tool.mcp'], [{ url: 42 }, 'tool.mcp'], [{ url: 'file:///mcp' }, 'tool.mcp'],
+    [{ url: 'https://tools.example.test/mcp', tools: 'search' }, 'tool.mcp'],
+    [{ url: 'https://tools.example.test/mcp', tools: [42] }, 'tool.mcp'],
+    [{ url: 'https://tools.example.test/mcp', tools: [''] }, 'tool.mcp'],
+  ];
+  for (const [ref, rule] of invalid) {
+    const input = structuredClone(fixtures.valid);
+    input.network.tools[1].tools = [ref];
+    failsAt(input, rule, '/network/tools/1/tools/0');
+  }
+  for (const value of [undefined, null, {}, 'artifact_reader', 42]) {
+    const input = structuredClone(fixtures.valid);
+    if (value === undefined) delete input.network.tools[1].tools;
+    else input.network.tools[1].tools = value;
+    failsAt(input, 'agent.tools', '/network/tools/1/tools');
+  }
+});
+
+test('rules: named links use published network bindings and do not replace local agents', () => {
+  const input = structuredClone(fixtures.valid);
+  input.network.link_slots = { scout: {} };
+  input.network.tools[1].tools = ['scout'];
+  failsAt(input, 'tool.link', '/network/tools/1/tools/0');
+  input.links.networks.artifact_review.scout = 'https://peer.example.test/agents/scout';
+  assert.equal(reviewNetwork(input).valid, true);
+  const loaded = new AgentNetwork(input.network, input.network.name);
+  assert.equal(loaded.classifyTool('scout').kind, 'link');
+  delete input.network.link_slots;
+  assert.equal(new AgentNetwork(input.network, input.network.name).classifyTool('scout').kind, 'missing');
+  failsAt(input, 'tool.local', '/network/tools/1/tools/0');
+  input.network.link_slots = { scout: {} };
+  input.links.networks.artifact_review.scout = '';
+  failsAt(input, 'tool.peer.url', '/network/tools/1/tools/0');
+  input.links.networks.artifact_review.scout = new URL('artifact_review', input.baseUrl).href;
+  failsAt(input, 'peer.composition', '/network/tools/1/tools/0');
+  input.network.tools[1].tools = ['review_entry'];
+  input.links.networks.artifact_review.review_entry = 'not a peer URL';
+  assert.equal(reviewNetwork(input).valid, true, 'a local definition takes precedence over a link binding');
+  input.network.link_slots = { include: {}, description: {} };
+  input.network.links = {
+    include: 'https://peer.example.test/agents/scout',
+    description: 'https://peer.example.test/agents/scout',
+  };
+  input.network.tools[1].tools = ['include', 'description'];
+  assert.equal(reviewNetwork(input).valid, true, 'link-map member names are not configuration directives or prose fields');
+  input.network.links.description = '${PEER}';
+  failsAt(input, 'network.resolved', '/network/links/description');
+});
+
+test('rules: composition means active peer re-entry, not internal recursion or completed repeated calls', () => {
+  const input = structuredClone(fixtures.valid);
+  input.network.tools[1].tools = ['review_entry', 'artifact_reader', 'review_entry'];
+  assert.equal(reviewNetwork(input).valid, true, 'internal mutual references, self calls, and repetitions are not peer cycles');
+  const a = 'https://ancestor.example.test/agents/alpha';
+  const b = new URL('artifact_review', input.baseUrl).href;
+  input.activePeerChain = [a];
+  input.network.tools[1].tools = [a];
+  const report = failsAt(input, 'peer.composition', '/network/tools/1/tools/0');
+  assert.match(failures(report)[0].message, /would re-enter.*Static analysis/);
+  input.activePeerChain = [];
+  assert.equal(reviewNetwork(input).valid, true, 'an earlier completed A call is not in the active chain');
+  input.activePeerChain = [a, b];
+  input.network.tools[1].tools = [];
+  failsAt(input, 'peer.composition', '/network');
+  input.activePeerChain = [a, a];
+  failsAt(input, 'peer.composition', '/activePeerChain/1');
+  delete input.activePeerChain;
+  for (const target of [b, '/agentic-web/artifact_review', 'https://REVIEW.example.test:443/agentic-web/./artifact_review']) {
+    input.network.tools[1].tools = [target];
+    failsAt(input, 'peer.composition', '/network/tools/1/tools/0');
+  }
+  input.network.tools[1].tools = ['https://review.example.test/other-base/artifact_review'];
+  assert.equal(reviewNetwork(input).valid, true, 'network identity includes the publication subpath');
+  input.network.tools[0].tools = [];
+  input.network.tools[1].tools = [b];
+  assert.equal(reviewNetwork(input).valid, true, 'unreachable local agents do not establish an active hop');
+  delete input.baseUrl;
+  input.network.tools[0].tools = ['artifact_reader'];
+  const unknown = reviewNetwork(input);
+  assert.equal(unknown.valid, true);
+  assert.equal(unknown.checks.find(check => check.ruleId === 'runtime.composition').status, 'unverified',
+    'without current publication identity, self re-entry cannot be established');
+  for (const chain of [null, 'alpha', [null], ['https://peer.example.test/'], ['file:///alpha']]) {
+    input.activePeerChain = chain;
+    failsAt(input, 'peer.chain', '/activePeerChain');
+  }
+  delete input.activePeerChain;
+  for (const base of [null, '', 42, 'file:///site', 'https://review.example.test/base?query']) {
+    input.baseUrl = base;
+    failsAt(input, 'peer.base', '/baseUrl');
+  }
+});
+
+test('rules: undeclared execution limits warn while invalid declarations fail and enforcement stays unverified', () => {
+  const input = structuredClone(fixtures.valid);
+  delete input.network.max_steps;
+  let report = reviewNetwork(input);
+  assert.equal(report.valid, true);
+  assert.deepEqual(failures(report), []);
+  assert.equal(report.checks.filter(check => check.ruleId === 'execution.limit' && check.status === 'warning').length, 4);
+  for (const key of ['max_steps', 'max_execution_seconds']) {
+    for (const value of [null, '', '8', 0, -1, {}, [], ...(key === 'max_steps' ? [1.5] : [])]) {
+      const edited = structuredClone(input);
+      edited.network[key] = value;
+      failsAt(edited, 'execution.limit', `/network/${key}`);
+      delete edited.network[key];
+      edited.network.tools[1][key] = value;
+      failsAt(edited, 'execution.limit', `/network/tools/1/${key}`);
+    }
+  }
+  input.network.max_steps = 8;
+  input.network.max_execution_seconds = 0.5;
+  report = reviewNetwork(input);
+  assert.equal(report.valid, true);
+  assert.equal(report.checks.some(check => check.status === 'warning'), false);
+  assert.equal(report.checks.filter(check => check.ruleId.startsWith('runtime.')).every(check => check.status === 'unverified'), true);
+  input.network.tools[1].max_steps = 0;
+  failsAt(input, 'execution.limit', '/network/tools/1/max_steps');
+  input.network.tools[1].max_steps = 2;
+  assert.equal(reviewNetwork(input).valid, true, 'an explicit positive agent override is accepted');
+  delete input.network.max_steps;
+  delete input.network.max_execution_seconds;
+  for (const agent of input.network.tools) {
+    agent.max_steps = 2;
+    agent.max_execution_seconds = 1;
+  }
+  assert.equal(reviewNetwork(input).checks.some(check => check.status === 'warning'), false,
+    'per-agent declarations suffice without network defaults');
 });
