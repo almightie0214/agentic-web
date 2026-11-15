@@ -656,7 +656,7 @@ runtimeTest('composed UI leaves retired activity slots untouched', async (t, run
   assert.doesNotMatch(styles[0].textContent, /\[data-ns-slot="activity"\]/);
 });
 
-test('smoke: Site B shell mounts the official UI without a network', async (t) => {
+test('smoke: Site B boot loads the published network unchanged and reports failures', async (t) => {
   const html = await readFile(new URL('site-b/index.html', root), 'utf8');
   assert.match(html, /<html lang="en">/);
   assert.match(html, /<script type="module" src="\.\/site\.js"><\/script>/);
@@ -677,9 +677,9 @@ test('smoke: Site B shell mounts the official UI without a network', async (t) =
   });
   const setGlobal = (name, value) => Object.defineProperty(globalThis, name, { configurable: true, value });
   const element = () => ({
-    value: '', innerHTML: '', hidden: false, dataset: {}, style: {}, fields: new Map(), attributes: new Map(),
+    value: '', innerHTML: '', hidden: false, disabled: false, dataset: {}, style: {}, fields: new Map(), attributes: new Map(),
     classList: { add() {}, toggle() {} },
-    appendChild() {}, insertAdjacentHTML() {}, addEventListener() {},
+    appendChild() {}, append() {}, prepend() {}, insertAdjacentHTML() {}, addEventListener() {},
     setAttribute(name, value) { this.attributes.set(name, value); },
     getAttribute(name) { return this.attributes.get(name) ?? null; },
     closest() { return null; }, querySelectorAll() { return []; },
@@ -690,12 +690,14 @@ test('smoke: Site B shell mounts the official UI without a network', async (t) =
     },
   });
   const runtime = new URL('site-b/runtime/', root);
-  // Keep the actual Engine and UI, while observing any attempt to load a network.
+  const manifest = await readJSON('site-b/agent-manifest.json');
+  const config = await readJSON('site-b/spec_scout.network.json');
+  const base = new URL('site-b/', root).href.replace(/\/$/, '');
+  // Keep real compilation and UI mounting; record constructed engines only.
   const observedEngine = `import { Engine as RuntimeEngine } from ${JSON.stringify(new URL('engine.js', runtime).href)};
     export class Engine extends RuntimeEngine {
       static instances = [];
       constructor(options) { super(options); Engine.instances.push(this); }
-      async loadTop() { this.loadAttempts = (this.loadAttempts || 0) + 1; throw new Error('No network in this shell'); }
     }`;
   const engineURL = `data:text/javascript,${encodeURIComponent(observedEngine)}`;
   const { Engine } = await import(engineURL);
@@ -715,7 +717,7 @@ test('smoke: Site B shell mounts the official UI without a network', async (t) =
   const profile = { key: 'test-profile-key', router: 'https://profile.example.test/v1', model: 'profile-model' };
   const tab = { key: 'test-tab-key', router: 'https://tab.example.test/v1', model: 'tab-model' };
 
-  for (const scenario of ['empty', 'profile', 'tab', 'failure']) {
+  for (const scenario of ['empty', 'profile', 'tab', 'missing manifest', 'missing network', 'invalid JSON', 'invalid graph', 'failure']) {
     await t.test(scenario, async () => {
       const app = element();
       app.hidden = true;
@@ -737,11 +739,39 @@ test('smoke: Site B shell mounts the official UI without a network', async (t) =
       setGlobal('localStorage', storage());
       setGlobal('sessionStorage', storage());
       setGlobal('window', { localStorage });
-      setGlobal('fetch', async (...args) => { requests.push(args); throw new Error('Unexpected fetch'); });
+      const entered = Promise.withResolvers();
+      const loaded = Promise.withResolvers();
+      setGlobal('fetch', async (url, options) => {
+        requests.push(String(url));
+        assert.equal(options?.headers?.Authorization, undefined, 'artifact requests must not carry a provider key');
+        if (url === `${base}/agent-manifest.json`) {
+          entered.resolve();
+          await loaded.promise;
+          return new Response(JSON.stringify(manifest), { status: scenario === 'missing manifest' ? 404 : 200 });
+        }
+        if (url === `${base}/./spec_scout.network.json`) {
+          const data = structuredClone(config);
+          if (scenario === 'invalid graph') data.tools[0].tools = ['missing_agent'];
+          return new Response(scenario === 'invalid JSON' ? '{' : JSON.stringify(data), {
+            status: scenario === 'missing network' ? 404 : 200,
+          });
+        }
+        if ([`${base}/links.json`, 'https://profile.example.test/agent-manifest.json',
+          'https://tab.example.test/agent-manifest.json'].includes(url)) {
+          return new Response('', { status: 404 });
+        }
+        assert.fail(`Unexpected request (no authoring data or model call is needed during boot): ${url}`);
+      });
       if (scenario === 'profile' || scenario === 'tab') upsertByokProfile({ ...profile, id: 'shell-profile', name: 'Test setup' });
       if (scenario === 'tab') saveTabByokSetup(tab);
       const previousCount = Engine.instances.length;
-      await import(new URL(`site-b/site.js?shell-${scenario}`, root));
+      const importing = import(new URL(`site-b/site.js?shell-${scenario}`, root));
+      if (scenario !== 'failure') {
+        await entered.promise;
+        assert.equal(app.hidden, true, 'the app stays hidden while the manifest is loading');
+        loaded.resolve();
+      }
+      await importing;
       const cleaned = new URL(replaced, location);
       assert.equal(cleaned.searchParams.has('key'), false);
       assert.equal(cleaned.searchParams.get('keep'), 'yes');
@@ -749,7 +779,6 @@ test('smoke: Site B shell mounts the official UI without a network', async (t) =
       assert.equal(cleaned.searchParams.get('model'), 'url-model');
       assert.equal(cleaned.pathname, location.pathname);
       assert.equal(cleaned.hash, '#chat');
-      assert.deepEqual(requests, [], 'initial mount must not fetch a manifest or contact a provider');
       if (scenario === 'failure') {
         assert.equal(app.hidden, true);
         assert.equal(status.attributes.get('role'), 'alert');
@@ -758,6 +787,19 @@ test('smoke: Site B shell mounts the official UI without a network', async (t) =
         assert.match(status.textContent, /HTTP or HTTPS/);
         assert.doesNotMatch(status.textContent, /url-secret|duplicate/);
         assert.equal(Engine.instances.length, previousCount);
+        assert.deepEqual(requests, []);
+        return;
+      }
+      if (!['empty', 'profile', 'tab'].includes(scenario)) {
+        assert.equal(app.hidden, true);
+        assert.equal(status.attributes.get('role'), 'alert');
+        assert.equal(status.dataset.state, 'error');
+        assert.match(status.textContent, /could not be loaded/);
+        assert.match(status.textContent, /HTTP or HTTPS/);
+        assert.doesNotMatch(status.textContent, /url-secret|duplicate/);
+        assert.match(status.textContent, /agent-manifest\.json/);
+        assert.match(status.textContent, /network definition/);
+        assert.equal(Engine.instances.length, previousCount + 1);
         return;
       }
       const engine = Engine.instances.at(-1);
@@ -768,8 +810,15 @@ test('smoke: Site B shell mounts the official UI without a network', async (t) =
       assert.equal(engine.modelOverride, expected.model);
       assert.equal(engine.originUrl, new URL('site-b/', root).href.replace(/\/$/, ''));
       assert.equal(engine.sandboxWorkerUrl, new URL('sandbox-worker.js', runtime).href);
-      assert.equal(engine.top, null);
-      assert.equal(engine.loadAttempts, undefined);
+      assert.equal(engine.top.network.name, 'spec_scout');
+      assert.equal(engine.top.network.findFrontMan(), 'spec_scout');
+      assert.equal(engine.top.network.getAgentSpec('spec_scout').instructions, config.tools[0].instructions,
+        'embedded evidence must be used unchanged');
+      assert.deepEqual(requests, [
+        `${base}/agent-manifest.json`,
+        ...(scenario === 'empty' ? [] : [`${new URL(expected.router).origin}/agent-manifest.json`]),
+        `${base}/./spec_scout.network.json`, `${base}/links.json`,
+      ], 'boot only retrieves runtime metadata, never authoring data or model responses');
       assert.equal(app.hidden, false);
       assert.equal(app.dataset.nsLayout, 'composed');
       const settings = app.querySelector('[data-ns-slot="settings"]').innerHTML;
@@ -777,11 +826,11 @@ test('smoke: Site B shell mounts the official UI without a network', async (t) =
         assert.match(settings, new RegExp(`id="${id}"`));
       }
       assert.match(app.querySelector('[data-ns-slot="chat"]').innerHTML, /id="ns-msgs"/);
-      assert.equal(app.querySelector('#ns-input').disabled, true);
-      assert.equal(app.querySelector('#ns-send').disabled, true);
-      assert.match(app.querySelector('#ns-input').placeholder, /network is connected/);
-      assert.match(status.textContent, /Network not connected yet/);
-      assert.equal(app.querySelector('#ns-router').value, expected.router);
+      assert.equal(app.querySelector('#ns-input').disabled, false);
+      assert.equal(app.querySelector('#ns-send').disabled, false);
+      assert.match(status.textContent, /Spec Scout is ready/);
+      assert.match(status.textContent, /provider key/);
+      assert.equal(app.querySelector('#ns-router').value, expected.router || manifest.llm_router.base_url);
       assert.equal(app.querySelector('#ns-model').value, expected.model);
       assert.equal(app.querySelector('#ns-key').value, expected.key);
     });
