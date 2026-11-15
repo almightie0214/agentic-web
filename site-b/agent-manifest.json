@@ -1,0 +1,23 @@
+{
+  "brand": "Spec Scout",
+  "networks": [
+    {
+      "name": "spec_scout",
+      "front_man": "spec_scout",
+      "hocon": "./spec_scout.network.json",
+      "description": "Explain Worldwide Agentic Web MVP Profile 0.2 requirements using embedded, cited excerpts. Informational only; no site actions."
+    }
+  ],
+  "llm_router": {
+    "base_url": "https://api.otari.ai/api/v1",
+    "mock": false,
+    "byok_router": "https://api.otari.ai/api/v1"
+  },
+  "allowed_peers": [],
+  "peer_policy": {
+    "mode": "closed"
+  },
+  "deployment": {
+    "mode": "static"
+  }
+}
