@@ -1,4 +1,5 @@
 // byok.js - persistent browser-side BYOK profile storage.
+// Changed by Agent Review Desk + Spec Scout: removed obsolete standalone-key storage compatibility.
 //
 // Keys never go in URLs. Profiles are stored in localStorage, and on loopback
 // hosts only we mirror them to a host cookie so settings follow nsDeploy across
@@ -11,8 +12,6 @@ import { normalizeModelName } from "./model.js";
 const STORE_KEY = "nsweb-byok-profiles-v1";
 const COOKIE_NAME = "nsweb_byok_profiles_v1";
 const TAB_KEY_ITEM = "nsweb-byok-tab-key";
-// Older pages and the service's shared-key script keep a key here with no router.
-const LOOSE_KEY_ITEM = "nsweb-byok-key";
 const TAB_ROUTER_ITEM = "nsweb-byok-router";
 const TAB_MODEL_ITEM = "nsweb-byok-model";
 const VERSION = 1;
@@ -119,12 +118,7 @@ export function saveTabByokSetup(setup) {
   clearTabByokSetup();
   if (!setup) return;
   try {
-    if (setup.key) {
-      sessionStorage.setItem(TAB_KEY_ITEM, setup.key);
-      // The service's shared-key script compares its cookie with this slot and reloads
-      // when they differ. Boot ignores the slot while this tab has an applied setup.
-      sessionStorage.setItem(LOOSE_KEY_ITEM, setup.key);
-    }
+    if (setup.key) sessionStorage.setItem(TAB_KEY_ITEM, setup.key);
     sessionStorage.setItem(TAB_MODEL_ITEM, setup.model || "");
     // Written last, because it marks the setup as complete.
     sessionStorage.setItem(TAB_ROUTER_ITEM, setup.router || "");
@@ -134,32 +128,28 @@ export function saveTabByokSetup(setup) {
   }
 }
 
-// Remove this tab's applied setup and any loose key.
+// Remove this tab's applied setup.
 function clearTabByokSetup() {
   // Each item separately, so one failure does not keep the others.
-  for (const name of [TAB_ROUTER_ITEM, TAB_MODEL_ITEM, TAB_KEY_ITEM, LOOSE_KEY_ITEM]) {
+  for (const name of [TAB_ROUTER_ITEM, TAB_MODEL_ITEM, TAB_KEY_ITEM]) {
     try { sessionStorage.removeItem(name); } catch {}
   }
 }
 
 // Return the key, router and model this tab uses, always from one source. A setup
 // applied in this tab comes first, so another tab or port cannot pair its key with
-// a different router. A loose key has no router of its own, so it goes only to
-// this site's default router. Otherwise the saved profile applies as a whole.
+// a different router. Otherwise the saved profile applies as a whole.
 export function loadTabByokSetup(savedProfile = getSelectedByokProfile()) {
   let key = "";
   let router = null;
   let model = "";
-  let looseKey = "";
   try {
     key = sessionStorage.getItem(TAB_KEY_ITEM) || "";
     router = sessionStorage.getItem(TAB_ROUTER_ITEM);
     model = sessionStorage.getItem(TAB_MODEL_ITEM) || "";
-    looseKey = sessionStorage.getItem(LOOSE_KEY_ITEM) || "";
   } catch {}
   // The router item marks a setup applied in this tab, even when it is empty.
   if (router !== null) return { key, router: resolveByokRouter(router), model };
-  if (looseKey) return { key: looseKey, router: "", model: "" };
   return {
     key: savedProfile?.key || "",
     router: resolveByokRouter(savedProfile?.router || ""),

@@ -261,6 +261,73 @@ runtimeTest('welcome and response widgets share confirmation validation', async 
   assert.deepEqual(responseText, ['Submit this review.']);
 });
 
+test('smoke: Site B BYOK uses only current tab settings and saved profiles', async (t) => {
+  const { loadTabByokSetup, saveTabByokSetup, upsertByokProfile, getSelectedByokProfile } =
+    await import('../site-b/runtime/byok.js');
+  const originals = new Map(['sessionStorage', 'localStorage', 'location'].map(name =>
+    [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  t.after(() => {
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  });
+  const sessionItems = new Map();
+  const sessionAccess = [];
+  let failWrite = '';
+  const storage = (items, access = []) => ({
+    getItem(name) { access.push(['get', name]); return items.get(name) ?? null; },
+    setItem(name, value) {
+      access.push(['set', name]);
+      if (name === failWrite) throw new Error('Storage write failed');
+      items.set(name, String(value));
+    },
+    removeItem(name) { access.push(['remove', name]); items.delete(name); },
+  });
+  for (const [name, value] of Object.entries({
+    sessionStorage: storage(sessionItems, sessionAccess),
+    localStorage: storage(new Map()),
+    location: new URL('https://example.test/scout/'),
+  })) Object.defineProperty(globalThis, name, { configurable: true, value });
+  const profile = { key: 'test-profile-key', router: 'https://provider.example.test/v1', model: 'profile-model' };
+  const legacySlot = 'nsweb-byok-key';
+
+  await t.test('obsolete standalone keys never override a profile or supply a key', () => {
+    sessionItems.set(legacySlot, 'obsolete-test-key');
+    assert.deepEqual(loadTabByokSetup(null), { key: '', router: '', model: '' });
+    assert.deepEqual(loadTabByokSetup(profile), profile);
+    assert.ok(sessionAccess.every(([, name]) => name !== legacySlot));
+  });
+
+  await t.test('current profiles and tab settings round-trip without touching the obsolete slot', () => {
+    sessionItems.clear();
+    sessionAccess.length = 0;
+    upsertByokProfile({ ...profile, id: 'test-profile', name: 'Test provider' });
+    assert.deepEqual(getSelectedByokProfile(), {
+      ...profile, id: 'test-profile', name: 'Test provider', runner: false,
+      updatedAt: getSelectedByokProfile().updatedAt,
+    });
+    assert.deepEqual(loadTabByokSetup(), profile);
+    const tab = { key: 'test-tab-key', router: 'https://tab.example.test/v1', model: 'tab-model' };
+    saveTabByokSetup(tab);
+    assert.deepEqual(Object.fromEntries(sessionItems), {
+      'nsweb-byok-tab-key': tab.key, 'nsweb-byok-model': tab.model, 'nsweb-byok-router': tab.router,
+    });
+    assert.deepEqual(loadTabByokSetup(), tab);
+    assert.equal(getSelectedByokProfile().key, profile.key);
+    saveTabByokSetup({ key: 'test-empty-router-key' });
+    assert.deepEqual(loadTabByokSetup(), { key: 'test-empty-router-key', router: '', model: '' });
+    saveTabByokSetup(null);
+    assert.equal(sessionItems.size, 0);
+    assert.deepEqual(loadTabByokSetup(), profile);
+    failWrite = 'nsweb-byok-router';
+    saveTabByokSetup(tab);
+    assert.equal(sessionItems.size, 0, 'failed writes must not leave a partial tab setup');
+    assert.deepEqual(loadTabByokSetup(), profile);
+    assert.ok(sessionAccess.every(([, name]) => name !== legacySlot));
+  });
+});
+
 runtimeTest('composed UI leaves retired activity slots untouched', async (t, runtime) => {
   const { mountApp } = await import(new URL('ui.js', runtime));
   const originals = new Map(['document', 'location'].map(name =>
