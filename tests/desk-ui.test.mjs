@@ -137,9 +137,37 @@ test('desk UI: key-free samples and paste retain rule statuses, paths, hints and
   assert.match($('#rule-report').textContent, /ERROR · input.json[\s\S]*\/manifest[\s\S]*Invalid JSON[\s\S]*Correct the JSON syntax/);
   assert.match($('#review-status').textContent, /No rule verdict/);
   assert.equal(failureRows().length, 0);
-  paste({ manifest: null, network: [] });
-  await $('#validate-form').fire('submit');
-  assert.ok(failureRows().length > 0, 'valid JSON with wrong shape is a rule failure, not a parser error');
+  const invalidText = { toString: null };
+  const malformedGraph = structuredClone(fixtures.valid);
+  malformedGraph.network.tools[1].name = invalidText;
+  malformedGraph.network.tools[0].tools = ['peer', { url: invalidText }];
+  malformedGraph.network.link_slots = { peer: {} };
+  malformedGraph.network.links = { peer: invalidText };
+  const cases = [
+    { input: { manifest: null, network: [] }, rule: 'network.document', graph: '(missing network name)' },
+    { input: { manifest: { networks: [{ name: invalidText, front_man: 'front', hocon: './network.json' }] }, network: [] },
+      rule: 'manifest.name', graph: 'Manifest → {"toString":null} → front agent: front' },
+    { input: { manifest: { networks: [{ name: invalidText, front_man: 'front', hocon: './network.json' }] },
+      network: [], links: { networks: {} } }, rule: 'manifest.name', graph: 'Manifest → {"toString":null}' },
+    { input: { manifest: { networks: [{ name: 'review', front_man: [invalidText], hocon: invalidText }],
+      peer_policy: { mode: invalidText }, allowed_peers: [invalidText], llm_router: { base_url: invalidText } }, network: [], links: { networks: {} } },
+      rule: 'manifest.front_man', graph: ['front agent: [{"toString":null}]', 'Definition: {"toString":null}',
+        'peer policy: {"toString":null}', 'allowed peers: [{"toString":null}]', 'Router declaration: {"toString":null}'] },
+    { input: malformedGraph, rule: 'agent.name', graph: 'peer → {"toString":null} · MCP: {"toString":null}' },
+  ];
+  for (const { input, rule, graph } of cases) {
+    paste(input);
+    await $('#validate-form').fire('submit');
+    assert.ok(failureRows().length > 0, 'valid JSON with wrong shape is a rule failure, not a parser error');
+    assert.ok($('#rule-report').textContent.includes(`FAIL · ${rule}`));
+    assert.match($('#rule-report').textContent, /Minimal fix \/ next step:/);
+    assert.match($('#review-status').textContent, /Static review is not ready/);
+    assert.equal($('#review-status').dataset.state, 'error');
+    for (const text of [graph].flat()) {
+      assert.ok($('#review-graph').textContent.includes(text), 'the graph safely preserves malformed JSON field values');
+    }
+  }
+  assert.ok($('#review-graph').textContent.includes('{"toString":null} → (no calls declared)'));
 });
 
 test('desk UI: pending chat boot and stale sample loads cannot replace the current report', async t => {

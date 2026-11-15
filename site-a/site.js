@@ -16,9 +16,13 @@ let latestRun = null;
 const spans = new Map();
 const decisions = [];
 
+function jsonText(value, missing = '(not declared)') {
+  return value === undefined ? missing : typeof value === 'string' ? value : JSON.stringify(value);
+}
+
 function node(tag, text, className) {
   const element = document.createElement(tag);
-  if (text !== undefined) element.textContent = text;
+  if (text !== undefined) element.textContent = jsonText(text);
   if (className) element.className = className;
   return element;
 }
@@ -42,7 +46,7 @@ function clearReview(message) {
 function fillInput(input) {
   for (const [key, field] of Object.entries(fields)) {
     field.value = input[key] === undefined ? '' : ['baseUrl', 'networkName'].includes(key)
-      ? input[key] : JSON.stringify(input[key], null, 2);
+      ? jsonText(input[key]) : JSON.stringify(input[key], null, 2);
   }
 }
 
@@ -63,11 +67,16 @@ function parseInput() {
   return { input };
 }
 
+function linkBindings(input, entry) {
+  const published = typeof entry?.name === 'string' ? input?.links?.networks?.[entry.name] : undefined;
+  return { ...input?.network?.links, ...published };
+}
+
 function peerTargets(input) {
   const entries = Array.isArray(input?.manifest?.networks) ? input.manifest.networks : [];
   const entry = input?.networkName === undefined ? entries[0] : entries.find(item => item?.name === input.networkName);
   const config = input?.network;
-  const bindings = { ...config?.links, ...input?.links?.networks?.[entry?.name] };
+  const bindings = linkBindings(input, entry);
   const targets = [];
   const agents = Array.isArray(config?.tools) ? config.tools : [];
   const locals = new Set(agents.map(agent => agent?.name));
@@ -114,17 +123,17 @@ function configurationGraph(container, input) {
   const entries = Array.isArray(manifest?.networks) ? manifest.networks : [];
   const entry = input.networkName === undefined ? entries[0] : entries.find(item => item?.name === input.networkName);
   const graph = node('ul', undefined, 'desk-graph');
-  graph.append(node('li', `Manifest → ${entry?.name ?? '(missing network name)'} → front agent: ${entry?.front_man ?? '(missing front_man)'}`));
-  graph.append(node('li', `Definition: ${typeof entry?.hocon === 'string' ? entry.hocon : '(missing hocon)'}`));
-  const bindings = { ...config?.links, ...input.links?.networks?.[entry?.name] };
+  graph.append(node('li', `Manifest → ${jsonText(entry?.name, '(missing network name)')} → front agent: ${jsonText(entry?.front_man, '(missing front_man)')}`));
+  graph.append(node('li', `Definition: ${jsonText(entry?.hocon, '(missing hocon)')}`));
+  const bindings = linkBindings(input, entry);
   for (const agent of Array.isArray(config?.tools) ? config.tools : []) {
     const refs = Array.isArray(agent?.tools) ? agent.tools : [];
     const targets = refs.map(ref => typeof ref === 'string'
-      ? Object.hasOwn(config?.link_slots ?? {}, ref) ? `${ref} → ${bindings[ref] ?? '(unbound)'}` : ref
-      : `MCP: ${ref?.url ?? '(invalid descriptor)'}`);
-    graph.append(node('li', `${agent?.name ?? '(unnamed agent)'} → ${targets.length ? targets.join(' · ') : '(no calls declared)'}`));
+      ? Object.hasOwn(config?.link_slots ?? {}, ref) ? `${ref} → ${Object.hasOwn(bindings, ref) ? jsonText(bindings[ref]) : '(unbound)'}` : ref
+      : `MCP: ${jsonText(ref?.url, '(invalid descriptor)')}`);
+    graph.append(node('li', `${jsonText(agent?.name, '(unnamed agent)')} → ${targets.length ? targets.join(' · ') : '(no calls declared)'}`));
   }
-  container.append(node('p', `Expected from configuration — peer policy: ${manifest?.peer_policy?.mode ?? manifest?.web_policy?.mode ?? '(not declared)'}; allowed peers: ${JSON.stringify(manifest?.allowed_peers ?? [])}. Router declaration: ${manifest?.llm_router?.base_url ?? '(not declared)'}. Not evidence of enforcement.`, 'desk-badge'), graph);
+  container.append(node('p', `Expected from configuration — peer policy: ${jsonText(manifest?.peer_policy?.mode ?? manifest?.web_policy?.mode)}; allowed peers: ${jsonText(manifest?.allowed_peers)}. Router declaration: ${jsonText(manifest?.llm_router?.base_url)}. Not evidence of enforcement.`, 'desk-badge'), graph);
 }
 
 function draftExplanation(check, scout) {
