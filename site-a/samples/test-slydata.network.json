@@ -1,0 +1,70 @@
+{
+  "manifest": {
+    "networks": [
+      {
+        "name": "test_slydata",
+        "front_man": "context_probe",
+        "hocon": "./test_slydata.network.json"
+      }
+    ],
+    "llm_router": {
+      "base_url": "https://api.otari.ai/api/v1",
+      "byok_router": "https://api.otari.ai/api/v1",
+      "mock": false
+    },
+    "allowed_peers": ["https://spec-scout.invalid"],
+    "peer_policy": { "mode": "closed" },
+    "deployment": { "mode": "static" }
+  },
+  "network": {
+    "name": "test_slydata",
+    "front_man": "context_probe",
+    "metadata": {
+      "description": "Harmless private-context declaration sample for a real-browser peer-call observation, not evidence that filtering ran.",
+      "browser_observation": {
+        "setup": "This file is an inspector input envelope, like the other samples. For a disposable browser fixture, serve manifest as agent-manifest.json, network as test_slydata.network.json, and links as links.json alongside the existing runtime. Replace the reserved peer URL and allowed_peers origin together with the actual separate Site B address. Do not change the production network or add a product toggle.",
+        "injection": "network.sly_data below is public example data, ignored as invocation context by the runtime. In the real browser, explicitly pass it through the existing Engine.runTurn(message, { slyData: sample.network.sly_data }) option on the engine that loaded this fixture. Use only these harmless sentinels, never credentials, and keep their values out of the user message and instructions. Retain the normal consent UI and choose the model in the built-in settings panel.",
+        "observation": "After consenting to a peer call, inspect TraceBus remote_call requestPayload.sly_data: public_sentinel should be present with value <redacted>; private_sentinel should be absent. For a deny-by-default comparison, remove the front agent allow block in the disposable fixture and repeat with a fresh engine and the same invocation options; neither sentinel should appear. Observe definition-fetch URLs, headers, and bodies separately; a remote_call payload describes local execution, not an HTTP request to Site B.",
+        "evidence_limit": "These are expected browser observations, not recorded results. JSON declarations and CLI success do not establish injection, filtering, consent, key isolation, or upstream propagation. demo-kit must record the actual browser environment, revision, procedure, sanitized trace or screen evidence, and verdict; unavailable runs remain unverified. No separate evidence JSON download is required."
+      }
+    },
+    "llm_config": { "model_name": "alibaba/qwen3.8-flash" },
+    "max_steps": 6,
+    "max_execution_seconds": 30,
+    "sly_data": {
+      "private_sentinel": "AW4_PRIVATE_SENTINEL_NOT_A_SECRET",
+      "public_sentinel": "AW4_PUBLIC_SENTINEL_NOT_A_SECRET"
+    },
+    "link_slots": { "spec_scout": {} },
+    "tools": [
+      {
+        "name": "context_probe",
+        "function": {
+          "description": "Delegate a public specification question locally, then ask the linked Spec Scout peer."
+        },
+        "instructions": "Ask context_observer to restate the visitor's public specification question, then call the linked spec_scout peer with that question. Let the runtime request consent; if declined or unavailable, report the limitation without inventing a peer answer. Do not request, quote, or infer private context or credentials. A model answer is not evidence of context filtering. Respond in English.",
+        "allow": {
+          "to_downstream": { "sly_data": ["public_sentinel"] },
+          "to_upstream": { "sly_data": [] }
+        },
+        "tools": ["context_observer", "spec_scout"]
+      },
+      {
+        "name": "context_observer",
+        "function": {
+          "description": "Restate a supplied public specification question without requesting private context."
+        },
+        "instructions": "Restate only the supplied public question concisely in English. Do not claim to inspect runtime context, execute a peer, or verify security behavior.",
+        "tools": []
+      }
+    ]
+  },
+  "links": {
+    "version": 1,
+    "networks": {
+      "test_slydata": {
+        "spec_scout": "https://spec-scout.invalid/spec_scout"
+      }
+    }
+  }
+}

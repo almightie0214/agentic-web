@@ -10,15 +10,16 @@ import { validateNetwork } from '../site-a/validator-rules.mjs';
 const repository = fileURLToPath(new URL('../', import.meta.url));
 const readJSON = async path => JSON.parse(await readFile(path, 'utf8'));
 const writeJSON = (path, value) => writeFile(path, JSON.stringify(value));
+const slydataSample = 'samples/test-slydata.network.json';
 
 async function fixture(t) {
   const scratch = join(repository, '.theora');
   await mkdir(scratch, { recursive: true });
   const root = await mkdtemp(join(scratch, 'conformance-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  for (const site of ['site-a', 'site-b', 'tools']) await mkdir(join(root, site));
+  for (const site of ['site-a', 'site-b', 'tools', 'site-a/samples']) await mkdir(join(root, site));
   for (const path of ['tools/check-conformance.mjs', 'site-a/validator-rules.mjs', 'site-a/agent-manifest.json',
-    'site-a/review_desk.network.json', 'site-a/links.json', 'site-a/actions.js',
+    'site-a/review_desk.network.json', 'site-a/links.json', 'site-a/actions.js', `site-a/${slydataSample}`,
     'site-b/agent-manifest.json', 'site-b/spec_scout.network.json', 'site-b/_headers']) {
     await copyFile(join(repository, path), join(root, path));
   }
@@ -52,7 +53,7 @@ test('conformance: actual artifacts preserve shared AW2 reports and runtime unce
     const network = await readJSON(join(repository, site, manifest.networks[0].hocon));
     const links = site === 'site-a' ? await readJSON(join(repository, site, 'links.json')) : undefined;
     const expected = validateNetwork({ manifest, network, links, networkName: manifest.networks[0].name });
-    assert.deepEqual(report.checks.filter(check => check.site === site && !check.ruleId.startsWith('publication.'))
+    assert.deepEqual(report.checks.filter(check => check.site === site && !check.sample && !check.ruleId.startsWith('publication.'))
       .map(({ site, networkName, ...check }) => check), expected.checks);
     assert.ok(report.checks.some(check => check.site === site && check.ruleId === 'runtime.safety'
       && check.status === 'unverified'));
@@ -70,8 +71,83 @@ test('conformance: actual artifacts preserve shared AW2 reports and runtime unce
   assert.doesNotMatch(result.stdout, /\[pass\].*runtime\.(safety|composition)/);
 });
 
+test('conformance: sly_data sample shares static rules without claiming runtime injection', async t => {
+  t.mock.method(globalThis, 'fetch', () => { throw new Error('Static sample checks must not fetch.'); });
+  const input = await readJSON(join(repository, 'site-a', slydataSample));
+  assert.equal(input.manifest.networks[0].name, 'test_slydata');
+  assert.equal(input.manifest.networks[0].front_man, 'context_probe');
+  assert.deepEqual(input.network.sly_data, {
+    private_sentinel: 'AW4_PRIVATE_SENTINEL_NOT_A_SECRET',
+    public_sentinel: 'AW4_PUBLIC_SENTINEL_NOT_A_SECRET',
+  });
+  const front = input.network.tools.find(agent => agent.name === 'context_probe');
+  assert.deepEqual(front.allow.to_downstream.sly_data, ['public_sentinel']);
+  assert.deepEqual(front.allow.to_upstream.sly_data, []);
+  const expected = validateNetwork(input);
+  assert.equal(expected.valid, true);
+  const report = await checkConformance();
+  assert.equal(report.valid, true);
+  const checks = report.checks.filter(check => check.sample === slydataSample);
+  assert.ok(checks.length > 0);
+  assert.ok(checks.every(check => check.site === 'site-a' && check.path.startsWith(`/${slydataSample}`)));
+  assert.deepEqual(checks.filter(check => !check.ruleId.startsWith('publication.'))
+    .map(({ site, sample, networkName, path, ...check }) => ({ ...check, path: path.slice(slydataSample.length + 1) })),
+  expected.checks);
+  assert.ok(checks.some(check => check.ruleId === 'publication.file' && check.status === 'pass'));
+  assert.ok(checks.some(check => check.ruleId === 'publication.private_context' && check.status === 'warning'
+    && check.path === `/${slydataSample}/network/tools/0/allow/to_downstream/sly_data`));
+  assert.ok(checks.some(check => check.ruleId === 'publication.private_context' && check.status === 'pass'
+    && check.path === `/${slydataSample}/network/tools/0/allow/to_upstream/sly_data`));
+  assert.ok(checks.some(check => check.ruleId === 'publication.private_context' && check.status === 'warning'
+    && check.path === `/${slydataSample}/network/sly_data`
+    && /Published sly_data is public JSON, not invocation context or evidence of injection/.test(check.message)));
+  for (const rule of ['runtime.safety', 'runtime.composition']) {
+    assert.ok(checks.some(check => check.ruleId === rule && check.status === 'unverified'));
+    assert.ok(checks.filter(check => check.ruleId === rule).every(check => check.status === 'unverified'));
+  }
+  const result = spawnSync(process.execPath, [join(repository, 'tools/check-conformance.mjs')],
+    { cwd: repository, encoding: 'utf8', timeout: 15_000 });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /site-a\/sample:samples\/test-slydata.network.json publication.private_context/);
+  for (const sentinel of Object.values(input.network.sly_data)) {
+    assert.ok(!JSON.stringify(report).includes(sentinel), 'Reports must not print sentinel values.');
+    assert.ok(!result.stdout.includes(sentinel), 'CLI must not print sentinel values.');
+  }
+});
+
 test('conformance: artifact and shared-rule failures reach CLI diagnostics and exit 1', async t => {
   const cases = [
+    { name: 'missing sly_data sample', async change(f) {
+      await rm(join(f.root, 'site-a', slydataSample));
+    }, pattern: /\[fail\] site-a\/sample:samples\/test-slydata.network.json publication.file \/samples\/test-slydata.network.json/ },
+    { name: 'invalid sly_data sample JSON', async change(f) {
+      await writeFile(join(f.root, 'site-a', slydataSample), '{broken');
+    }, pattern: /\[fail\] site-a\/sample:samples\/test-slydata.network.json publication.file \/samples\/test-slydata.network.json/ },
+    { name: 'non-object sample network', async change(f) {
+      await f.edit(`site-a/${slydataSample}`, doc => { doc.network = null; });
+    }, pattern: /\[fail\] site-a\/sample:samples\/test-slydata.network.json network.document \/samples\/test-slydata.network.json\/network/ },
+    { name: 'sample front man missing', async change(f) {
+      await f.edit(`site-a/${slydataSample}`, doc => { delete doc.manifest.networks[0].front_man; });
+    }, pattern: /\[fail\] site-a\/sample:samples\/test-slydata.network.json manifest.front_man \/samples\/test-slydata.network.json\/manifest\/networks\/0\/front_man/ },
+    { name: 'sample duplicate agent', async change(f) {
+      await f.edit(`site-a/${slydataSample}`, doc => { doc.network.tools.push(structuredClone(doc.network.tools[0])); });
+    }, pattern: /\[fail\] site-a\/sample:samples\/test-slydata.network.json agent.name \/samples\/test-slydata.network.json\/network\/tools\/\d+\/name/ },
+    { name: 'sample invalid schema', async change(f) {
+      await f.edit(`site-a/${slydataSample}`, doc => { doc.network.tools[0].function.parameters = { type: 'invalid-type' }; });
+    }, pattern: /\[fail\] site-a\/sample:samples\/test-slydata.network.json agent.parameters \/samples\/test-slydata.network.json\/network\/tools\/0\/function\/parameters\/type/ },
+    { name: 'sample unsupported schema', async change(f) {
+      await f.edit(`site-a/${slydataSample}`, doc => { doc.network.tools[0].function.parameters = { $schema: 'https://schema.invalid/custom' }; });
+    }, pattern: /\[unverified\] site-a\/sample:samples\/test-slydata.network.json agent.parameters \/samples\/test-slydata.network.json\/network\/tools\/0\/function\/parameters/ },
+    { name: 'sample unresolved include', async change(f) {
+      await f.edit(`site-a/${slydataSample}`, doc => { doc.network.include = 'private.conf'; });
+    }, pattern: /\[fail\] site-a\/sample:samples\/test-slydata.network.json network.resolved \/samples\/test-slydata.network.json\/network\/include/ },
+    { name: 'sample wildcard disclosure', async change(f) {
+      await f.edit(`site-a/${slydataSample}`, doc => { doc.network.tools[0].allow.to_downstream.sly_data = ['*']; });
+    }, pattern: /\[fail\] site-a\/sample:samples\/test-slydata.network.json publication.private_context \/samples\/test-slydata.network.json\/network\/tools\/0\/allow\/to_downstream\/sly_data/ },
+    { name: 'sample malformed allow', async change(f) {
+      await f.edit(`site-a/${slydataSample}`, doc => { doc.network.tools[0].allow = false; });
+    }, pattern: /\[fail\] site-a\/sample:samples\/test-slydata.network.json publication.private_context \/samples\/test-slydata.network.json\/network\/tools\/0\/allow/ },
     { name: 'missing definition', async change(f) { await rm(join(f.root, 'site-b/spec_scout.network.json')); }, pattern: /\[fail\] site-b publication.file/ },
     { name: 'invalid manifest JSON', async change(f) { await writeFile(join(f.root, 'site-a/agent-manifest.json'), '{broken'); }, pattern: /\[fail\] site-a publication.file \/manifest/ },
     { name: 'invalid definition JSON', async change(f) { await writeFile(join(f.root, 'site-b/spec_scout.network.json'), 'include "private.conf"'); }, pattern: /\[fail\] site-b publication.file/ },
