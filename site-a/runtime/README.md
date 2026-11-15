@@ -16,7 +16,10 @@ widgets now use the same presentation validation as responses. Confirm widgets
 must provide explicit, nonblank `confirmText`; `confirmLabel` remains an optional
 button label. The current
 `langchain` selection, default runner, static mode exclusion, and Provider URL
-precedence are preserved. All other runtime files, the license, and the upstream
+precedence are preserved. In `byok.js`, the obsolete standalone-key slot
+`nsweb-byok-key` is no longer read, written, or cleared. Only current tab settings
+and saved profiles supply BYOK settings; profile persistence and tab precedence
+are unchanged. All other runtime files, the license, and the upstream
 documentation below are preserved.
 
 ## Upstream documentation

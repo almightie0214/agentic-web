@@ -80,7 +80,7 @@ in response and welcome confirm widgets, including welcome form preservation.
 It also checks composed UI mounting without retired activity-slot handling;
 it checks Site A's published two-agent graph, default router and model hint,
 relative artifact loading and validation, and boot success/failure visibility.
-Site B additionally checks that BYOK uses only current tab settings and saved
+Both sites also check that BYOK uses only current tab settings and saved
 profiles, with no obsolete standalone-key slot access, including cleanup after a
 failed tab-setting write. Site B shell checks exercise the official UI mount,
 profile and tab settings precedence, no initial network load, disabled chat,
@@ -98,9 +98,9 @@ at commit `63a956cf4653f610b1c238c70946f4d7647d17a8`, file
 preserved below an added provenance note in the local copy. Both runtimes are
 copied from `skills/agentify-website/runtime/` at the same pinned commit, with
 only the obsolete runner alias, legacy mock-router inference, legacy confirm-text
-inference, and retired activity-slot handling removed. Site B also removes the
-obsolete standalone-key slot compatibility in `byok.js`; Site A still has this
-path, tracked as follow-up work. Each copy preserves the
+inference, retired activity-slot handling, and obsolete standalone-key slot
+compatibility in `byok.js` removed. Both sites use only current tab settings and
+saved profiles for BYOK. Each copy preserves the
 original `LICENSE.txt` and upstream documentation; the source runtime contains no
 NOTICE file. Local changes are noted in
 [site-a/runtime/README.md](site-a/runtime/README.md) and

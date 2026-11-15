@@ -419,9 +419,9 @@ runtimeTest('welcome and response widgets share confirmation validation', async 
   assert.deepEqual(responseText, ['Submit this review.']);
 });
 
-test('smoke: Site B BYOK uses only current tab settings and saved profiles', async (t) => {
+runtimeTest('BYOK uses only current tab settings and saved profiles', async (t, runtime) => {
   const { loadTabByokSetup, saveTabByokSetup, upsertByokProfile, getSelectedByokProfile } =
-    await import('../site-b/runtime/byok.js');
+    await import(new URL('byok.js', runtime));
   const originals = new Map(['sessionStorage', 'localStorage', 'location'].map(name =>
     [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   t.after(() => {
