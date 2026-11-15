@@ -22,10 +22,13 @@ Hosted Otari (`https://api.otari.ai/api/v1`) is the default router,
 with `alibaba/qwen3.8-flash` as the network's model hint. A provider key is required
 for inference and is configured through the built-in settings.
 
-Site B (Spec Scout) has a runnable shell that mounts its own official runtime's
-built-in AI model settings and chat UI. Its network will be connected in AW3.
-Site B's chat input and agent inspection are unavailable until a network is
-connected. No network is loaded by the Site B shell.
+Site B (Spec Scout) loads its published `spec_scout` one-agent network through
+its own reference runtime's `boot()` and built-in AI model settings and chat UI.
+The network includes cited MVP Profile 0.2 excerpts in its instructions; the page
+does not fetch or inject `spec-excerpts.json`, the authoring source. Direct visits
+and peer loading use the same published evidence. Answers are informational, not
+conformance certification. Site A peer wiring and live interoperability remain
+separate work; this boot does not establish deployed CORS or consent behavior.
 
 Serve the repository with a local static HTTP server and open `site-a/` (or
 `site-a/index.html`). The page, manifest, network, and runtime references work
@@ -82,8 +85,9 @@ boot fails. Chat uses the vendored runtime and the provider settings described a
 - `site-a/runtime/`, `site-b/runtime/`: separate vendored browser runtimes.
 - `site-a/`: Review Desk page and boot entry, shared site styles,
   `agent-manifest.json`, and resolved `review_desk.network.json`.
-- `site-b/`: independent static site bundle with `index.html` and `site.js` shell;
-  network publication is pending.
+- `site-b/`: independent static site bundle with `index.html`, `site.js` boot entry,
+  `agent-manifest.json`, resolved `spec_scout.network.json`, and authoring data
+  `spec-excerpts.json` (not a runtime data source).
 - `tests/`: Node.js smoke, validator, URL audit, and Review Desk UI tests.
 - `tools/`: reserved for development tools when needed.
 
@@ -102,14 +106,19 @@ python -m http.server 8000 --bind 127.0.0.1
 
 Open `http://127.0.0.1:8000/site-b/`. The built-in settings panel supports
 Provider URL, model entry and suggestions, BYOK, and saved profiles using the
-runtime's existing browser storage behavior. Saving settings does not connect a
-network; the shell keeps chat disabled until AW3 supplies one.
+runtime's existing browser storage behavior. The page loads and validates the
+published network before showing the chat UI. Configure a provider key to ask
+questions; initial boot retrieves public artifacts but makes no model request.
+If the runtime or published artifacts cannot be loaded or validated, the app
+stays hidden and an error explains what to check.
 
 For an independent Site B deployment, use `site-b/` as the static publish root:
-`index.html`, `site.js`, and `runtime/` must stay together. Site B's page styles
-are inline and its runtime references are relative, so no files from Site A are
+`index.html`, `site.js`, `agent-manifest.json`, `spec_scout.network.json`, and
+`runtime/` must stay together. The network already contains its evidence, so
+`spec-excerpts.json` is not required for execution. Site B's page styles are inline
+and its runtime and artifact references are relative, so no files from Site A are
 needed. The same files can be served beneath a URL subpath. Hosting configuration
-and deployment are not provided by this shell task.
+and deployment are not provided by this boot change.
 
 ## Tests
 
@@ -142,12 +151,14 @@ attribution. These substitute-event checks do not verify actual browser layout,
 live peer consent, deployed CORS, a live provider, or credential isolation.
 Both sites also check that BYOK uses only current tab settings and saved
 profiles, with no obsolete standalone-key slot access, including cleanup after a
-failed tab-setting write. Site B shell checks exercise the official UI mount,
-profile and tab settings precedence, no initial network load, disabled chat,
-URL key removal and ignored URL inference settings, and runtime-load failure
-feedback. These checks do not verify a live provider or a deployed browser
-session. No npm
-dependencies are required.
+failed tab-setting write. Site B boot checks exercise real manifest/network loading
+and UI mounting, unchanged embedded instructions, profile and tab settings
+precedence, enabled chat after successful loading, URL key removal and ignored
+URL inference settings. They check hidden UI while loading and error feedback for
+runtime, manifest, network, JSON, and graph failures. Initial metadata fetches are
+distinguished from authoring-data retrieval and model requests. These checks do
+not verify a live provider or a deployed browser session. No npm dependencies are
+required.
 
 ## Reference and license
 
