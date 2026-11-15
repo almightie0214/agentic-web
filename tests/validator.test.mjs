@@ -219,7 +219,8 @@ test('rules: identity is supplied by the manifest and network metadata, with con
   assert.equal(reviewNetwork(input).valid, true, 'duplicate identity fields are not required');
   const manifest = JSON.parse(await readFile(new URL('../site-a/agent-manifest.json', import.meta.url)));
   const network = JSON.parse(await readFile(new URL('../site-a/review_desk.network.json', import.meta.url)));
-  assert.equal(reviewNetwork({ manifest, network }).valid, true);
+  const links = JSON.parse(await readFile(new URL('../site-a/links.json', import.meta.url)));
+  assert.equal(reviewNetwork({ manifest, network, links }).valid, true);
   for (const value of [undefined, null, '', '  ', 42]) {
     const edited = structuredClone(input);
     if (value === undefined) delete edited.network.metadata.description;
