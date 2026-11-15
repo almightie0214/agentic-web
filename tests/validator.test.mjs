@@ -6,9 +6,8 @@ import { schemaFor } from '../site-a/runtime/runner.js';
 import { RemoteRegistry } from '../site-a/runtime/remote.js';
 import { fixtures } from './fixtures.mjs';
 
-// Fixture preconditions only. The rules-core and rules-integrity tasks will add
-// report assertions against validator-rules.mjs here; the reference runtime's
-// graph validator is not a substitute for those conformance rules.
+// These checks establish fixture preconditions, not conformance reports. The
+// reference runtime's graph validator does not cover all profile requirements.
 test('fixtures: four independent inputs survive JSON serialization', () => {
   assert.deepEqual(Object.keys(fixtures), ['valid', 'bad-frontman', 'bad-schema', 'bad-cycle']);
   for (const input of Object.values(fixtures)) {
@@ -111,7 +110,7 @@ test('fixtures: bad-cycle re-enters the active network through its own peer URL'
   assert.deepEqual(graph.externals, [target]);
 
   // A reference registry seam check, not browser execution or proof of consent,
-  // live hosting, or actual runtime interruption (reserved for AW4).
+  // live hosting, or actual runtime interruption.
   const registry = new RemoteRegistry();
   const activeChain = [`${base}::${entry.name}`];
   assert.throws(() => registry.checkCycle(activeChain, base, name), { code: 'COMPOSITION_CYCLE' });
