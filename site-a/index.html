@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Agent Review Desk — a browser-based workspace for agent network reviews.">
+  <title>Agent Review Desk</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./site.js"></script>
+</head>
+<body>
+  <main class="site-shell">
+    <header class="site-heading">
+      <p class="site-eyebrow">Agent Review Desk · Site A</p>
+      <h1>Agent Review Desk</h1>
+      <p>A browser-based workspace for reviewing portable agent networks.</p>
+    </header>
+
+    <p id="site-status" class="site-status" role="status">Loading the settings and chat interface…</p>
+    <noscript><p class="site-status">JavaScript is required to load the settings and chat interface.</p></noscript>
+
+    <section id="agent-app" class="desk-app" aria-label="AI settings and chat" aria-describedby="site-status" hidden>
+      <!-- Header and agent inspection need a connected network. The runtime still
+           receives its composed slots without exposing unavailable controls. -->
+      <div data-ns-slot="header" hidden inert></div>
+      <div class="desk-workspace">
+        <aside class="desk-settings" aria-label="AI model settings">
+          <div data-ns-slot="settings"></div>
+        </aside>
+        <section class="desk-chat" aria-label="Chat">
+          <div data-ns-slot="chat"></div>
+        </section>
+      </div>
+      <div data-ns-slot="agents" hidden inert></div>
+    </section>
+  </main>
+</body>
+</html>

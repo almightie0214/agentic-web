@@ -1,0 +1,89 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, sans-serif;
+  color: #172033;
+  background: #f4f6fa;
+  --ns-font: system-ui, sans-serif;
+  --ns-primary: #2454b8;
+  --ns-fg: #172033;
+  --ns-muted: #526075;
+  --ns-border: #d4dce8;
+  --ns-panelbg: #ffffff;
+}
+
+body {
+  margin: 0;
+}
+
+/* Shared page surfaces for the Review Desk and future Converter. Runtime
+   components retain their own controls, layout, and storage behavior. */
+.site-shell {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: clamp(1rem, 3vw, 2.5rem);
+}
+
+.site-heading h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1.2;
+}
+
+.site-heading p {
+  line-height: 1.6;
+}
+
+.site-eyebrow {
+  color: #526075;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.site-status {
+  padding: 1rem;
+  border: 1px solid #d4dce8;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.site-status[data-state="error"] {
+  border-color: #b42318;
+  color: #8a1c13;
+}
+
+.desk-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+  grid-template-areas: "chat settings";
+  align-items: start;
+  gap: 1rem;
+}
+
+.desk-chat {
+  grid-area: chat;
+  min-width: 0;
+}
+
+.desk-chat > [data-ns-slot="chat"] {
+  height: 36rem;
+}
+
+.desk-settings {
+  grid-area: settings;
+  min-width: 0;
+  border: 1px solid #d4dce8;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 56rem) {
+  .desk-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "settings" "chat";
+  }
+}
