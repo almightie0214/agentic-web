@@ -26,9 +26,8 @@ async function mountShell() {
       modelOverride: setup.model,
     });
 
-    // Task 7 replaces this disconnected initialization and input disabling with
-    // boot(root, { originUrl, sandboxWorkerUrl }) for the published network.
-    // Do not load or fabricate a manifest/network in this shell-only stage.
+    // Mount the built-in settings without loading a network. Chat stays disabled
+    // because this shell has no validated network to execute.
     mountApp(root, { engine, trace });
     const input = root.querySelector('#ns-input');
     input.disabled = true;
