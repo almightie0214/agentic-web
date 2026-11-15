@@ -27,8 +27,13 @@ its own reference runtime's `boot()` and built-in AI model settings and chat UI.
 The network includes cited MVP Profile 0.2 excerpts in its instructions; the page
 does not fetch or inject `spec-excerpts.json`, the authoring source. Direct visits
 and peer loading use the same published evidence. Answers are informational, not
-conformance certification. Site A peer wiring and live interoperability remain
-separate work; this boot does not establish deployed CORS or consent behavior.
+conformance certification. Site A's coordinator now exposes the symbolic
+`spec_scout` peer tool, resolved through `site-a/links.json` to the reserved URL
+`https://spec-scout.invalid/spec_scout`, with a matching allowed origin in
+`site-a/agent-manifest.json`. This wiring is implemented, but actual deployment,
+CORS, consent behavior, and live interoperability remain unverified. In AW4, when
+the real Site B URL is established, update both `site-a/links.json` and
+`site-a/agent-manifest.json`'s `allowed_peers` together.
 
 Serve the repository with a local static HTTP server and open `site-a/` (or
 `site-a/index.html`). The page, manifest, network, and runtime references work
@@ -57,8 +62,10 @@ boot fails. Chat uses the vendored runtime and the provider settings described a
   the URL; you still select **Audit URL** to initiate retrieval. The linked-peer
   preset is disabled without a configured non-placeholder peer. The external
   example uses example.com as an illustration, not a guaranteed CORS failure
-  service. Site A currently has no linked peer or `links.json`, so its own URL
-  audit reports incomplete acquisition rather than fabricating a successful report.
+  service. Site A publishes `links.json`, but its Spec Scout destination is still
+  the reserved address above, so the linked-peer preset remains disabled. Site A's
+  own URL audit reports actual artifact acquisition and static check results; the
+  peer binding is not evidence of a reachable deployment or live interoperability.
 - Reports preserve rule IDs, pass/fail/warning/unverified statuses, JSON Pointer
   locations, and minimal fixes or next steps as visible text. Editing the inputs
   invalidates the old report; stale fetch results cannot replace it. The reviewed
@@ -84,7 +91,7 @@ boot fails. Chat uses the vendored runtime and the provider settings described a
   pinned reference specification with source and license attribution.
 - `site-a/runtime/`, `site-b/runtime/`: separate vendored browser runtimes.
 - `site-a/`: Review Desk page and boot entry, shared site styles,
-  `agent-manifest.json`, and resolved `review_desk.network.json`.
+  `agent-manifest.json`, `links.json`, and resolved `review_desk.network.json`.
 - `site-b/`: independent static site bundle with `index.html`, `site.js` boot entry,
   `agent-manifest.json`, resolved `spec_scout.network.json`, and authoring data
   `spec-excerpts.json` (not a runtime data source).

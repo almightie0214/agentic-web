@@ -163,6 +163,30 @@ test('peer: Site B publishes the exact spec_scout network name', async () => {
   assert.equal(manifest.coded_tools, undefined, 'the peer needs no publisher executable code');
 });
 
+test('peer: Site B embeds authoring excerpts with their source sections and version', async () => {
+  const { source, excerpts } = await readJSON(new URL('spec-excerpts.json', siteB));
+  const config = await readJSON(new URL('spec_scout.network.json', siteB));
+  const instructions = config.tools.find(agent => agent.name === 'spec_scout').instructions;
+  const citation = [
+    'SOURCE FOR ALL EXCERPTS',
+    `Title: ${source.title}`,
+    `Version: ${source.version}`,
+    `Date: ${source.date}`,
+    `Author: ${source.author}`,
+    `Repository: ${source.repository}`,
+    `Commit: ${source.commit}`,
+    `Path: ${source.path}`,
+    `Source URL: ${source.url}`,
+    `License: ${source.license}`,
+  ].join('\n');
+  assert.ok(instructions.includes(citation), 'embedded source citation must match the authoring source');
+  assert.ok(excerpts.length > 0, 'the authoring source must supply evidence');
+  for (const excerpt of excerpts) {
+    const block = `[${excerpt.id}] ${excerpt.topic} — Section ${excerpt.section}\n${excerpt.text}`;
+    assert.ok(instructions.includes(block), `${excerpt.id}: preserve the quotation with its source section`);
+  }
+});
+
 test('peer: Site B manifest resolves to the informational one-agent network', async () => {
   const manifest = await readJSON(new URL('agent-manifest.json', siteB));
   const [entry] = manifest.networks;
