@@ -10,10 +10,21 @@ part of this project.
 
 This scaffold contains the reference specification, project metadata, license,
 smoke tests, merge gate configuration, and separately vendored runtimes for Site A
-and Site B. Both sites have runnable settings and chat shells. Site B (Spec Scout)
-mounts its own official runtime's built-in AI model settings and chat UI; its
-network will be connected in AW3. Chat input and agent inspection are unavailable
-until a network is connected. No network is loaded by the Site B shell.
+and Site B. Site A now loads the published `review_desk` two-agent network through
+the reference runtime's built-in settings, chat, and agent inspection UI. Its
+`review_coordinator` delegates to `conformance_reviewer`; no website actions are
+connected. Hosted Otari (`https://api.otari.ai/api/v1`) is the default router,
+with `alibaba/qwen3.8-flash` as the network's model hint. A provider key is required
+for inference and is configured through the built-in settings.
+
+Site B (Spec Scout) has a runnable shell that mounts its own official runtime's
+built-in AI model settings and chat UI. Its network will be connected in AW3.
+Site B's chat input and agent inspection are unavailable until a network is
+connected. No network is loaded by the Site B shell.
+
+Serve the repository with a local static HTTP server and open `site-a/` (or
+`site-a/index.html`). The page, manifest, network, and runtime references work
+under a deployment subpath as well as on a local server.
 
 ## Repository layout
 
@@ -21,7 +32,10 @@ until a network is connected. No network is loaded by the Site B shell.
 - [docs/worldwide_agentic_web_mvp_spec.md](docs/worldwide_agentic_web_mvp_spec.md):
   pinned reference specification with source and license attribution.
 - `site-a/runtime/`, `site-b/runtime/`: separate vendored browser runtimes.
-- `site-a/`, `site-b/`: independent static site bundles with `index.html` and `site.js` shells.
+- `site-a/`: Review Desk page and boot entry, shared site styles,
+  `agent-manifest.json`, and resolved `review_desk.network.json`.
+- `site-b/`: independent static site bundle with `index.html` and `site.js` shell;
+  network publication is pending.
 - `tests/`: Node.js smoke test scaffold.
 - `tools/`: reserved for development tools when needed.
 
@@ -63,13 +77,16 @@ currently checks the gate configuration, npm test command, and the presence of
 both sites' runtime entry points and licenses. For each runtime it also checks the
 current runner selection contract, explicit mock-router settings, and required confirmation text
 in response and welcome confirm widgets, including welcome form preservation.
-It also checks composed UI mounting without retired activity-slot handling.
+It also checks composed UI mounting without retired activity-slot handling;
+it checks Site A's published two-agent graph, default router and model hint,
+relative artifact loading and validation, and boot success/failure visibility.
 Site B additionally checks that BYOK uses only current tab settings and saved
 profiles, with no obsolete standalone-key slot access, including cleanup after a
 failed tab-setting write. Site B shell checks exercise the official UI mount,
 profile and tab settings precedence, no initial network load, disabled chat,
 URL key removal and ignored URL inference settings, and runtime-load failure
-feedback. Site A pages and published networks are not yet tested. No npm
+feedback. These checks do not verify a live provider or a deployed browser
+session. No npm
 dependencies are required.
 
 ## Reference and license

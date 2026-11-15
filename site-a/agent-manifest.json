@@ -1,0 +1,23 @@
+{
+  "brand": "Agent Review Desk",
+  "networks": [
+    {
+      "name": "review_desk",
+      "front_man": "review_coordinator",
+      "hocon": "./review_desk.network.json",
+      "description": "Review a portable agent network against the Worldwide Agentic Web MVP Profile 0.2."
+    }
+  ],
+  "llm_router": {
+    "base_url": "https://api.otari.ai/api/v1",
+    "mock": false,
+    "byok_router": "https://api.otari.ai/api/v1"
+  },
+  "allowed_peers": [],
+  "peer_policy": {
+    "mode": "closed"
+  },
+  "deployment": {
+    "mode": "static"
+  }
+}

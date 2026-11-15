@@ -5,6 +5,164 @@ import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
 
+test('smoke: Site A publishes a resolved two-agent network without actions', async () => {
+  const manifest = await readJSON('site-a/agent-manifest.json');
+  assert.equal(manifest.networks.length, 1);
+  const [entry] = manifest.networks;
+  assert.equal(entry.name, 'review_desk');
+  assert.equal(entry.front_man, 'review_coordinator');
+  assert.equal(entry.hocon, './review_desk.network.json');
+  assert.deepEqual(manifest.llm_router, {
+    base_url: 'https://api.otari.ai/api/v1', mock: false,
+    byok_router: 'https://api.otari.ai/api/v1',
+  });
+  assert.equal(manifest.deployment.mode, 'static');
+  assert.equal(manifest.peer_policy.mode, 'closed');
+  assert.deepEqual(manifest.allowed_peers, []);
+  assert.equal(manifest.actions, undefined);
+  assert.equal(manifest.coded_tools, undefined);
+
+  const config = await readJSON(`site-a/${entry.hocon}`);
+  assert.equal(config.llm_config.model_name, 'alibaba/qwen3.8-flash');
+  assert.deepEqual(config.tools.map(agent => agent.name), ['review_coordinator', 'conformance_reviewer']);
+  assert.ok(config.tools.some(agent => agent.name === entry.front_man), 'front_man must belong to tools');
+  assert.deepEqual(config.tools[0].tools, ['conformance_reviewer']);
+  assert.deepEqual(config.tools[1].tools, []);
+  for (const agent of config.tools) {
+    assert.ok(agent.instructions.trim());
+    assert.ok(agent.function.description.trim());
+    assert.deepEqual(agent.function.parameters.required, ['request']);
+    assert.equal(agent.function.parameters.properties.request.type, 'string');
+    assert.equal(agent.class, undefined);
+    assert.equal(agent.toolbox, undefined);
+  }
+  const checkResolved = value => {
+    if (typeof value === 'string') assert.doesNotMatch(value, /\$\{/);
+    else if (value && typeof value === 'object') {
+      for (const [key, child] of Object.entries(value)) {
+        assert.ok(!['include', 'env'].includes(key), `unresolved directive: ${key}`);
+        checkResolved(child);
+      }
+    }
+  };
+  checkResolved(config);
+  const { AgentNetwork, validateNetwork } = await import('../site-a/runtime/kernel.js');
+  const network = new AgentNetwork(config, entry.name);
+  assert.equal(network.findFrontMan(), entry.front_man);
+  assert.deepEqual(validateNetwork(network), { errors: [], warnings: [], externals: [], mcps: [] });
+  for (const agent of config.tools) {
+    assert.equal(network.getAgentSpec(agent.name).llm_config.model_name, 'alibaba/qwen3.8-flash');
+  }
+});
+
+test('smoke: Site A runtime loads artifacts under a site subpath and rejects failures', async t => {
+  const { Engine } = await import('../site-a/runtime/engine.js');
+  const manifest = await readJSON('site-a/agent-manifest.json');
+  const config = await readJSON('site-a/review_desk.network.json');
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+  t.after(() => Object.defineProperty(globalThis, 'fetch', original));
+  for (const scenario of ['valid', 'missing manifest', 'missing network', 'invalid JSON', 'invalid graph']) {
+    await t.test(scenario, async () => {
+      const base = 'https://example.test/agentic-web/site-a';
+      const requests = [];
+      globalThis.fetch = async (url, options) => {
+        requests.push(String(url));
+        assert.equal(options?.headers?.Authorization, undefined);
+        if (url === `${base}/agent-manifest.json`) {
+          return new Response(JSON.stringify(manifest), { status: scenario === 'missing manifest' ? 404 : 200 });
+        }
+        if (url === `${base}/./review_desk.network.json`) {
+          const data = structuredClone(config);
+          if (scenario === 'invalid graph') data.tools[0].tools = ['missing_reviewer'];
+          return new Response(scenario === 'invalid JSON' ? '{' : JSON.stringify(data), {
+            status: scenario === 'missing network' ? 404 : 200,
+          });
+        }
+        assert.equal(url, `${base}/links.json`, 'only site-relative public artifacts should be fetched');
+        return new Response('', { status: 404 });
+      };
+      const engine = new Engine({ originUrl: `${base}/`, sandboxWorkerUrl: `${base}/runtime/sandbox-worker.js` });
+      if (scenario === 'valid') {
+        const { network } = await engine.loadTop();
+        assert.equal(network.findFrontMan(), 'review_coordinator');
+        assert.equal(engine.top.llm.baseUrl, 'https://api.otari.ai/api/v1');
+        assert.equal(engine.mockLLM, false);
+        assert.deepEqual(engine.actions.catalog({ base, network: network.name }), []);
+        assert.deepEqual(requests, [`${base}/agent-manifest.json`, `${base}/./review_desk.network.json`, `${base}/links.json`]);
+      } else {
+        const error = {
+          'missing manifest': /manifest fetch 404/,
+          'missing network': /fetch 404/,
+          'invalid JSON': /parse|syntax|unexpected/i,
+          'invalid graph': /failed validation.*missing_reviewer/,
+        }[scenario];
+        await assert.rejects(engine.loadTop(), error);
+      }
+    });
+  }
+});
+
+test('smoke: Site A boot shows the desk only after success and reports failures', async t => {
+  const originals = new Map(['document', '__siteABoot'].map(name =>
+    [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  t.after(() => {
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  });
+  const hooks = registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (context.parentURL?.startsWith(new URL('site-a/site.js?', root).href) && specifier === './runtime/index.js') {
+        return { url: 'data:text/javascript,export async function boot(root, opts) { await globalThis.__siteABoot(root, opts); }', shortCircuit: true };
+      }
+      return nextResolve(specifier, context);
+    },
+  });
+  t.after(() => hooks.deregister());
+  const html = await readFile(new URL('site-a/index.html', root), 'utf8');
+  assert.match(html, /<section[^>]*id="agent-app"[^>]* hidden>/);
+  for (const slot of ['header', 'agents']) {
+    assert.match(html, new RegExp(`<div data-ns-slot="${slot}"></div>`));
+  }
+  for (const failure of [false, true]) {
+    const app = { hidden: true };
+    const status = { dataset: {}, setAttribute(name, value) { this[name] = value; } };
+    globalThis.document = { querySelector: selector => selector === '#agent-app' ? app : status };
+    const calls = [];
+    const entered = Promise.withResolvers();
+    const loaded = Promise.withResolvers();
+    globalThis.__siteABoot = async (mount, options) => {
+      calls.push({ mount, options, hidden: app.hidden });
+      entered.resolve();
+      await loaded.promise;
+      if (failure) throw new Error('Network load failed');
+    };
+    const importing = import(new URL(`site-a/site.js?boot-${failure}`, root));
+    await entered.promise;
+    assert.equal(app.hidden, true, 'the desk must remain hidden while boot is pending');
+    loaded.resolve();
+    await importing;
+    assert.deepEqual(calls, [{
+      mount: app, hidden: true,
+      options: {
+        originUrl: new URL('site-a/', root).href,
+        sandboxWorkerUrl: new URL('site-a/runtime/sandbox-worker.js', root).href,
+      },
+    }]);
+    assert.equal(app.hidden, failure);
+    if (failure) {
+      assert.equal(status.role, 'alert');
+      assert.equal(status.dataset.state, 'error');
+      assert.match(status.textContent, /could not be loaded/);
+      assert.match(status.textContent, /agent-manifest\.json/);
+    } else {
+      assert.match(status.textContent, /Review Desk is ready/);
+      assert.match(status.textContent, /provider key/);
+    }
+  }
+});
+
 async function readJSON(path) {
   return JSON.parse(await readFile(new URL(path, root), 'utf8'));
 }
