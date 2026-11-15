@@ -1,18 +1,19 @@
 ---
-description: Agent Review Desk + Spec Scout 위키의 진입점. 프로젝트 지도, 두 사이트, 벤더링 런타임, 네트워크 발행, 검사 기능, 테스트, 교훈 페이지로 안내한다.
+description: Agent Review Desk + Spec Scout 위키의 진입점. 프로젝트 지도, 두 사이트, 피어 연결, 벤더링 런타임, 네트워크 발행, 검사 기능, 테스트, 교훈 페이지로 안내한다.
 ---
 
 # 위키 목차
 
-Open Agentic Web Challenge 출품작(Agent Review Desk + Spec Scout)의 현재 코드 구조를 설명한다. 구현된 범위는 기반 골격·런타임·Site A 네트워크 발행과 Site A의 검사 기능(규칙·action·URL 감사·UI)까지다. Site B 네트워크는 아직 없다.
+Open Agentic Web Challenge 출품작(Agent Review Desk + Spec Scout)의 현재 코드 구조를 설명한다. 구현된 범위는 기반 골격·런타임·Site A 네트워크 발행과 검사 기능(규칙·action·URL 감사·UI), Site B의 Spec Scout 네트워크, 그리고 Site A에서 Site B로 가는 피어 배선까지다. 피어 대상 주소는 아직 예약 주소이며 라이브 상호운용은 확인되지 않았다.
 
 ## 지도와 사이트
 
 - [[project-overview]] — 목표, 제약, 디렉터리 지도, 아직 없는 것
 - [[site-a-review-desk]] — Site A 페이지: 키 없는 검사·샘플·URL 감사 UI, 채팅 연결, 실행 그래프
-- [[site-b-spec-scout-shell]] — 네트워크 없이 설정·채팅 UI만 띄우는 Site B 셸
+- [[site-b-spec-scout]] — Site B: 발췌 근거를 담은 1-agent 네트워크, 저작 원본과 배포본, boot 구조
+- [[peer-connection]] — Site A coordinator → Site B 피어: links.json·allowed_peers 한 쌍, 동의 후 로컬 실행, 예약 주소
 - [[vendored-runtime]] — 사이트별로 복사한 nsDeploy 런타임과 로컬 변경
-- [[network-publication]] — manifest, resolved 네트워크 JSON, 라우터 기본값, action 선언
+- [[network-publication]] — manifest, resolved 네트워크 JSON, 라우터 기본값, action·링크 선언
 
 ## Review Desk 검사 기능
 
@@ -23,5 +24,5 @@ Open Agentic Web Challenge 출품작(Agent Review Desk + Spec Scout)의 현재 �
 
 ## 검사와 교훈
 
-- [[testing-and-gate]] — `theora.gate.json`, `npm test`, 각 테스트 파일의 검사 범위
+- [[testing-and-gate]] — `theora.gate.json`, `npm test`, 각 테스트 파일(`peer.test.mjs` 포함)의 검사 범위
 - [[no-compat-code-lessons]] — 호환 코드 금지 규칙과 리뷰에서 얻은 교훈

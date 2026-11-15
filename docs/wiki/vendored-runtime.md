@@ -8,13 +8,13 @@ description: site-a/runtime과 site-b/runtime에 복사된 nsDeploy 브라우저
 
 ## 모듈 지도
 
-- `index.js`: 공개 진입. `boot(root, opts)`가 URL 쿼리 위생 처리, BYOK 설정 읽기, `Engine` 생성, `loadTop()`, `mountApp`을 수행한다. `Engine`·`TraceBus`·`mountApp` 등도 재export하며 Site B 셸이 이를 직접 쓴다.
+- `index.js`: 공개 진입. `boot(root, opts)`가 URL 쿼리 위생 처리, BYOK 설정 읽기, `Engine` 생성, `loadTop()`, `mountApp`을 수행한다. `Engine`·`TraceBus`·`mountApp` 등도 재export한다. 두 사이트 모두 `site.js`가 이 `boot`를 호출한다.
 - `engine.js`: manifest·네트워크 fetch와 컴파일, 라우터 선택(`selectTopRouter`), 피어 정책. 원본 위치 기준 상대 URL을 해석한다.
 - `kernel.js`, `hocon.js`: `AgentNetwork`·`validateNetwork`와 정의 파싱.
 - `runner.js`, `langchain-runner.mjs`와 사이트별 runtime 아래 generated 폴더의 번들: 에이전트 실행 루프. LangChain 경로는 `runner=langchain` 선택 시에만 켜지고 `deployment.mode`가 `static`이면 켜지지 않는다.
 - `ui.js`, `cruse.js`, `cruse-render.js`: 설정 패널·채팅·에이전트 UI와 CRUSE 위젯 정규화/렌더링.
 - `byok.js`: 프로필·탭 단위 키/라우터/모델 저장.
-- `actions.js` 등 action 관련 모듈, `sandbox*.js`, `mcp.js`, `remote.js`: 사이트 action과 피어/MCP. 현재 Site A는 manifest의 `actions`로 `validate_network` action 하나만 연결하고([[validator-action]]) 피어는 쓰지 않는다. 검사 규칙은 `kernel.js`의 `filterConfig`, `generated/graph.gen.mjs`의 `find_front_man`·`is_mcp_ref`, `remote.js`의 `RemoteRegistry`를 재사용한다([[validator-rules]]).
+- `actions.js` 등 action 관련 모듈, `sandbox*.js`, `mcp.js`, `remote.js`: 사이트 action과 피어/MCP. 현재 Site A는 manifest의 `actions`로 `validate_network` action 하나만 연결하고([[validator-action]]), `spec_scout` 링크 참조로 피어를 쓴다(`engine.js`의 `resolveLink`·`manifestAllowsPeer`·`resolveRemote`, 동의 훅 `onConsent`; [[peer-connection]]). Site B는 action도 피어도 연결하지 않는다. 검사 규칙은 `kernel.js`의 `filterConfig`, `generated/graph.gen.mjs`의 `find_front_man`·`is_mcp_ref`, `remote.js`의 `RemoteRegistry`를 재사용한다([[validator-rules]]).
 
 ## 로컬 변경(호환 코드 제거)
 
@@ -31,4 +31,4 @@ Site A의 `README.md`에는 상류 문서(사이트 action을 `website_*` 도구
 
 - 두 복사본은 같은 변경을 받아야 한다. 한쪽만 고치면 다른 쪽에 같은 결함이 남는다([[no-compat-code-lessons]]). 테스트는 `runtimeTest` 헬퍼로 A/B에 같은 검사를 돌린다([[testing-and-gate]]).
 - 이 런타임을 새로 쓰지 않는 것이 설계 제약이다. 상류를 갱신할 때는 위 제거 사항을 다시 적용하고 확인해야 한다.
-- 사용처: [[site-a-review-desk]], [[site-b-spec-scout-shell]].
+- 사용처: [[site-a-review-desk]], [[site-b-spec-scout]].
