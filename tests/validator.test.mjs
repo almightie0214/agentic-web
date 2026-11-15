@@ -158,6 +158,37 @@ test('rules: fixture reports are deterministic, read-only, and distinguish stati
   assert.equal(fetch.mock.callCount(), 0);
 });
 
+test('samples: published JSON inputs produce the same reports as their fixtures', async t => {
+  const cases = [
+    { id: 'valid', valid: true },
+    { id: 'bad-frontman', valid: false, ruleId: 'manifest.front_man', path: '/manifest/networks/0/front_man' },
+    { id: 'bad-schema', valid: false, ruleId: 'agent.parameters', path: '/network/tools/1/function/parameters/type' },
+    { id: 'bad-cycle', valid: false, ruleId: 'peer.composition', path: '/network/tools/1/tools/0' },
+  ];
+  for (const { id, valid, ruleId, path } of cases) {
+    await t.test(id, async () => {
+      const input = JSON.parse(await readFile(new URL(`../site-a/samples/${id}.network.json`, import.meta.url), 'utf8'));
+      assert.deepEqual(input, fixtures[id], 'the sample must preserve the fixture preconditions and review context');
+      const before = structuredClone(input);
+      const report = reviewNetwork(input);
+      assert.deepEqual(input, before, 'reviewing a sample must not change its contents');
+      assert.deepEqual(report, reviewNetwork(fixtures[id]));
+      assert.equal(report.valid, valid);
+      if (valid) {
+        assert.deepEqual(failures(report), []);
+        const parameters = report.checks.find(check => check.ruleId === 'agent.parameters'
+          && check.path === '/network/tools/1/function/parameters');
+        assert.equal(parameters.status, 'pass');
+        assert.match(parameters.message, /default.*request:string/);
+      } else {
+        assert.ok(failures(report).some(check => check.ruleId === ruleId && check.path === path), JSON.stringify(report));
+      }
+      assert.equal(report.checks.find(check => check.ruleId === 'runtime.composition').status, 'unverified',
+        'static samples do not demonstrate browser cycle interruption');
+    });
+  }
+});
+
 test('rules: required manifest strings and agent function descriptions reject missing, blank, and non-string values', () => {
   for (const key of ['name', 'front_man', 'hocon']) {
     for (const value of [undefined, null, '', '  ', 42, {}, []]) {
