@@ -1,0 +1,3 @@
+# Public static artifacts only; verify deployed HTTPS/CORS responses separately.
+/*
+  Access-Control-Allow-Origin: *

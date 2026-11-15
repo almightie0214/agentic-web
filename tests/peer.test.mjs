@@ -32,6 +32,13 @@ test('peer: Site A maps review_desk to the reserved Spec Scout network URL', asy
     'https://spec-scout.invalid/agent-manifest.json');
 });
 
+test('peer: Site B configures public artifact CORS for Cloudflare Pages (not live response evidence)', async () => {
+  const headers = await readFile(new URL('_headers', siteB), 'utf8');
+  // Cover the public static bundle, not just the HTML entry page.
+  assert.match(headers, /^\/\*\r?\n[ \t]+Access-Control-Allow-Origin:[ \t]*\*[ \t]*$/m);
+  assert.doesNotMatch(headers, /Access-Control-Allow-Credentials:[ \t]*true/i);
+});
+
 test('peer: Site A closed policy permits only the declared Spec Scout origin', async () => {
   const manifest = await readJSON(new URL('agent-manifest.json', siteA));
   for (const [target, allowed] of [
