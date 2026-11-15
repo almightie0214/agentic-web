@@ -14,7 +14,7 @@ description: site-a/runtime과 site-b/runtime에 복사된 nsDeploy 브라우저
 - `runner.js`, `langchain-runner.mjs`와 사이트별 runtime 아래 generated 폴더의 번들: 에이전트 실행 루프. LangChain 경로는 `runner=langchain` 선택 시에만 켜지고 `deployment.mode`가 `static`이면 켜지지 않는다.
 - `ui.js`, `cruse.js`, `cruse-render.js`: 설정 패널·채팅·에이전트 UI와 CRUSE 위젯 정규화/렌더링.
 - `byok.js`: 프로필·탭 단위 키/라우터/모델 저장.
-- `actions.js` 등 action 관련 모듈, `sandbox*.js`, `mcp.js`, `remote.js`: 사이트 action과 피어/MCP. 현재 Site A는 action·피어를 쓰지 않는다.
+- `actions.js` 등 action 관련 모듈, `sandbox*.js`, `mcp.js`, `remote.js`: 사이트 action과 피어/MCP. 현재 Site A는 manifest의 `actions`로 `validate_network` action 하나만 연결하고([[validator-action]]) 피어는 쓰지 않는다. 검사 규칙은 `kernel.js`의 `filterConfig`, `generated/graph.gen.mjs`의 `find_front_man`·`is_mcp_ref`, `remote.js`의 `RemoteRegistry`를 재사용한다([[validator-rules]]).
 
 ## 로컬 변경(호환 코드 제거)
 
@@ -25,7 +25,7 @@ description: site-a/runtime과 site-b/runtime에 복사된 nsDeploy 브라우저
 - `cruse.js`/`ui.js`: 누락된 `confirmText`를 `confirmLabel`이나 기본값에서 복원하던 분기. 이제 `confirm` 위젯은 비어 있지 않은 `confirmText`를 명시해야 하고 `confirmLabel`은 선택 사항이다.
 - `byok.js`: 옛 단독 키 슬롯 `nsweb-byok-key`의 읽기·쓰기·삭제. 현재 탭 설정(`nsweb-byok-tab-key`, `nsweb-byok-model`, `nsweb-byok-router`)과 저장된 프로필만 설정 출처다. 우선순위는 탭 설정이 프로필보다 앞이다.
 
-Site A의 `README.md`에는 상류 문서(사이트 action을 `website_*` 도구로 노출하는 편집 등)가 그대로 보존돼 있다. 이는 상류 설명이며, 이 프로젝트가 action을 연결했다는 뜻이 아니다.
+Site A의 `README.md`에는 상류 문서(사이트 action을 `website_*` 도구로 노출하는 편집 등)가 그대로 보존돼 있다. 이는 상류 설명이며 이 프로젝트의 action 연결은 위 문단과 [[validator-action]]에 있다.
 
 ## 주의
 

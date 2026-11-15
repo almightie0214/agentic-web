@@ -14,6 +14,8 @@ description: 호환 코드 금지 규칙이 벤더링 런타임에 적용된 방
 2. **회귀 검사는 실제 경계에서 건다.** 문자열 검색 대신 `boot`, `mountApp`, `renderPresentation`, `byok.js`를 실제로 실행해 옛 입력이 복원되지 않음을 확인한다. [[testing-and-gate]].
 3. **A/B 복사본은 함께 고친다.** Site B의 `byok.js`만 고쳐 Site A에 같은 결함이 남았고, Goal 검토에서 발견돼 A도 제거됐다. 이후 BYOK 검사를 `runtimeTest`로 확장해 양쪽을 같은 조건으로 돌린다.
 4. **제품 소스 주석에 Goal·Task·날짜·후속 계획을 쓰지 않는다.** `site-a/site.js`, `site-b/site.js`, `site-b/index.html`에서 후속 단계 인계 문구가 제거돼 현재 기술적 이유만 남았다. 인계 정보는 코드가 아니라 문서(예: [[site-b-spec-scout-shell]])에 둔다.
+5. **테스트 주석에도 같은 규칙이 적용된다.** `tests/validator.test.mjs`의 검증 범위 주석에 Task·Goal·후속 단계 식별자가 들어갔다가 현재 검증 범위만 설명하도록 고쳐졌다.
+6. **검토 대상 입력의 잘못된 형식은 예외가 아니라 판정이나 표시로 돌려준다.** 규칙 모듈의 설정 처리와 링크 조회, UI의 표시 경계에서 같은 가정(필드가 문자열일 것)이 깨졌다. 자세한 경계는 [[validator-rules]]와 [[site-a-review-desk]].
 
 ## 이 페이지가 보장하지 않는 것
 
