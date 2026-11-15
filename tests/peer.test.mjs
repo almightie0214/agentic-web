@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { AgentNetwork, validateNetwork } from '../site-b/runtime/kernel.js';
-import { manifestAllowsPeer } from '../site-a/runtime/engine.js';
+import { Engine, manifestAllowsPeer } from '../site-a/runtime/engine.js';
+import { buildToolTable, dispatchToolCall } from '../site-a/runtime/runner.js';
 
 const siteA = new URL('../site-a/', import.meta.url);
 const siteB = new URL('../site-b/', import.meta.url);
@@ -42,6 +43,102 @@ test('peer: Site A closed policy permits only the declared Spec Scout origin', a
     ['https://spec-scout.invalid:8443/spec_scout', false],
   ]) {
     assert.equal(manifestAllowsPeer(target, manifest), allowed, target);
+  }
+});
+
+test('peer: coordinator resolves the symbolic Spec Scout tool before consent-gated local execution', async t => {
+  const base = 'https://review-desk.invalid/desk';
+  const peerBase = 'https://spec-scout.invalid';
+  const target = `${peerBase}/spec_scout`;
+  const manifestA = await readJSON(new URL('agent-manifest.json', siteA));
+  const configA = await readJSON(new URL('review_desk.network.json', siteA));
+  const links = await readJSON(new URL('links.json', siteA));
+  const manifestB = await readJSON(new URL('agent-manifest.json', siteB));
+  const configB = await readJSON(new URL('spec_scout.network.json', siteB));
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  for (const scenario of ['allow', 'decline', 'missing exact network']) {
+    await t.test(scenario, async () => {
+      const requests = [];
+      const events = [];
+      globalThis.fetch = async url => {
+        url = new URL(url).href;
+        requests.push(url);
+        if (url.startsWith(`${peerBase}/`)) events.push('peer fetch');
+        const published = new Map([
+          [`${base}/review_desk.network.json`, configA],
+          [`${base}/links.json`, links],
+          [`${peerBase}/agent-manifest.json`, scenario === 'missing exact network'
+            ? { ...manifestB, networks: [{ ...manifestB.networks[0], name: 'other' }] } : manifestB],
+          [`${peerBase}/spec_scout.network.json`, configB],
+          [`${peerBase}/links.json`, null],
+        ]);
+        assert.ok(published.has(url), `unexpected fetch: ${url}`);
+        const data = published.get(url);
+        return new Response(JSON.stringify(data), { status: data === null ? 404 : 200 });
+      };
+      const engine = new Engine({ originUrl: base });
+      const compiled = await engine._compile(base, manifestA, manifestA.networks[0], { isTop: true });
+      engine.top = { ...compiled, base, manifest: manifestA };
+      const { network } = compiled;
+      assert.equal(network.findFrontMan(), manifestA.networks[0].front_man);
+      assert.deepEqual(validateNetwork(network).errors, []);
+      const chain = [`${base}::${network.name}`];
+      const ctx = engine._makeCtx({ ...engine.top, isTop: true, chain, slyData: {} });
+      const { toolByName, toolSchemas } = await buildToolTable(ctx,
+        network.getAgentSpec(network.findFrontMan()), chain);
+      assert.equal(toolByName.get('conformance_reviewer').kind, 'agent');
+      const entry = toolByName.get('spec_scout');
+      assert.deepEqual(entry, { kind: 'link', reference: 'spec_scout' });
+      assert.ok(toolSchemas.some(tool => tool.function.name === 'spec_scout'));
+      assert.equal(network.getLink(entry.reference), target);
+      assert.deepEqual(events, [], 'advertising the symbolic tool must not contact B');
+      const question = 'What does section 3.2 require for peer loading?';
+      engine.onConsent = async info => {
+        assert.deepEqual(events, [], 'consent must precede any peer fetch');
+        assert.equal(info.peerOrigin, 'spec-scout.invalid');
+        assert.equal(info.requestText, question);
+        events.push('consent');
+        return scenario === 'decline' ? 'decline' : 'allow';
+      };
+      const resolveRemote = ctx.resolveRemote;
+      let modelCalls = 0;
+      ctx.resolveRemote = async (url, ...args) => {
+        assert.equal(url, target, 'links.json must resolve to <B root>/spec_scout');
+        assert.equal(manifestAllowsPeer(url, manifestA), true);
+        const session = await resolveRemote(url, ...args);
+        assert.equal(session.base, peerBase);
+        assert.equal(session.network.name, manifestB.networks[0].name);
+        assert.equal(session.llm.baseUrl, engine.top.llm.baseUrl);
+        // Only model inference is scripted; peer loading, validation and execution
+        // use the published artifacts and the real browser-runtime path.
+        session.llm.chat = async ({ messages, tools }) => {
+          modelCalls++;
+          assert.equal(messages[0].content, configB.tools[0].instructions);
+          assert.equal(messages.at(-1).content, question);
+          assert.deepEqual(tools, [], 'B has no site actions or further peers');
+          return { content: 'Scripted Spec Scout answer.', toolCalls: [] };
+        };
+        return session;
+      };
+      const invoke = () => dispatchToolCall(ctx, entry, { request: question }, null, chain);
+      if (scenario === 'missing exact network') {
+        await assert.rejects(invoke(), /No published network named 'spec_scout'/);
+        assert.equal(modelCalls, 0);
+      } else if (scenario === 'decline') {
+        assert.match(await invoke(), /user declined to contact spec-scout.invalid/);
+        assert.equal(modelCalls, 0);
+      } else {
+        assert.equal((await invoke()).text, 'Scripted Spec Scout answer.');
+        assert.equal(modelCalls, 1);
+      }
+      assert.equal(events[0], 'consent');
+      assert.deepEqual(requests.filter(url => url.startsWith(`${peerBase}/`)),
+        scenario === 'decline' ? [] : scenario === 'missing exact network'
+          ? [`${peerBase}/agent-manifest.json`]
+          : [`${peerBase}/agent-manifest.json`, `${peerBase}/spec_scout.network.json`, `${peerBase}/links.json`]);
+    });
   }
 });
 

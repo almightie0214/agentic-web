@@ -28,7 +28,7 @@ test('smoke: Site A publishes a resolved two-agent network with the read-only va
   assert.equal(config.llm_config.model_name, 'alibaba/qwen3.8-flash');
   assert.deepEqual(config.tools.map(agent => agent.name), ['review_coordinator', 'conformance_reviewer']);
   assert.ok(config.tools.some(agent => agent.name === entry.front_man), 'front_man must belong to tools');
-  assert.deepEqual(config.tools[0].tools, ['conformance_reviewer']);
+  assert.deepEqual(config.tools[0].tools, ['conformance_reviewer', 'spec_scout']);
   assert.deepEqual(config.tools[1].tools, []);
   for (const agent of config.tools) {
     assert.ok(agent.instructions.trim());
