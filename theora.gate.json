@@ -1,4 +1,4 @@
 {
-  "commands": [["node", "--test", "tests/**/*.test.mjs"]],
+  "commands": [["node", "--test", "tests/**/*.test.mjs"], ["node", "tools/check-conformance.mjs"]],
   "timeout": "5m"
 }

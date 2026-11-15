@@ -19,7 +19,7 @@ async function fixture(t) {
   for (const site of ['site-a', 'site-b', 'tools']) await mkdir(join(root, site));
   for (const path of ['tools/check-conformance.mjs', 'site-a/validator-rules.mjs', 'site-a/agent-manifest.json',
     'site-a/review_desk.network.json', 'site-a/links.json', 'site-a/actions.js',
-    'site-b/agent-manifest.json', 'site-b/spec_scout.network.json']) {
+    'site-b/agent-manifest.json', 'site-b/spec_scout.network.json', 'site-b/_headers']) {
     await copyFile(join(repository, path), join(root, path));
   }
   // Copy the real AW2 module's dependencies without changing them. No vendor
@@ -64,6 +64,9 @@ test('conformance: actual artifacts preserve shared AW2 reports and runtime unce
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /Static repository conformance: PASS/);
   assert.match(result.stdout, /exact-name loader refusal.*remain unverified/);
+  assert.match(result.stdout, /duplicate-agent and wrong explicit peer-name refusal before any model call in a real browser/);
+  assert.ok(report.checks.some(check => check.ruleId === 'publication.cors' && check.status === 'pass'));
+  assert.ok(report.checks.some(check => check.ruleId === 'publication.private_context' && check.status === 'pass'));
   assert.doesNotMatch(result.stdout, /\[pass\].*runtime\.(safety|composition)/);
 });
 
@@ -121,6 +124,95 @@ test('conformance: artifact and shared-rule failures reach CLI diagnostics and e
     assert.match(result.stdout, /Static repository conformance: FAIL/);
     assert.match(result.stdout, /remain unverified/);
   });
+});
+
+test('conformance: private-context declarations are audited without claiming injection or filtering', async t => {
+  for (const row of [
+    { name: 'omitted', status: 'pass' },
+    { name: 'explicit deny', allow: { to_downstream: { sly_data: [] }, to_upstream: { sly_data: null } }, status: 'pass' },
+    { name: 'named exception', allow: { to_downstream: { sly_data: ['public_sentinel'] } }, status: 'warning' },
+    { name: 'wildcard', allow: { to_downstream: { sly_data: ['*'] } }, status: 'fail' },
+    { name: 'string not array', allow: { to_downstream: { sly_data: 'public_sentinel' } }, status: 'fail' },
+    { name: 'duplicate field', allow: { to_upstream: { sly_data: ['sentinel', 'sentinel'] } }, status: 'fail' },
+    { name: 'blank field', allow: { to_upstream: { sly_data: [' '] } }, status: 'fail' },
+    { name: 'non-string field', allow: { to_upstream: { sly_data: [{}] } }, status: 'fail' },
+    { name: 'malformed direction', allow: { to_upstream: [] }, status: 'fail' },
+    { name: 'malformed allow', allow: false, status: 'fail' },
+  ]) await t.test(row.name, async t => {
+    const f = await fixture(t);
+    await f.edit('site-b/spec_scout.network.json', doc => {
+      if (row.allow !== undefined) doc.tools[0].allow = row.allow;
+      doc.sly_data = { private_sentinel: 'DO_NOT_PRINT_SENTINEL_VALUE' };
+    });
+    const result = f.run();
+    assert.equal(result.status, row.status === 'fail' ? 1 : 0, result.stdout);
+    assert.match(result.stdout, new RegExp(`\\[${row.status}\\] site-b/spec_scout publication.private_context /network/tools/0/allow`));
+    assert.match(result.stdout, /Published sly_data is public JSON, not invocation context or evidence of injection/);
+    assert.doesNotMatch(result.stdout, /DO_NOT_PRINT_SENTINEL_VALUE/);
+    assert.match(result.stdout, /\[unverified\].*runtime.safety/);
+  });
+});
+
+test('conformance: CORS audit covers actual public artifacts and conflicting matching rules', async t => {
+  for (const row of [
+    { name: 'missing file', source: null, ok: false, rule: 'publication.file' },
+    { name: 'comment only', source: '# Access-Control-Allow-Origin: *', ok: false },
+    { name: 'wrong origin', source: '/*\n  Access-Control-Allow-Origin: https://other.invalid', ok: false },
+    { name: 'wrong scope', source: '/private/*\n  Access-Control-Allow-Origin: *', ok: false },
+    { name: 'manifest only', source: '/agent-manifest.json\n  Access-Control-Allow-Origin: *', ok: false },
+    { name: 'duplicate header', source: '/*\n  Access-Control-Allow-Origin: *\n  access-control-allow-origin: *', ok: false },
+    { name: 'overlapping conflict', source: '/*\n  Access-Control-Allow-Origin: *\n/spec_scout.network.json\n  Access-Control-Allow-Origin: https://other.invalid', ok: false },
+    { name: 'removal', source: '/*\n  Access-Control-Allow-Origin: *\n/spec_scout.network.json\n  ! Access-Control-Allow-Origin', ok: false },
+    { name: 'malformed', source: '/*\n  Access-Control-Allow-Origin *', ok: false },
+    { name: 'orphan header', source: '  Access-Control-Allow-Origin: *', ok: false },
+    { name: 'unsupported URL rule', source: 'https://peer.invalid/*\n  Access-Control-Allow-Origin: *', ok: false },
+    { name: 'case insensitive with CRLF', source: '/*\r\n  access-control-allow-origin: *\r\n  ! X-Frame-Options', ok: true },
+    { name: 'separate exact rules', source: '/agent-manifest.json\n  Access-Control-Allow-Origin: *\n/spec_scout.network.json\n  Access-Control-Allow-Origin: *', ok: true },
+    { name: 'unrelated private rule', source: '/*\n  Access-Control-Allow-Origin: *\n/private/*\n  Access-Control-Allow-Origin: https://other.invalid', ok: true },
+  ]) await t.test(row.name, async t => {
+    const f = await fixture(t);
+    if (row.source === null) await rm(join(f.root, 'site-b/_headers'));
+    else await writeFile(join(f.root, 'site-b/_headers'), row.source);
+    const result = f.run();
+    assert.equal(result.status, row.ok ? 0 : 1, result.stdout);
+    assert.match(result.stdout, new RegExp(`\\[${row.ok ? 'pass' : 'fail'}\\] site-b ${row.rule ?? 'publication.cors'} /_headers`));
+    assert.match(result.stdout, /live HTTPS\/CORS.*remain unverified/);
+  });
+  // A nested definition path comes from the manifest, not a fixed filename list.
+  const f = await fixture(t);
+  await mkdir(join(f.root, 'site-b/definitions'));
+  await copyFile(join(f.root, 'site-b/spec_scout.network.json'), join(f.root, 'site-b/definitions/public.json'));
+  await f.edit('site-b/agent-manifest.json', doc => { doc.networks[0].hocon = './definitions/public.json'; });
+  await writeJSON(join(f.root, 'site-b/links.json'), { version: 1, networks: {} });
+  await writeFile(join(f.root, 'site-b/_headers'), '/agent-manifest.json\n  Access-Control-Allow-Origin: *\n/definitions/:file\n  Access-Control-Allow-Origin: *');
+  const missingLinks = f.run();
+  assert.equal(missingLinks.status, 1, missingLinks.stdout);
+  assert.match(missingLinks.stdout, /\[pass\] site-b publication.cors \/_headers\/definitions\/public.json/);
+  assert.match(missingLinks.stdout, /\[fail\] site-b publication.cors \/_headers\/links.json/);
+});
+
+test('conformance: AW2 composition uncertainty and limit warnings remain declaration-only', async t => {
+  const f = await fixture(t);
+  await f.edit('site-a/review_desk.network.json', doc => { doc.tools[1].tools = ['review_coordinator']; });
+  const legalRecursion = f.run();
+  assert.equal(legalRecursion.status, 0, legalRecursion.stdout);
+  assert.match(legalRecursion.stdout, /\[unverified\].*runtime.composition/);
+  assert.match(legalRecursion.stdout, /\[warning\].*execution.limit/);
+  assert.doesNotMatch(legalRecursion.stdout, /\[pass\].*runtime\.(composition|safety)/);
+  await f.edit('site-a/review_desk.network.json', doc => {
+    doc.max_steps = 3;
+    doc.max_execution_seconds = 1.5;
+  });
+  const declared = f.run();
+  assert.equal(declared.status, 0, declared.stdout);
+  assert.match(declared.stdout, /\[pass\] site-a\/review_desk execution.limit/);
+  assert.match(declared.stdout, /not proof of enforcement/);
+  for (const [key, value] of [['max_steps', 0], ['max_steps', 1.5], ['max_execution_seconds', -1]]) {
+    await f.edit('site-a/review_desk.network.json', doc => { doc.max_steps = 3; doc.max_execution_seconds = 1.5; doc[key] = value; });
+    const invalid = f.run();
+    assert.equal(invalid.status, 1, invalid.stdout);
+    assert.match(invalid.stdout, new RegExp(`\\[fail\\] site-a/review_desk execution.limit /network/${key}`));
+  }
 });
 
 test('conformance: definition references stay inside each independent publication root', async t => {
