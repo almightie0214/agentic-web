@@ -3,8 +3,27 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { AgentNetwork, validateNetwork } from '../site-b/runtime/kernel.js';
 
+const siteA = new URL('../site-a/', import.meta.url);
 const siteB = new URL('../site-b/', import.meta.url);
 const readJSON = async url => JSON.parse(await readFile(url, 'utf8'));
+
+test('peer: Site A maps review_desk to the reserved Spec Scout network URL', async () => {
+  const links = await readJSON(new URL('links.json', siteA));
+  assert.deepEqual(links, {
+    version: 1,
+    networks: {
+      review_desk: { spec_scout: 'https://spec-scout.invalid/spec_scout' },
+    },
+  });
+  const manifestA = await readJSON(new URL('agent-manifest.json', siteA));
+  const manifestB = await readJSON(new URL('agent-manifest.json', siteB));
+  assert.deepEqual(Object.keys(links.networks), manifestA.networks.map(entry => entry.name));
+  const peer = new URL(links.networks.review_desk.spec_scout);
+  assert.equal(peer.pathname.split('/').pop(), manifestB.networks[0].name);
+  // B deploys at root; peer site bases in general may also contain a path prefix.
+  assert.equal(new URL('./agent-manifest.json', peer).href,
+    'https://spec-scout.invalid/agent-manifest.json');
+});
 
 // The published name is the exact final URL segment used by the spec_scout link.
 test('peer: Site B publishes the exact spec_scout network name', async () => {
