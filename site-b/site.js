@@ -26,8 +26,8 @@ async function mountShell() {
       modelOverride: setup.model,
     });
 
-    // Use the official settings and chat UI without fetching a network. AW3
-    // connects Spec Scout; until then there is no validated network to execute.
+    // Mount settings without fetching a network. Chat is disabled because
+    // there is no validated network to execute.
     mountApp(root, { engine, trace });
     const input = root.querySelector('#ns-input');
     input.disabled = true;
