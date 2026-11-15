@@ -8,9 +8,10 @@ part of this project.
 
 ## Current status
 
-This initial scaffold contains the reference specification, project metadata,
-and license. Site pages, vendored runtimes, network publication, and smoke tests
-will be added in subsequent tasks; there is not yet a runnable site.
+This scaffold contains the reference specification, project metadata, license,
+smoke test scaffold, and merge gate configuration. Site pages, vendored runtimes,
+and network publication will be added in subsequent tasks; there is not yet a
+runnable site.
 
 ## Repository layout
 
@@ -18,7 +19,7 @@ will be added in subsequent tasks; there is not yet a runnable site.
 - [docs/worldwide_agentic_web_mvp_spec.md](docs/worldwide_agentic_web_mvp_spec.md):
   pinned reference specification with source and license attribution.
 - `site-a/`, `site-b/`: planned independent static site bundles and runtime copies.
-- `tests/`: planned Node.js smoke tests.
+- `tests/`: Node.js smoke test scaffold.
 - `tools/`: reserved for development tools when needed.
 
 Directories are created only when they contain files; no empty placeholders are
@@ -33,9 +34,10 @@ Use Node.js 24 and run:
 npm test
 ```
 
-The script is `node --test "tests/**/*.test.mjs"`. The smoke test file and merge
-gate will be introduced in the next task; this scaffold does not yet supply tests.
-No npm dependencies are required.
+The script is `node --test "tests/**/*.test.mjs"`. The merge gate in
+`theora.gate.json` uses the same glob with a five-minute timeout. The smoke test
+currently checks the gate configuration and npm test command; it does not yet
+check site pages, runtimes, or networks. No npm dependencies are required.
 
 ## Reference and license
 

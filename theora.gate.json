@@ -1,0 +1,4 @@
+{
+  "commands": [["node", "--test", "tests/**/*.test.mjs"]],
+  "timeout": "5m"
+}
