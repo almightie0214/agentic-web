@@ -22,16 +22,23 @@ test('smoke: merge gate and npm test use the test file glob', async () => {
   assert.equal(packageJSON.scripts.test, 'node --test "tests/**/*.test.mjs"');
 });
 
-test('smoke: Site A runtime entry point and license are present', async () => {
-  for (const path of ['site-a/runtime/index.js', 'site-a/runtime/LICENSE.txt']) {
-    const file = await stat(new URL(path, root));
+function runtimeTest(name, check) {
+  for (const site of ['A', 'B']) {
+    const runtime = new URL(`site-${site.toLowerCase()}/runtime/`, root);
+    test(`smoke: Site ${site} ${name}`, t => check(t, runtime));
+  }
+}
+
+runtimeTest('runtime entry point and license are present', async (_t, runtime) => {
+  for (const path of ['index.js', 'LICENSE.txt']) {
+    const file = await stat(new URL(path, runtime));
     assert.ok(file.isFile(), `${path} must be a regular file`);
     assert.ok(file.size > 0, `${path} must not be empty`);
   }
 });
 
-test('smoke: Site A boot enables only the current runner contract', async (t) => {
-  const entry = new URL('site-a/runtime/index.js?runner-contract', root).href;
+runtimeTest('boot enables only the current runner contract', async (t, runtime) => {
+  const entry = new URL('index.js?runner-contract', runtime).href;
   const modules = {
     './engine.js': `export class Engine {
       actions = { catalog: () => [], discoveryIssues: [] };
@@ -86,8 +93,8 @@ test('smoke: Site A boot enables only the current runner contract', async (t) =>
   }
 });
 
-test('smoke: Site A settings use only an explicit mock router', async (t) => {
-  const { mountApp } = await import('../site-a/runtime/ui.js');
+runtimeTest('settings use only an explicit mock router', async (t, runtime) => {
+  const { mountApp } = await import(new URL('ui.js', runtime));
   const originalGlobals = new Map(['document', 'location'].map(name =>
     [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   t.after(() => {
@@ -132,8 +139,8 @@ test('smoke: Site A settings use only an explicit mock router', async (t) => {
   }
 });
 
-test('smoke: Site A confirm widgets require explicit confirmText', async () => {
-  const { normalizePresentation, parseAgentResponse } = await import('../site-a/runtime/cruse.js');
+runtimeTest('confirm widgets require explicit confirmText', async (_t, runtime) => {
+  const { normalizePresentation, parseAgentResponse } = await import(new URL('cruse.js', runtime));
   for (const component of [
     { kind: 'confirm', confirmText: 'Proceed with the review.', confirmLabel: 'Proceed' },
     { kind: 'confirm', confirmText: 'Proceed with the review.' },
@@ -161,8 +168,8 @@ test('smoke: Site A confirm widgets require explicit confirmText', async () => {
   }
 });
 
-test('smoke: Site A welcome and response widgets share confirmation validation', async (t) => {
-  const { mountApp, renderPresentation } = await import('../site-a/runtime/ui.js');
+runtimeTest('welcome and response widgets share confirmation validation', async (t, runtime) => {
+  const { mountApp, renderPresentation } = await import(new URL('ui.js', runtime));
   const originals = new Map(['document', 'location', 'requestAnimationFrame'].map(name =>
     [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   t.after(() => {
@@ -254,8 +261,8 @@ test('smoke: Site A welcome and response widgets share confirmation validation',
   assert.deepEqual(responseText, ['Submit this review.']);
 });
 
-test('smoke: Site A composed UI leaves retired activity slots untouched', async (t) => {
-  const { mountApp } = await import('../site-a/runtime/ui.js');
+runtimeTest('composed UI leaves retired activity slots untouched', async (t, runtime) => {
+  const { mountApp } = await import(new URL('ui.js', runtime));
   const originals = new Map(['document', 'location'].map(name =>
     [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   t.after(() => {
