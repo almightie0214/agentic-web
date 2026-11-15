@@ -20,9 +20,7 @@
     <noscript><p class="site-status">JavaScript is required to load the settings and chat interface.</p></noscript>
 
     <section id="agent-app" class="desk-app" aria-label="AI settings and chat" aria-describedby="site-status" hidden>
-      <!-- Header and agent inspection need a connected network. The runtime still
-           receives its composed slots without exposing unavailable controls. -->
-      <div data-ns-slot="header" hidden inert></div>
+      <div data-ns-slot="header"></div>
       <div class="desk-workspace">
         <aside class="desk-settings" aria-label="AI model settings">
           <div data-ns-slot="settings"></div>
@@ -31,7 +29,7 @@
           <div data-ns-slot="chat"></div>
         </section>
       </div>
-      <div data-ns-slot="agents" hidden inert></div>
+      <div data-ns-slot="agents"></div>
     </section>
   </main>
 </body>

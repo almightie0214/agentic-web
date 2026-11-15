@@ -10,8 +10,17 @@ part of this project.
 
 This scaffold contains the reference specification, project metadata, license,
 smoke tests, merge gate configuration, and separately vendored runtimes for Site A
-and Site B. Site pages and network publication will be added in subsequent tasks;
-there is not yet a runnable site.
+and Site B. Site A now loads the published `review_desk` two-agent network through
+the reference runtime's built-in settings, chat, and agent inspection UI. Its
+`review_coordinator` delegates to `conformance_reviewer`; no website actions are
+connected. Hosted Otari (`https://api.otari.ai/api/v1`) is the default router,
+with `alibaba/qwen3.8-flash` as the network's model hint. A provider key is required
+for inference and is configured through the built-in settings. Site B currently
+contains its vendored runtime; its page and network are not yet published.
+
+Serve the repository with a local static HTTP server and open `site-a/` (or
+`site-a/index.html`). The page, manifest, network, and runtime references work
+under a deployment subpath as well as on a local server.
 
 ## Repository layout
 
@@ -19,7 +28,9 @@ there is not yet a runnable site.
 - [docs/worldwide_agentic_web_mvp_spec.md](docs/worldwide_agentic_web_mvp_spec.md):
   pinned reference specification with source and license attribution.
 - `site-a/runtime/`, `site-b/runtime/`: separate vendored browser runtimes.
-- `site-a/`, `site-b/`: independent static site bundles; pages are planned.
+- `site-a/`: Review Desk page and boot entry, shared site styles,
+  `agent-manifest.json`, and resolved `review_desk.network.json`.
+- `site-b/`: independent static site bundle; page and network publication are pending.
 - `tests/`: Node.js smoke test scaffold.
 - `tools/`: reserved for development tools when needed.
 
@@ -42,7 +53,10 @@ both sites' runtime entry points and licenses. For each runtime it also checks t
 current runner selection contract, explicit mock-router settings, and required confirmation text
 in response and welcome confirm widgets, including welcome form preservation.
 It also checks composed UI mounting without retired activity-slot handling; it
-does not yet check site pages or networks. Site B additionally checks that BYOK
+checks Site A's published two-agent graph, default router and model hint,
+relative artifact loading and validation, and boot success/failure visibility.
+These checks do not verify a live provider or a deployed browser session.
+Site B additionally checks that BYOK
 uses only current tab settings and saved profiles, with no obsolete standalone-key
 slot access, including cleanup after a failed tab-setting write. No npm
 dependencies are required.
