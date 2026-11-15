@@ -131,3 +131,125 @@ test('smoke: Site A settings use only an explicit mock router', async (t) => {
     assert.equal(fields.get('#ns-router').value, expected, JSON.stringify({ llm_router, applied }));
   }
 });
+
+test('smoke: Site A confirm widgets require explicit confirmText', async () => {
+  const { normalizePresentation, parseAgentResponse } = await import('../site-a/runtime/cruse.js');
+  for (const component of [
+    { kind: 'confirm', confirmText: 'Proceed with the review.', confirmLabel: 'Proceed' },
+    { kind: 'confirm', confirmText: 'Proceed with the review.' },
+    { kind: 'confirm', confirmLabel: 'Proceed' },
+    { kind: 'confirm' },
+    { kind: 'confirm', confirmText: '', confirmLabel: 'Proceed' },
+    { kind: 'confirm', confirmText: '   ', confirmLabel: 'Proceed' },
+    { kind: 'confirm', confirmText: null, confirmLabel: 'Proceed' },
+  ]) {
+    const input = { version: 1, components: [component] };
+    const normalized = normalizePresentation(input);
+    const json = JSON.stringify(input);
+    const parsed = [parseAgentResponse(json), parseAgentResponse(`\`\`\`cruse-ui\n${json}\n\`\`\``)];
+    const valid = typeof component.confirmText === 'string' && !!component.confirmText.trim();
+    for (const result of [normalized, ...parsed]) {
+      if (valid) {
+        assert.equal(result.presentation.components.length, 1);
+        assert.equal(result.presentation.components[0].confirmText, component.confirmText);
+        assert.equal(result.presentation.components[0].confirmLabel, component.confirmLabel);
+      } else {
+        assert.equal(result.presentation, null, json);
+        assert.ok((result.issues || result.presentationIssues).length > 0, json);
+      }
+    }
+  }
+});
+
+test('smoke: Site A welcome and response widgets share confirmation validation', async (t) => {
+  const { mountApp, renderPresentation } = await import('../site-a/runtime/ui.js');
+  const originals = new Map(['document', 'location', 'requestAnimationFrame'].map(name =>
+    [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  t.after(() => {
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  });
+  // Record DOM writes and events without replacing runtime rendering or validation.
+  const element = () => ({
+    value: '', innerHTML: '', dataset: {}, style: {}, children: [], fields: new Map(), events: new Map(),
+    classList: { add() {}, toggle() {} },
+    setAttribute() {}, removeAttribute() {}, getAttribute() { return null; }, closest() { return null; },
+    append(...nodes) { for (const node of nodes) this.appendChild(node); },
+    appendChild(node) { node.parentElement = this; this.children.push(node); },
+    replaceChildren() { this.children = []; },
+    remove() { this.parentElement.children = this.parentElement.children.filter(node => node !== this); },
+    addEventListener(name, fn) { this.events.set(name, fn); },
+    querySelectorAll(selector) { return selector === 'button,input,select,textarea' ? [...this.fields.values()] : []; },
+    querySelector(selector) {
+      if (selector.startsWith('[data-ns-slot=') || selector === '#ns-split') return null;
+      if (selector === '[data-welcome="true"]') return this.children.find(node => node.dataset.welcome === 'true');
+      if (!this.fields.has(selector)) this.fields.set(selector, element());
+      return this.fields.get(selector);
+    },
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true, value: { createElement: element, head: element() },
+  });
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true, value: new URL('https://example.test/desk/'),
+  });
+  Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: fn => fn() });
+  const mount = (widget) => {
+    const root = element();
+    const submitted = [];
+    const engine = {
+      mockLLM: true, resetHistory() {},
+      async *streamTurn(text) {
+        submitted.push(text);
+        yield { type: 'turn.completed', result: { text: '', presentation: null } };
+      },
+    };
+    mountApp(root, { engine, trace: new EventTarget(), manifest: { welcome: { widget, message: 'Welcome to the review desk.' } } });
+    const msgs = root.querySelector('#ns-msgs');
+    return { root, msgs, submitted, cards: msgs.children.filter(node => node.className === 'ns-widget') };
+  };
+  for (const confirmText of [undefined, '', '   ', null, 42]) {
+    const { root, cards, submitted } = mount({ kind: 'confirm', confirmText, confirmLabel: 'Proceed' });
+    assert.equal(cards.length, 0, `invalid confirmText: ${confirmText}`);
+    assert.deepEqual(submitted, []);
+    root.querySelector('#ns-input').value = 'Continue chatting.';
+    await root.querySelector('#ns-send').events.get('click')();
+    assert.deepEqual(submitted, ['Continue chatting.']);
+  }
+  const current = { kind: 'confirm', confirmText: 'Submit this review.', confirmLabel: 'Proceed' };
+  const { root, msgs, cards: [card], submitted } = mount(current);
+  assert.equal(card.dataset.welcome, 'true');
+  assert.equal(card.dataset.componentId, 'welcome');
+  assert.match(card.innerHTML, /data-act="confirm">Proceed<\/button>/);
+  assert.equal(msgs.querySelector('.ns-msg.bot').textContent, 'Welcome to the review desk.');
+  await card.querySelector('[data-act="confirm"]').events.get('click')();
+  assert.deepEqual(submitted, ['Submit this review.']);
+  assert.equal(card.querySelector('[data-act="confirm"]').disabled, true);
+  root.querySelector('#ns-newchat').events.get('click')();
+  assert.ok(msgs.children.includes(card));
+  assert.equal(card.querySelector('[data-act="confirm"]').disabled, false);
+
+  const { cards: [defaultLabel] } = mount({ kind: 'confirm', confirmText: 'Continue.' });
+  assert.match(defaultLabel.innerHTML, /data-act="confirm">Confirm<\/button>/);
+  const { cards: [cancelCard], submitted: cancelled } = mount(current);
+  await cancelCard.querySelector('[data-act="cancel"]').events.get('click')();
+  assert.deepEqual(cancelled, ['Not yet, hold off.']);
+
+  const form = mount({ kind: 'form', schema: { properties: { topic: { type: 'string' } } } });
+  const [formCard] = form.cards;
+  assert.equal(formCard.dataset.welcome, 'true');
+  assert.equal(formCard.querySelector('[data-field="f0"]').id, 'welcome-welcome-f0');
+  formCard.querySelector('[data-field="f0"]').value = 'Runtime';
+  await formCard.querySelector('form').events.get('submit')({ preventDefault() {} });
+  assert.deepEqual(form.submitted, ['topic: Runtime']);
+
+  const container = element();
+  const responseText = [];
+  renderPresentation(container, { version: 1, components: [current] }, text => responseText.push(text), 'turn-1');
+  const responseCard = container.children[0].children[0];
+  assert.match(responseCard.innerHTML, /data-act="confirm">Proceed<\/button>/);
+  await responseCard.querySelector('[data-act="confirm"]').events.get('click')();
+  assert.deepEqual(responseText, ['Submit this review.']);
+});

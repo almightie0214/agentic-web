@@ -1,6 +1,7 @@
 // ui.js — the themeable chat + execution-trace inspector.
 // Changed by agentic-web. See README.md in this folder for what changed.
-// Changed by Agent Review Desk + Spec Scout: removed legacy mock-router inference.
+// Changed by Agent Review Desk + Spec Scout: removed legacy mock-router and
+// confirm-text inference; welcome widgets use the shared presentation validation.
 //
 // Renders three surfaces from the trace bus: a chat pane, a live network/origin
 // graph, and a chronological execution log. Businesses restyle via CSS variables
@@ -1306,8 +1307,11 @@ export function mountApp(root, { engine, trace, manifest }) {
   if (manifest?.welcome?.widget) {
     const greet = msgs.querySelector(".ns-msg.bot");
     if (manifest.welcome.message && greet) greet.textContent = manifest.welcome.message;
-    const welcome = renderWidget(msgs, { ...manifest.welcome.widget, id: "welcome" }, runUserTurn, "welcome");
-    welcome.dataset.welcome = "true";
+    const widget = normalizePresentation(manifest.welcome.widget).presentation?.components[0];
+    if (widget) {
+      const welcome = renderWidget(msgs, { ...widget, id: "welcome" }, runUserTurn, "welcome");
+      welcome.dataset.welcome = "true";
+    }
   }
 }
 
@@ -1475,7 +1479,7 @@ function renderWidget(container, spec, onSubmit, turnId) {
   } else if (kind === "confirm") {
     html += `<div class="ns-w-actions"><button class="ns-w-btn" data-act="confirm">${escapeHtml(spec.confirmLabel || "Confirm")}</button><button class="ns-w-btn ghost" data-act="cancel">${escapeHtml(spec.cancelLabel || "Cancel")}</button></div>`;
     card.innerHTML = html;
-    card.querySelector('[data-act="confirm"]').addEventListener("click", () => submit(spec.confirmText || spec.confirmLabel || "Confirm", { action: "confirm" }));
+    card.querySelector('[data-act="confirm"]').addEventListener("click", () => submit(spec.confirmText, { action: "confirm" }));
     card.querySelector('[data-act="cancel"]').addEventListener("click", () => submit(spec.cancelText || "Not yet, hold off.", { action: "cancel" }));
   } else if (kind === "choice") {
     html += `<div class="ns-w-choices">` + (spec.options || []).map((o, idx) =>

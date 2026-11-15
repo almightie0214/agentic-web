@@ -7,10 +7,14 @@ Agent Review Desk + Spec Scout copied this runtime from
 `63a956cf4653f610b1c238c70946f4d7647d17a8`, directory
 `skills/agentify-website/runtime/`. To comply with this project's prohibition on
 backward-compatibility code, local changes remove only the obsolete `langgraph`
-runner alias in `index.js` and the old `mock`/`base_url` manifest fallback for
-`mockUrl` in `ui.js`. The current `langchain` selection, default runner, static
-mode exclusion, and Provider URL precedence are preserved. All other runtime
-files, the license, and the upstream documentation below are preserved.
+runner alias in `index.js`, the old `mock`/`base_url` manifest fallback for
+`mockUrl` in `ui.js`, and inference of missing `confirmText` from `confirmLabel`
+or a default in `cruse.js` and `ui.js`. Welcome widgets now use the same
+presentation validation as responses. Confirm widgets must provide explicit,
+nonblank `confirmText`; `confirmLabel` remains an optional button label. The current
+`langchain` selection, default runner, static mode exclusion, and Provider URL
+precedence are preserved. All other runtime files, the license, and the upstream
+documentation below are preserved.
 
 ## Upstream documentation
 

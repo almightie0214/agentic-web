@@ -1,4 +1,5 @@
 // Changed by agentic-web. See README.md in this folder for what changed.
+// Changed by Agent Review Desk + Spec Scout: removed legacy confirm-text inference.
 // CRUSE's wire contract. Proposals are returned to the caller, never published
 // directly to the user by a child agent. This module is shared by both runners.
 const object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -61,8 +62,6 @@ export function normalizePresentation(value, prefix = "component") {
   for (const candidate of candidates) {
     if (candidate?.display === false) continue;
     const c = object(candidate) ? { ...candidate, kind: candidate.kind || (candidate.schema ? "form" : "info") } : null;
-    // Older confirm widgets used their label as the message.
-    if (c?.kind === "confirm" && !c.confirmText) c.confirmText = c.confirmLabel || "Confirm";
     if (!validComponent(c)) { issues.push(`Invalid ${c?.kind || "presentation"} component${c?.title ? `: ${c.title}` : ""}.`); continue; }
     const key = JSON.stringify(canonical(c));
     if (seen.has(key)) continue;
