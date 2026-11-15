@@ -1,9 +1,9 @@
 const root = document.querySelector('#agent-app');
 const status = document.querySelector('#site-status');
 
-async function mountShell() {
+async function mountScout() {
   try {
-    // Match boot's credential hygiene: inference settings never come from a URL.
+    // Remove URL credentials even if the runtime import fails.
     const params = new URLSearchParams(location.search);
     if (params.has('key')) {
       params.delete('key');
@@ -11,36 +11,19 @@ async function mountShell() {
       history.replaceState(null, '', location.pathname + (query ? `?${query}` : '') + location.hash);
     }
 
-    const [{ Engine, TraceBus, mountApp }, { getSelectedByokProfile, loadTabByokSetup }] = await Promise.all([
-      import('./runtime/index.js'),
-      import('./runtime/byok.js'),
-    ]);
-    const setup = loadTabByokSetup(getSelectedByokProfile());
-    const trace = new TraceBus();
-    const engine = new Engine({
+    const { boot } = await import('./runtime/index.js');
+    await boot(root, {
       originUrl: new URL('./', import.meta.url).href,
       sandboxWorkerUrl: new URL('./runtime/sandbox-worker.js', import.meta.url).href,
-      trace,
-      byokKey: setup.key,
-      routerOverride: setup.router,
-      modelOverride: setup.model,
     });
-
-    // Mount settings without fetching a network. Chat is disabled because
-    // there is no validated network to execute.
-    mountApp(root, { engine, trace });
-    const input = root.querySelector('#ns-input');
-    input.disabled = true;
-    input.placeholder = 'Chat will be available when the network is connected.';
-    root.querySelector('#ns-send').disabled = true;
     root.hidden = false;
-    status.textContent = 'Network not connected yet. You can configure AI model settings; chat and agent inspection are unavailable until the network is published.';
+    status.textContent = 'Spec Scout is ready. Configure AI model settings with your provider key to ask specification questions using the embedded, cited excerpts. Responses are informational, not conformance certification.';
   } catch {
     root.hidden = true;
     status.setAttribute('role', 'alert');
     status.dataset.state = 'error';
-    status.textContent = 'The settings and chat interface could not be loaded. Serve this site over HTTP or HTTPS, check that its runtime files are available, and reload.';
+    status.textContent = 'Spec Scout could not be loaded. Serve this site over HTTP or HTTPS, check that its runtime, agent-manifest.json, and network definition are available and valid, and reload.';
   }
 }
 
-await mountShell();
+await mountScout();
