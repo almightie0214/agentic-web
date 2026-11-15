@@ -253,3 +253,48 @@ test('smoke: Site A welcome and response widgets share confirmation validation',
   await responseCard.querySelector('[data-act="confirm"]').events.get('click')();
   assert.deepEqual(responseText, ['Submit this review.']);
 });
+
+test('smoke: Site A composed UI leaves retired activity slots untouched', async (t) => {
+  const { mountApp } = await import('../site-a/runtime/ui.js');
+  const originals = new Map(['document', 'location'].map(name =>
+    [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  t.after(() => {
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  });
+  const element = () => ({
+    value: '', innerHTML: '', hidden: false, dataset: {}, style: {}, fields: new Map(),
+    classList: { add() {}, toggle() {} },
+    appendChild() {}, insertAdjacentHTML() {}, addEventListener() {},
+    getAttribute() { return null; }, closest() { return null; },
+    querySelectorAll() { return []; },
+    querySelector(selector) {
+      if (selector === '#ns-split') return null;
+      if (!this.fields.has(selector)) this.fields.set(selector, element());
+      return this.fields.get(selector);
+    },
+  });
+  const styles = [];
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true, value: { createElement: element, head: { appendChild(style) { styles.push(style); } } },
+  });
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true, value: new URL('https://example.test/desk/'),
+  });
+  const root = element();
+  const chat = root.querySelector('[data-ns-slot="chat"]');
+  const agents = root.querySelector('[data-ns-slot="agents"]');
+  const settings = root.querySelector('[data-ns-slot="settings"]');
+  const activity = root.querySelector('[data-ns-slot="activity"]');
+  activity.innerHTML = 'Host-owned content';
+  mountApp(root, { engine: { mockLLM: true }, trace: new EventTarget(), manifest: {} });
+  assert.equal(root.dataset.nsLayout, 'composed');
+  assert.match(chat.innerHTML, /id="ns-msgs"/);
+  assert.match(agents.innerHTML, /id="ns-anodes"/);
+  assert.match(settings.innerHTML, /id="ns-key"/);
+  assert.equal(activity.innerHTML, 'Host-owned content');
+  assert.equal(activity.hidden, false);
+  assert.doesNotMatch(styles[0].textContent, /\[data-ns-slot="activity"\]/);
+});

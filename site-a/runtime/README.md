@@ -9,9 +9,12 @@ Agent Review Desk + Spec Scout copied this runtime from
 backward-compatibility code, local changes remove only the obsolete `langgraph`
 runner alias in `index.js`, the old `mock`/`base_url` manifest fallback for
 `mockUrl` in `ui.js`, and inference of missing `confirmText` from `confirmLabel`
-or a default in `cruse.js` and `ui.js`. Welcome widgets now use the same
-presentation validation as responses. Confirm widgets must provide explicit,
-nonblank `confirmText`; `confirmLabel` remains an optional button label. The current
+or a default in `cruse.js` and `ui.js`. The retired `activity` theme slot lookup,
+clearing/hiding branch, and dedicated CSS are also removed from `ui.js`; current
+chat, agents, and settings mounts and in-chat turn status are preserved. Welcome
+widgets now use the same presentation validation as responses. Confirm widgets
+must provide explicit, nonblank `confirmText`; `confirmLabel` remains an optional
+button label. The current
 `langchain` selection, default runner, static mode exclusion, and Provider URL
 precedence are preserved. All other runtime files, the license, and the upstream
 documentation below are preserved.

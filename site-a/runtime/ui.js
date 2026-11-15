@@ -1,7 +1,8 @@
 // ui.js — the themeable chat + execution-trace inspector.
 // Changed by agentic-web. See README.md in this folder for what changed.
 // Changed by Agent Review Desk + Spec Scout: removed legacy mock-router and
-// confirm-text inference; welcome widgets use the shared presentation validation.
+// confirm-text inference and retired activity-slot handling; welcome widgets use
+// the shared presentation validation.
 //
 // Renders three surfaces from the trace bus: a chat pane, a live network/origin
 // graph, and a chronological execution log. Businesses restyle via CSS variables
@@ -98,7 +99,6 @@ const BASE_CSS = PRESENTATION_CSS + `
 .ns-composed-app [data-ns-slot="chat"]>.ns-chat{width:100%;height:100%;min-height:480px}
 .ns-composed-app [data-ns-slot="agents"]>.ns-agents,
 .ns-composed-app [data-ns-slot="agents"]>.ns-dev{box-sizing:border-box;width:100%;height:100%;min-height:0}
-.ns-composed-app [data-ns-slot="activity"][hidden]{display:none!important}
 .ns-header{grid-column:1/-1;display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--ns-accent,var(--ns-primary,#2563eb));background:var(--ns-header-bg,transparent);color:var(--ns-header-fg,inherit);padding:var(--ns-header-pad,0 0 8px)}
 .ns-header .ns-logo{height:32px}
 .ns-title{font-weight:700;font-size:18px}
@@ -291,7 +291,6 @@ export function mountApp(root, { engine, trace, manifest }) {
   const setupMessage = `To start, add an AI provider key. In ⚙ ${AI_MODEL_SETTINGS_LABEL}, choose a provider, create a key on its site, and paste it into the API key field. Then select Save and start. Your key is saved in this browser.`;
   const chatSlot = root.querySelector('[data-ns-slot="chat"]');
   const agentsSlot = root.querySelector('[data-ns-slot="agents"]');
-  const activitySlot = root.querySelector('[data-ns-slot="activity"]');
   const composed = Boolean(chatSlot && agentsSlot);
   // Prompt v13 gives themes a dedicated settings mount. Older composed themes and
   // the fixed shell have no such slot, so their settings stay beneath the chat.
@@ -404,12 +403,6 @@ export function mountApp(root, { engine, trace, manifest }) {
       } else {
         settingsSlot.innerHTML = settingsHtml;
       }
-    }
-    if (activitySlot) {
-      // Theme prompt v10 briefly exposed a separate activity rail. Keep those
-      // themes valid, but retire the empty rail now that status lives in chat.
-      activitySlot.innerHTML = "";
-      activitySlot.hidden = true;
     }
     root.insertAdjacentHTML("beforeend", modalHtml);
     app = root;
