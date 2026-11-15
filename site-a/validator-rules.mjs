@@ -263,12 +263,18 @@ export function validateNetwork(input = {}) {
       check('network.identity.front_man', text(network.front_man) && network.front_man === entry.front_man, '/network/front_man',
         'Any duplicate network.front_man must agree with the manifest.', 'Match the manifest front_man or omit the duplicate field.');
     }
-    // Guard malformed tools before using the same config filters and selector as AgentNetwork.
-    const front = Array.isArray(network.tools) && agents.every(object) ? find_front_man(filterConfig(network)) : null;
-    check('network.front_man.selected', text(entry.front_man) && front === entry.front_man,
-      `/manifest/networks/${selected}/front_man`,
-      'The manifest front_man must match the entry agent selected by the reference runtime.',
-      'Make front_man name the first agent with instructions and without class/toolbox, or the first tool if none qualifies.');
+    // Runtime config processing can fail even when the raw tools have valid shape.
+    try {
+      const front = Array.isArray(network.tools) && agents.every(object) ? find_front_man(filterConfig(network)) : null;
+      check('network.front_man.selected', text(entry.front_man) && front === entry.front_man,
+        `/manifest/networks/${selected}/front_man`,
+        'The manifest front_man must match the entry agent selected by the reference runtime.',
+        'Make front_man name the first agent with instructions and without class/toolbox, or the first tool if none qualifies.');
+    } catch {
+      check('network.config', false, '/network',
+        'The reference runtime could not process the network configuration for entry-agent selection.',
+        'Correct the network configuration and its replacement values so the reference runtime can select an entry agent.');
+    }
   }
   return { valid: checks.every(item => item.status === 'pass'), checks };
 }

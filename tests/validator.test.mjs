@@ -263,6 +263,27 @@ test('rules: malformed artifact containers return structured failures instead of
     input.network.tools[1].function = value;
     failsAt(input, 'agent.description', '/network/tools/1/function/description');
   }
+  for (const replacement of [{ toString: null }, [{ toString: null }]]) {
+    const input = structuredClone(fixtures.valid);
+    input.network.commondefs = { replacement_strings: { x: replacement } };
+    input.network.tools[0].instructions = 'Explain {x}';
+    assert.deepEqual(JSON.parse(JSON.stringify(input)), input, 'the malformed config must remain parsed JSON input');
+    assert.throws(() => new AgentNetwork(input.network, input.network.name), TypeError,
+      'the fixture must reach a real reference-runtime configuration failure');
+    const before = structuredClone(input);
+    const report = failsAt(input, 'network.config', '/network');
+    assert.deepEqual(input, before);
+    const failure = failures(report).find(check => check.ruleId === 'network.config');
+    assert.ok(failure.message && failure.hint);
+    assert.ok(report.checks.some(check => check.ruleId === 'agent.parameters' && check.status === 'pass'),
+      'checks completed before configuration processing must be preserved');
+    assert.equal(report.checks.some(check => check.ruleId === 'network.front_man.selected'), false,
+      'a configuration failure cannot establish a front-agent match or mismatch');
+  }
+  const input = structuredClone(fixtures.valid);
+  input.network.commondefs = { replacement_strings: { x: 'the public artifacts' } };
+  input.network.tools[0].instructions = 'Explain {x}';
+  assert.equal(reviewNetwork(input).valid, true, 'processable configuration must still reach entry-agent selection');
 });
 
 test('rules: network selection never falls back from a missing requested name', () => {
