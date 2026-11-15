@@ -15,8 +15,7 @@ body {
   margin: 0;
 }
 
-/* Shared page surfaces for the Review Desk and future Converter. Runtime
-   components retain their own controls, layout, and storage behavior. */
+/* Site surfaces share tokens; runtime components retain their own controls. */
 .site-shell {
   box-sizing: border-box;
   width: 100%;
@@ -81,7 +80,64 @@ body {
   overflow-wrap: anywhere;
 }
 
+.desk-panel {
+  margin-block: 1.5rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid var(--ns-border);
+  border-radius: 0.75rem;
+  background: var(--ns-panelbg);
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.desk-panel h2 { margin-top: 0; }
+.desk-panel label { display: block; margin-block: 1rem; font-weight: 600; }
+.desk-panel input, .desk-panel textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--ns-muted);
+  border-radius: 0.5rem;
+  background: var(--ns-panelbg);
+  color: var(--ns-fg);
+  font: inherit;
+}
+.desk-panel textarea { font-family: ui-monospace, monospace; resize: vertical; }
+.desk-panel button {
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--ns-primary);
+  border-radius: 0.5rem;
+  background: var(--ns-primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.desk-panel button:hover:not(:disabled) { background: #193d88; }
+.desk-panel button:disabled { background: #e6ebf2; border-color: var(--ns-border); color: #526075; cursor: not-allowed; }
+.desk-panel :focus-visible { outline: 3px solid #9b4215; outline-offset: 3px; }
+.desk-panel summary { cursor: pointer; padding-block: 0.75rem; font-weight: 600; }
+.desk-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-block: 1rem; }
+.desk-editors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.desk-editors label { min-width: 0; }
+.desk-url-form { display: flex; align-items: end; flex-wrap: wrap; gap: 1rem; }
+.desk-url-form label { flex: 1 1 20rem; margin: 0; }
+.desk-check { padding: 1rem; margin-block: 1rem; border: 1px solid var(--ns-border); border-left: 0.25rem solid var(--ns-primary); border-radius: 0.5rem; }
+.desk-check h3 { margin-top: 0; font-size: 1rem; }
+.desk-check code { overflow-wrap: anywhere; white-space: pre-wrap; }
+.desk-check[data-state="fail"], .desk-check[data-state="error"] { border-left-color: #b42318; }
+.desk-check[data-state="warning"] { border-left-color: #895000; }
+.desk-check[data-state="unverified"] { border-left-color: var(--ns-muted); }
+.desk-badge, .desk-trust { padding: 1rem; background: #eef2f8; border-radius: 0.5rem; }
+.desk-graph { padding-left: 1.5rem; }
+.desk-graph li { padding: 0.75rem; margin-block: 0.5rem; border: 1px solid var(--ns-border); border-radius: 0.5rem; }
+
 @media (max-width: 56rem) {
+  .desk-editors { grid-template-columns: minmax(0, 1fr); }
   .desk-workspace {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "settings" "chat";

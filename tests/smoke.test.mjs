@@ -219,7 +219,7 @@ test('smoke: Site A boot shows the desk only after success and reports failures'
   const hooks = registerHooks({
     resolve(specifier, context, nextResolve) {
       if (context.parentURL?.startsWith(new URL('site-a/site.js?', root).href) && specifier === './runtime/index.js') {
-        return { url: 'data:text/javascript,export async function boot(root, opts) { await globalThis.__siteABoot(root, opts); }', shortCircuit: true };
+        return { url: 'data:text/javascript,export async function boot(root, opts) { return await globalThis.__siteABoot(root, opts); }', shortCircuit: true };
       }
       return nextResolve(specifier, context);
     },
@@ -231,9 +231,21 @@ test('smoke: Site A boot shows the desk only after success and reports failures'
     assert.match(html, new RegExp(`<div data-ns-slot="${slot}"></div>`));
   }
   for (const failure of [false, true]) {
-    const app = { hidden: true };
-    const status = { dataset: {}, setAttribute(name, value) { this[name] = value; } };
-    globalThis.document = { querySelector: selector => selector === '#agent-app' ? app : status };
+    const element = () => ({
+      hidden: false, value: '', dataset: {}, children: [],
+      setAttribute(name, value) { this[name] = value; },
+      append(...nodes) { this.children.push(...nodes); },
+      replaceChildren(...nodes) { this.children = nodes; },
+      addEventListener() {},
+    });
+    const elements = new Map([...html.matchAll(/id="([^"]+)"/g)].map(match => [`#${match[1]}`, element()]));
+    const app = elements.get('#agent-app');
+    app.hidden = true;
+    const status = elements.get('#site-status');
+    globalThis.document = {
+      querySelector: selector => elements.get(selector) ?? null,
+      querySelectorAll: () => [], createElement: element,
+    };
     const calls = [];
     const entered = Promise.withResolvers();
     const loaded = Promise.withResolvers();
@@ -242,6 +254,14 @@ test('smoke: Site A boot shows the desk only after success and reports failures'
       entered.resolve();
       await loaded.promise;
       if (failure) throw new Error('Network load failed');
+      const trace = new EventTarget();
+      trace.events = [];
+      const { AgentNetwork } = await import('../site-a/runtime/kernel.js');
+      return { engine: { top: {
+        base: new URL('site-a/', root).href.replace(/\/$/, ''),
+        manifest: await readJSON('site-a/agent-manifest.json'),
+        network: new AgentNetwork(await readJSON('site-a/review_desk.network.json'), 'review_desk'),
+      } }, trace, actions: { register() {} } };
     };
     const importing = import(new URL(`site-a/site.js?boot-${failure}`, root));
     await entered.promise;

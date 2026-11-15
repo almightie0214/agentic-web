@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Agent Review Desk — a browser-based workspace for agent network reviews.">
+  <meta name="description" content="Agent Review Desk — deterministic checks for public agent networks.">
   <title>Agent Review Desk</title>
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./site.js"></script>
@@ -13,12 +13,70 @@
     <header class="site-heading">
       <p class="site-eyebrow">Agent Review Desk · Site A</p>
       <h1>Agent Review Desk</h1>
-      <p>A browser-based workspace for reviewing portable agent networks.</p>
+      <p>Rules decide. Agents explain. Review public, resolved agent-network JSON without a provider key.</p>
     </header>
 
-    <p id="site-status" class="site-status" role="status">Loading the settings and chat interface…</p>
-    <noscript><p class="site-status">JavaScript is required to load the settings and chat interface.</p></noscript>
+    <section id="review-tools" class="desk-panel" aria-labelledby="review-heading">
+      <h2 id="review-heading">Check a network</h2>
+      <p>Paste public artifacts or try a sample. Nothing pasted here runs as code. Do not include secrets, credentials, or private context.</p>
+      <div class="desk-actions" aria-label="Built-in samples">
+        <button type="button" data-sample="valid">Valid sample</button>
+        <button type="button" data-sample="bad-frontman">Missing front_man</button>
+        <button type="button" data-sample="bad-schema">Invalid schema</button>
+        <button type="button" data-sample="bad-cycle">Peer cycle</button>
+      </div>
+      <form id="validate-form">
+        <div class="desk-editors">
+          <label>Manifest JSON<textarea id="manifest-json" rows="12" spellcheck="false" required></textarea></label>
+          <label>Resolved network JSON<textarea id="network-json" rows="12" spellcheck="false" required></textarea></label>
+        </div>
+        <details>
+          <summary>Optional links and review context</summary>
+          <label>links.json<textarea id="links-json" rows="5" spellcheck="false"></textarea></label>
+          <label>Publication base URL (keep the full site path)<input id="review-base" type="url" placeholder="https://host/site-base/"></label>
+          <label>Exact network name (blank selects the first)<input id="network-name" type="text"></label>
+          <label>Active ancestor peer URLs (JSON array; omit unknown context)<textarea id="peer-chain" rows="2" spellcheck="false" placeholder='["https://host/site-base/network-name"]'></textarea></label>
+        </details>
+        <button type="submit">Validate pasted JSON</button>
+      </form>
+      <h3>Live URL audit</h3>
+      <p>Fetches public manifest, network, and links JSON with credentials omitted; no inference or peer invocation. Review the destination before selecting Audit URL. Referenced artifacts and redirects may use other origins.</p>
+      <div class="desk-actions" aria-label="URL presets">
+        <button id="audit-this" type="button">Audit This Site</button>
+        <button id="audit-peer" type="button" disabled>Audit Linked Peer</button>
+        <button id="audit-noncors" type="button">Non-CORS example</button>
+      </div>
+      <p id="peer-status">Linked peer not configured; this preset is unavailable.</p>
+      <p>Presets only fill the URL. The Non-CORS example uses example.com as an illustrative external destination, not a verified CORS test service. A fetch error alone cannot establish a CORS cause.</p>
+      <form id="audit-form" class="desk-url-form">
+        <label>Site base or manifest URL<input id="audit-url" type="url" required placeholder="https://host/site-base/agent-manifest.json"></label>
+        <button type="submit">Audit URL</button>
+      </form>
+      <p id="review-status" class="site-status" role="status" aria-live="polite">No checks run. Choose a sample, paste JSON, or audit a URL.</p>
+    </section>
 
+    <section class="desk-panel" aria-labelledby="report-heading">
+      <h2 id="report-heading">Rule report</h2>
+      <p>Static checks are not certification. Pass, fail, warning, and unverified remain distinct. Paths are JSON Pointers into the supplied artifacts.</p>
+      <div id="rule-report"></div>
+      <h3>Reviewed configuration graph — expected, not executed</h3>
+      <div id="review-graph">No artifacts reviewed.</div>
+    </section>
+
+    <section class="desk-panel" aria-labelledby="execution-heading">
+      <h2 id="execution-heading">Review Desk execution graph</h2>
+      <p>This graph belongs to this page's chat runtime, not the network under review. Configuration comes from its manifest and effective links (published bindings plus runtime overrides). Observations below come only from runtime events in the latest chat run.</p>
+      <div id="runtime-config">Runtime configuration not loaded.</div>
+      <div id="trust-state" class="desk-trust" aria-live="polite">Not run — no chat execution observed. Consent, CORS, credential isolation, private-context isolation, and limit enforcement are unverified.</div>
+      <ol id="runtime-events" class="desk-graph" aria-label="Observed runtime spans and decisions"></ol>
+      <p>Events and request summaries are not wire-level security evidence. No security guarantee is inferred from a declared policy, successful call, or filtered request summary.</p>
+    </section>
+
+    <h2 id="chat-heading">Ask for an explanation</h2>
+    <p>Failure rows can prepare a chat draft. Inspect it and select Send yourself; inference uses your configured provider. Spec Scout explanations require a configured peer and the runtime's normal consent flow. Drafting never contacts a peer.</p>
+    <p id="draft-status" role="status" aria-live="polite"></p>
+    <p id="site-status" class="site-status" role="status">Loading the settings and chat interface…</p>
+    <noscript><p class="site-status">JavaScript is required for checks, URL audits, and chat.</p></noscript>
     <section id="agent-app" class="desk-app" aria-label="AI settings and chat" aria-describedby="site-status" hidden>
       <div data-ns-slot="header"></div>
       <div class="desk-workspace">

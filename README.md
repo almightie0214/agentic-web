@@ -31,6 +31,49 @@ Serve the repository with a local static HTTP server and open `site-a/` (or
 `site-a/index.html`). The page, manifest, network, and runtime references work
 under a deployment subpath as well as on a local server.
 
+## Review Desk checks and explanations
+
+Open `site-a/` over HTTP or HTTPS. Static checks, the four built-in samples, and
+URL audits need no provider key and remain usable while chat loads or if chat
+boot fails. Chat uses the vendored runtime and the provider settings described above.
+
+- Paste manifest and resolved network JSON in the two editors, optionally adding
+  links JSON, a publication base URL (including its path), an exact network name,
+  and known active ancestor peer URLs. Select **Validate pasted JSON**. Only known
+  context should be supplied; an omitted parameters schema uses the runtime default.
+- The four sample buttons load and immediately check valid artifacts, a missing
+  front agent, an explicitly invalid parameters schema, or a self-peer composition
+  cycle. They do not execute the sample networks or contact their synthetic peers.
+- For a live audit, enter a site base or manifest URL, inspect the destination,
+  and select **Audit URL**. The audit retrieves public manifest, network, and
+  `links.json` using credential-free GETs and reuses the same rules. Referenced
+  artifacts and redirects may use other origins. Acquisition errors are separate
+  from rule failures; a generic fetch error does not establish a CORS cause.
+  The readiness summary covers static artifacts only, never runtime safety.
+- **Audit This Site**, **Audit Linked Peer**, and **Non-CORS example** only fill
+  the URL; you still select **Audit URL** to initiate retrieval. The linked-peer
+  preset is disabled without a configured non-placeholder peer. The external
+  example uses example.com as an illustration, not a guaranteed CORS failure
+  service. Site A currently has no linked peer or `links.json`, so its own URL
+  audit reports incomplete acquisition rather than fabricating a successful report.
+- Reports preserve rule IDs, pass/fail/warning/unverified statuses, JSON Pointer
+  locations, and minimal fixes or next steps as visible text. Editing the inputs
+  invalidates the old report; stale fetch results cannot replace it. The reviewed
+  configuration graph is labelled as expected configuration, not execution.
+- A failure or acquisition/input error can prepare an explanation draft in the
+  built-in chat. Review the included public artifacts and send it yourself;
+  existing drafts require replacement confirmation. Spec Scout drafting stays
+  disabled until a real Spec Scout peer is configured in the chat runtime.
+  Drafting does not contact a peer, grant consent, or bypass runtime policy.
+- The separate Review Desk execution graph reads the runtime's manifest, effective
+  link bindings, and actual trace events. Its latest-run spans show parent edges,
+  agents/tools, model router/model labels, peer activity, and recorded decisions.
+  Before a chat run it says **Not run**. Declared expectations and observed events
+  are not security certification: CORS policy, consent without a recorded event,
+  credential/private-context isolation, cycle interruption, and limit enforcement
+  remain unverified. Request summaries cannot prove these properties. The page
+  adds no probe, sentinel, report-download builder, or runtime adapter.
+
 ## Repository layout
 
 - `README.md`, `package.json`, `LICENSE`: project scaffold.
@@ -41,7 +84,7 @@ under a deployment subpath as well as on a local server.
   `agent-manifest.json`, and resolved `review_desk.network.json`.
 - `site-b/`: independent static site bundle with `index.html` and `site.js` shell;
   network publication is pending.
-- `tests/`: Node.js smoke test scaffold.
+- `tests/`: Node.js smoke, validator, URL audit, and Review Desk UI tests.
 - `tools/`: reserved for development tools when needed.
 
 Directories are created only when they contain files; no empty placeholders are
@@ -90,6 +133,13 @@ validator action and scripted coordinator-to-reviewer-to-action dispatch. It che
 the assembled model instructions, returned rule reports (including warnings and
 unverified checks), malformed JSON action errors, and missing-artifact handling.
 The scripted model verifies wiring, not a live model's adherence to instructions.
+`tests/desk-ui.test.mjs` drives the real page module through a minimal DOM and
+substituted boot boundary with the real trace bus, validator, and URL audit module.
+It covers key-free sample/paste/audit paths, JSON error locations and hints,
+acquisition errors, stale input/fetch invalidation, pending/failed chat independence,
+placeholder peer presets, explanation drafts, effective links, and latest-run event
+attribution. These substitute-event checks do not verify actual browser layout,
+live peer consent, deployed CORS, a live provider, or credential isolation.
 Both sites also check that BYOK uses only current tab settings and saved
 profiles, with no obsolete standalone-key slot access, including cleanup after a
 failed tab-setting write. Site B shell checks exercise the official UI mount,
