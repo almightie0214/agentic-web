@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { AgentNetwork, validateNetwork } from '../site-b/runtime/kernel.js';
+import { manifestAllowsPeer } from '../site-a/runtime/engine.js';
 
 const siteA = new URL('../site-a/', import.meta.url);
 const siteB = new URL('../site-b/', import.meta.url);
@@ -18,11 +19,30 @@ test('peer: Site A maps review_desk to the reserved Spec Scout network URL', asy
   const manifestA = await readJSON(new URL('agent-manifest.json', siteA));
   const manifestB = await readJSON(new URL('agent-manifest.json', siteB));
   assert.deepEqual(Object.keys(links.networks), manifestA.networks.map(entry => entry.name));
+  // Deployment URL changes must update links.json and allowed_peers together.
+  const peerOrigins = [...new Set(Object.values(links.networks)
+    .flatMap(bindings => Object.values(bindings)).map(target => new URL(target).origin))];
+  assert.deepEqual(manifestA.allowed_peers, peerOrigins);
+  assert.deepEqual(manifestA.peer_policy, { mode: 'closed' });
   const peer = new URL(links.networks.review_desk.spec_scout);
   assert.equal(peer.pathname.split('/').pop(), manifestB.networks[0].name);
   // B deploys at root; peer site bases in general may also contain a path prefix.
   assert.equal(new URL('./agent-manifest.json', peer).href,
     'https://spec-scout.invalid/agent-manifest.json');
+});
+
+test('peer: Site A closed policy permits only the declared Spec Scout origin', async () => {
+  const manifest = await readJSON(new URL('agent-manifest.json', siteA));
+  for (const [target, allowed] of [
+    ['https://spec-scout.invalid/spec_scout', true],
+    ['https://spec-scout.invalid/agents/spec_scout', true],
+    ['https://other.invalid/spec_scout', false],
+    ['https://spec-scout.invalid.attacker.invalid/spec_scout', false],
+    ['http://spec-scout.invalid/spec_scout', false],
+    ['https://spec-scout.invalid:8443/spec_scout', false],
+  ]) {
+    assert.equal(manifestAllowsPeer(target, manifest), allowed, target);
+  }
 });
 
 // The published name is the exact final URL segment used by the spec_scout link.
