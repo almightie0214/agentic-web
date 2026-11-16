@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { validateNetwork } from '../../site-a/validator-rules.mjs';
 import { checkConformance } from '../../tools/check-conformance.mjs';
+import { parseRoles } from '../../site-a/converter/parse-roles.mjs';
 
 const cli = fileURLToPath(new URL('../../tools/theora2hocon/theora2hocon.mjs', import.meta.url));
 const fixtures = new URL('./fixtures/', import.meta.url);
@@ -114,6 +115,10 @@ for (const layout of ['theora', 'markdown']) {
       success(invoke([ws.input, ws.output, ...(explicit ? ['--layout', layout] : [])]));
       await snapshots(ws.output, layout);
       await frontAndWiring(ws.output, 'coordinator', 'specialist');
+      const { network, manifest } = await bundleInput(ws.output);
+      const description = `Converted ${layout === 'theora' ? 'Theora' : 'Markdown'} role conversation network.`;
+      assert.equal(network.metadata.description, description);
+      assert.equal(manifest.networks[0].description, description);
     });
   }
 
@@ -123,13 +128,25 @@ for (const layout of ['theora', 'markdown']) {
     success(invoke([ws.input, ws.output, '--front', 'specialist', '--layout', layout]));
     await frontAndWiring(ws.output, 'specialist', 'coordinator');
     const fixture = layout === 'theora' ? 'mini-theora' : 'sample-agents';
+    const records = layout === 'theora'
+      ? JSON.parse(await readFile(new URL('mini-theora/layout.json', fixtures), 'utf8'))
+      : await Promise.all(['coordinator', 'specialist'].map(async name => ({ path: `${name}.md`,
+        content: await readFile(new URL(`sample-agents/${name}.md`, fixtures), 'utf8'),
+      })));
+    const source = new Map(parseRoles(records).roles.map(role => [role.name, role.instructions]));
     for (const name of artifacts) {
       const expected = JSON.parse(await readFile(new URL(`${fixture}/expected/${name}`, fixtures), 'utf8'));
       if (name === 'agent-manifest.json') expected.networks[0].front_man = 'specialist';
       if (name === 'converted_team.network.json') {
+        // Frozen fixture suffixes are role-position rules, not source-role rules.
+        const rules = expected.tools.map(role => {
+          assert.ok(role.instructions.startsWith(source.get(role.name) + '\n\n'));
+          return role.instructions.slice(source.get(role.name).length);
+        });
         expected.tools.reverse();
         expected.tools[0].tools = ['coordinator'];
         expected.tools[1].tools = [];
+        expected.tools.forEach((role, index) => { role.instructions = source.get(role.name) + rules[index]; });
       }
       assert.equal(await readFile(join(ws.output, name), 'utf8'), bytes(expected));
     }

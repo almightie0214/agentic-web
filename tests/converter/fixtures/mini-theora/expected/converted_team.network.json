@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "description": "Converted Markdown role conversation network."
+    "description": "Converted Theora role conversation network."
   },
   "llm_config": {
     "model_name": "alibaba/qwen3.8-flash"
@@ -26,7 +26,7 @@
           "additionalProperties": false
         }
       },
-      "instructions": "# Team coordinator\n\nHelp the visitor review a short piece of text. Ask specialist to examine the supplied text, then summarize its findings and distinguish evidence from suggestions. If no text is provided, ask for it before requesting a review.",
+      "instructions": "# Team coordinator\n\nHelp the visitor review a short piece of text. Ask specialist to examine the supplied text, then summarize its findings and distinguish evidence from suggestions. If no text is provided, ask for it before requesting a review.\n\n## Converter-owned output rule\nReturn only the final answer intended for the visitor. Do not include drafts, plans, process notes, or messages addressed to other roles.",
       "tools": [
         "specialist"
       ]
@@ -49,7 +49,7 @@
           "additionalProperties": false
         }
       },
-      "instructions": "# Text review specialist\n\nReview the supplied text for ambiguous wording and unsupported claims. Return a short list of findings with quoted evidence and suggested revisions. Do not claim to have inspected files or run external tools.",
+      "instructions": "# Text review specialist\n\nReview the supplied text for ambiguous wording and unsupported claims. Return a short list of findings with quoted evidence and suggested revisions. Do not claim to have inspected files or run external tools.\n\n## Converter-owned output rule\nReturn only the answer to the inquiry sent by the front agent. Do not include drafts, plans, process notes, or messages addressed to other roles.",
       "tools": []
     }
   ]

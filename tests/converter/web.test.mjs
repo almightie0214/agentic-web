@@ -100,8 +100,9 @@ async function mount(t, page = 'converter', { store = storage(), invalidReport =
 }
 
 function bundle(files, options) {
-  const { network, frontMan } = emitNetwork(parseRoles(files), options);
-  return { manifest: emitManifest(frontMan).manifest, network, links: emitManifest(frontMan).links };
+  const parsed = parseRoles(files);
+  const { network, frontMan } = emitNetwork(parsed, options);
+  return { ...emitManifest(frontMan, parsed.layout), network };
 }
 const markdown = (path, content) => ({ name: path, arrayBuffer: async () => new TextEncoder().encode(content).buffer });
 const fixture = async () => JSON.parse(await readFile(new URL('tests/converter/fixtures/mini-theora/layout.json', root), 'utf8'));
@@ -111,7 +112,7 @@ function output($) {
 }
 
 // CVT-WEB-001: real shared conversion and AW2 validation, without a runtime import.
-test('converter web: both public samples use shared emitters, AW2 reports and downloadable deterministic bytes', async t => {
+test('converter web: both public samples use shared emitters, format metadata, AW2 reports and CLI-identical downloadable bytes', async t => {
   const { $, samples, requests, bootCalls, html } = await mount(t);
   assert.match(html, /href="\.\/styles.css"/);
   assert.match(html, /href="\.\/index.html"/);
@@ -120,6 +121,31 @@ test('converter web: both public samples use shared emitters, AW2 reports and do
   for (const sample of samples) {
     await sample.fire('click');
     const input = output($);
+    const layout = sample.dataset.converterSample === 'theora' ? 'theora' : 'markdown';
+    const description = `Converted ${layout === 'theora' ? 'Theora' : 'Markdown'} role conversation network.`;
+    assert.equal(input.network.metadata.description, description);
+    assert.equal(input.manifest.networks[0].description, description);
+    const records = layout === 'theora'
+      ? JSON.parse(await readFile(new URL('site-a/converter/samples/theora/layout.json', root), 'utf8'))
+      : await Promise.all(['coordinator', 'specialist'].map(async name => ({ path: `.claude/agents/${name}.md`,
+        content: await readFile(new URL(`site-a/converter/samples/claude-agents/${name}.md`, root), 'utf8'),
+      })));
+    const scratch = fileURLToPath(new URL('.theora/tmp/converter-web/', root));
+    await mkdir(scratch, { recursive: true });
+    const work = await mkdtemp(join(scratch, `${layout}-`));
+    t.after(() => rm(work, { recursive: true, force: true }));
+    const cliInput = join(work, 'input');
+    const cliOutput = join(work, 'output');
+    for (const { path, content } of records) {
+      const target = join(cliInput, path);
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, content, 'utf8');
+    }
+    const cli = spawnSync(process.execPath, [fileURLToPath(new URL('tools/theora2hocon/theora2hocon.mjs', root)), cliInput, cliOutput],
+      { encoding: 'utf8', timeout: 15_000 });
+    assert.equal(cli.error, undefined);
+    assert.equal(cli.signal, null);
+    assert.equal(cli.status, 0, cli.stderr);
     assert.equal(validateNetwork(input).valid, true);
     assert.deepEqual(input.network.tools.map(role => [role.name, role.tools]), [['coordinator', ['specialist']], ['specialist', []]]);
     assert.ok(!JSON.stringify(input.network).includes('Read, Bash'), 'ignored source tools never become capabilities');
@@ -133,6 +159,7 @@ test('converter web: both public samples use shared emitters, AW2 reports and do
       const text = await (await originalFetch(links[index].href)).text();
       assert.equal(text, JSON.stringify(input[key], null, 2) + '\n');
       assert.equal(text, $(`#converted-${key}`).value);
+      assert.deepEqual(Buffer.from(text, 'utf8'), await readFile(join(cliOutput, links[index].download)));
     }
   }
   assert.ok(requests.every(item => item.url.includes('/site-a/converter/samples/') && item.options.credentials === 'omit'));
@@ -217,7 +244,9 @@ test('converter web: CLI and web acquisition agree on single and repeated UTF-8 
         assert.deepEqual(converted, bundle(records));
         const role = converted.network.tools.find(role => role.name !== 'coordinator');
         assert.equal(role.name, count === 1 ? 'specialist' : filename.slice(0, -3));
-        assert.equal(role.instructions, count === 1 ? '# Public\nReview supplied text.' : body);
+        const expectedBody = count === 1 ? '# Public\nReview supplied text.' : body;
+        assert.equal(role.instructions.split('\n\n## Converter-owned output rule\n')[0], expectedBody,
+          'BOM-normalized body is unchanged before the converter-owned output rule');
         assert.equal(role.function.description, 'Public');
         for (const [key, name] of [['network', 'converted_team.network.json'], ['manifest', 'agent-manifest.json'], ['links', 'links.json']]) {
           const expected = await readFile(join(out, name));

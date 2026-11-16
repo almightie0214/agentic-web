@@ -41,7 +41,7 @@ function convert() {
     const front = $('#convert-front').value;
     const parsed = parseRoles(files, layout ? { layout } : {});
     const { network, frontMan } = emitNetwork(parsed, front === '' ? {} : { front });
-    const { manifest, links } = emitManifest(frontMan);
+    const { manifest, links } = emitManifest(frontMan, parsed.layout);
     const input = { manifest, network, links };
     const report = validateNetwork(input);
     for (const check of report.checks) {

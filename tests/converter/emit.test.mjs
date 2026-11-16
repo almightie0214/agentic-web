@@ -7,7 +7,10 @@ import { emitManifest } from '../../site-a/converter/emit-manifest.mjs';
 
 const fixtures = new URL('./fixtures/', import.meta.url);
 const role = (name) => ({ name, description: `Review as ${name}.`, instructions: `# ${name}\n\nReview supplied text.` });
-const parsed = (configFront) => ({ roles: ['zulu', 'alpha', 'Beta'].map(role), configFront });
+const parsed = (configFront) => ({ roles: ['zulu', 'alpha', 'Beta'].map(role), configFront, layout: 'markdown' });
+// CVT-NET-005: expected suffixes are independent of the emitter implementation.
+const frontRule = '\n\n## Converter-owned output rule\nReturn only the final answer intended for the visitor. Do not include drafts, plans, process notes, or messages addressed to other roles.';
+const specialistRule = '\n\n## Converter-owned output rule\nReturn only the answer to the inquiry sent by the front agent. Do not include drafts, plans, process notes, or messages addressed to other roles.';
 const bytes = (value) => JSON.stringify(value, null, 2) + '\n';
 const inquirySchema = {
   type: 'object',
@@ -24,7 +27,8 @@ for (const layout of ['mini-theora', 'sample-agents']) {
         .filter((name) => name.endsWith('.md'))
         .map(async (name) => ({ path: name, content: await readFile(new URL(`sample-agents/${name}`, fixtures), 'utf8') })));
     const snapshot = await readFile(new URL(`${layout}/expected/converted_team.network.json`, fixtures), 'utf8');
-    const result = emitNetwork(parseRoles(files));
+    const input = parseRoles(files);
+    const result = emitNetwork(input);
     assert.equal(result.frontMan, 'coordinator');
     assert.equal(bytes(result.network), snapshot);
     assert.deepEqual(result.network.tools.map(({ name, tools }) => ({ name, tools })), [
@@ -33,29 +37,29 @@ for (const layout of ['mini-theora', 'sample-agents']) {
     assert.equal(bytes(emitNetwork(parseRoles([...files].reverse())).network), snapshot);
 
     // CVT-MAN/LINK/OUT-001: all three publication artifacts share the same identity.
-    const publication = emitManifest(result.frontMan);
+    const publication = emitManifest(result.frontMan, input.layout);
     for (const [key, filename] of [['manifest', 'agent-manifest.json'], ['links', 'links.json']]) {
       const expected = await readFile(new URL(`${layout}/expected/${filename}`, fixtures), 'utf8');
       assert.equal(bytes(publication[key]), expected);
     }
     const reversed = emitNetwork(parseRoles([...files].reverse()));
-    assert.equal(bytes(emitManifest(reversed.frontMan)), bytes(publication));
+    assert.equal(bytes(emitManifest(reversed.frontMan, input.layout)), bytes(publication));
     assert.equal(publication.manifest.networks[0].front_man, result.network.tools[0].name);
     assert.deepEqual(Object.keys(publication.links.networks), [publication.manifest.networks[0].name]);
   });
 }
 
-for (const [label, configFront, options, expectedFront, expectedOrder] of [
+for (const layout of ['theora', 'markdown']) for (const [label, configFront, options, expectedFront, expectedOrder] of [
   ['sorted default', undefined, {}, 'Beta', ['Beta', 'alpha', 'zulu']],
   ['config over default', 'zulu', {}, 'zulu', ['zulu', 'Beta', 'alpha']],
   ['explicit over config', 'zulu', { front: 'alpha' }, 'alpha', ['alpha', 'Beta', 'zulu']],
   ['explicit without config', undefined, { front: 'zulu' }, 'zulu', ['zulu', 'Beta', 'alpha']],
 ]) {
-  test(`CVT-FRONT-001/NET-002/004: ${label}, front first with sorted star edges`, () => {
-    const input = parsed(configFront);
+  test(`CVT-FRONT-001/NET-002/004/005: ${layout} ${label}, front first with sorted star edges and output rules`, () => {
+    const input = { ...parsed(configFront), layout };
     const { network, frontMan } = emitNetwork(input, options);
     assert.equal(frontMan, expectedFront);
-    assert.equal(emitManifest(frontMan).manifest.networks[0].front_man, expectedFront);
+    assert.equal(emitManifest(frontMan, input.layout).manifest.networks[0].front_man, expectedFront);
     assert.deepEqual(network.tools.map(({ name }) => name), expectedOrder);
     assert.deepEqual(network.tools[0].tools, expectedOrder.slice(1));
     for (const agent of network.tools.slice(1)) assert.deepEqual(agent.tools, []);
@@ -64,7 +68,7 @@ for (const [label, configFront, options, expectedFront, expectedOrder] of [
       assert.deepEqual(Object.keys(agent), ['name', 'function', 'instructions', 'tools']);
       assert.deepEqual(Object.keys(agent.function), ['description', 'parameters']);
       assert.equal(agent.function.description, source.description);
-      assert.equal(agent.instructions, source.instructions);
+      assert.equal(agent.instructions, source.instructions + (agent.name === expectedFront ? frontRule : specialistRule));
       assert.deepEqual(agent.function.parameters, inquirySchema);
       assert.ok(!agent.tools.includes(agent.name));
     }
@@ -74,8 +78,9 @@ for (const [label, configFront, options, expectedFront, expectedOrder] of [
 
 test('CVT-NET-001/003/004: one role has the exact resolved envelope and no outgoing calls', () => {
   const source = role('solo');
-  assert.equal(emitManifest(emitNetwork({ roles: [source] }).frontMan).manifest.networks[0].front_man, 'solo');
-  assert.deepEqual(emitNetwork({ roles: [source] }), {
+  const input = { roles: [source], layout: 'markdown' };
+  assert.equal(emitManifest(emitNetwork(input).frontMan, input.layout).manifest.networks[0].front_man, 'solo');
+  assert.deepEqual(emitNetwork(input), {
     frontMan: 'solo',
     network: {
       metadata: { description: 'Converted Markdown role conversation network.' },
@@ -83,7 +88,7 @@ test('CVT-NET-001/003/004: one role has the exact resolved envelope and no outgo
       max_steps: 12,
       max_execution_seconds: 90,
       tools: [{ name: 'solo', function: { description: source.description, parameters: inquirySchema },
-        instructions: source.instructions, tools: [] }],
+        instructions: source.instructions + frontRule, tools: [] }],
     },
   });
 });
@@ -102,12 +107,38 @@ test('CVT-NET-001/002/004: copy only public role fields, not executable or peer 
   assert.deepEqual(network.tools[0], {
     name: 'alpha',
     function: { description: 'Alpha', parameters: inquirySchema },
-    instructions: '# Alpha\nKeep ${literal} and https://example.test as text.\n[REDACTED_SECRET]\n[REDACTED_LOCAL_PATH]',
+    instructions: '# Alpha\nKeep ${literal} and https://example.test as text.\n[REDACTED_SECRET]\n[REDACTED_LOCAL_PATH]' + frontRule,
     tools: ['zulu'],
   });
   assert.deepEqual(Object.keys(network.tools[1]), ['name', 'function', 'instructions', 'tools']);
   assert.deepEqual(network.tools[1].tools, []);
   assert.doesNotMatch(bytes(network), /synthetic-secret|\/home\/example|source-model|private\.conf|peer\.invalid|Bash|Shell|toolbox/);
+});
+
+test('CVT-META-001: descriptions follow the parsed format in network and manifest', () => {
+  const files = [
+    { path: '.theora/roles/reader/agent.md', content: '# Theora reader' },
+    { path: 'reader.md', content: '# Markdown reader' },
+  ];
+  for (const [options, label] of [[{}, 'Theora'], [{ layout: 'theora' }, 'Theora'], [{ layout: 'markdown' }, 'Markdown']]) {
+    const input = parseRoles(files, options);
+    const { network, frontMan } = emitNetwork(input);
+    const { manifest } = emitManifest(frontMan, input.layout);
+    assert.equal(network.metadata.description, `Converted ${label} role conversation network.`);
+    assert.equal(manifest.networks[0].description, network.metadata.description);
+  }
+});
+
+test('CVT-META-001: missing or invalid input format fails without disclosure or fallback', () => {
+  for (const layout of [undefined, null, '', 'Theora', 'unknown', false, 42, {}, [], '/private/DO_NOT_DISCLOSE']) {
+    for (const emit of [() => emitNetwork({ ...parsed(), layout }), () => emitManifest('alpha', layout)]) {
+      assert.throws(emit, (error) => {
+        assert.equal(error.message, 'CVT-META-001: invalid converter input.');
+        assert.equal(error.cause, undefined);
+        return true;
+      });
+    }
+  }
 });
 
 test('CVT-FRONT-001/SEC-003: invalid explicit and config candidates fail without disclosure or fallback', () => {
@@ -166,19 +197,19 @@ test('CVT-CORE/OUT-001: frozen inputs, repeatable output, and independent schema
 test('CVT-MAN-001/ERR-001: malformed selected fronts fail without disclosure or coercion', () => {
   for (const front of [undefined, null, false, 42, {}, [], '', ' ', ' alpha', 'alpha ', 'alpha\n',
     '0alpha', 'a-b', 'a'.repeat(61), '/private/DO_NOT_DISCLOSE', 'alpha\0']) {
-    assert.throws(() => emitManifest(front), (error) => {
+    assert.throws(() => emitManifest(front, 'markdown'), (error) => {
       assert.equal(error.message, 'CVT-MAN-001: invalid converter input.');
       assert.equal(error.cause, undefined);
       return true;
     });
   }
   for (const front of ['A', 'a'.repeat(60), 'Role_123']) {
-    assert.equal(emitManifest(front).manifest.networks[0].front_man, front);
+    assert.equal(emitManifest(front, 'markdown').manifest.networks[0].front_man, front);
   }
 });
 
 test('CVT-CORE/MAN/LINK/OUT-001: publication calls return independent data with no peer grants', () => {
-  const first = emitManifest('alpha');
+  const first = emitManifest('alpha', 'markdown');
   const expected = bytes(first);
   assert.deepEqual(Object.keys(first), ['manifest', 'links']);
   assert.deepEqual(first.manifest.allowed_peers, []);
@@ -190,18 +221,21 @@ test('CVT-CORE/MAN/LINK/OUT-001: publication calls return independent data with 
   first.manifest.peer_policy.mode = 'open';
   first.manifest.deployment.mode = 'changed';
   first.links.networks.converted_team.slot = { url: 'https://peer.invalid' };
-  assert.equal(bytes(emitManifest('alpha')), expected);
-  assert.equal(emitManifest('zulu').manifest.networks[0].front_man, 'zulu');
+  assert.equal(bytes(emitManifest('alpha', 'markdown')), expected);
+  assert.equal(emitManifest('zulu', 'markdown').manifest.networks[0].front_man, 'zulu');
 });
 
 for (const [moduleName, exportName, args] of [
   ['emit-network', 'emitNetwork', [parsed('zulu'), { front: 'alpha' }]],
-  ['emit-manifest', 'emitManifest', ['alpha']],
+  ['emit-manifest', 'emitManifest', ['alpha', 'markdown']],
 ]) {
   test(`CVT-CORE-001: ${moduleName} loads as a browser-portable module without Node imports`, async () => {
     const source = await readFile(new URL(`../../site-a/converter/${moduleName}.mjs`, import.meta.url), 'utf8');
     assert.doesNotMatch(source, /\b(?:from\s*|import\s*(?:\(\s*)?)["']node:/);
-    const portable = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+    const helper = await readFile(new URL('../../site-a/converter/describe-layout.mjs', import.meta.url), 'utf8');
+    assert.doesNotMatch(helper, /\b(?:from\s*|import\s*(?:\(\s*)?)["']node:/);
+    const portableSource = source.replace("'./describe-layout.mjs'", `'data:text/javascript;base64,${Buffer.from(helper).toString('base64')}'`);
+    const portable = await import(`data:text/javascript;base64,${Buffer.from(portableSource).toString('base64')}`);
     const emitter = exportName === 'emitNetwork' ? emitNetwork : emitManifest;
     assert.deepEqual(portable[exportName](...args), emitter(...args));
   });

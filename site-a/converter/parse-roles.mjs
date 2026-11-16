@@ -147,7 +147,7 @@ function markdown(content, index) {
  * CVT-IR-001: parse virtual UTF-8 files without mutating files or options.
  * @param {{path: string, content: string}[]} files POSIX root-relative virtual files.
  * @param {{layout?: 'theora'|'markdown'}} options Omit layout for structural detection.
- * @returns {{roles: {name: string, description: string, instructions: string}[], configFront: string|undefined}}
+ * @returns {{roles: {name: string, description: string, instructions: string}[], configFront: string|undefined, layout: 'theora'|'markdown'}}
  * Final front selection is the emitter's responsibility, including any explicit override.
  */
 export function parseRoles(files, options = {}) {
@@ -200,5 +200,5 @@ export function parseRoles(files, options = {}) {
       configFront = value.front_man;
     }
   }
-  return { roles, configFront };
+  return { roles, configFront, layout };
 }
