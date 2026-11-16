@@ -1,5 +1,5 @@
 ---
-description: theora.gate.json의 두 명령(node --test glob, 적합성 CLI)과 npm test, smoke·peer·conformance·validator·actions·audit·desk-ui 테스트가 검사하는 범위와 검사하지 않는 것
+description: theora.gate.json의 두 명령(node --test glob, 적합성 CLI)과 npm test, smoke·peer·conformance·validator·actions·audit·desk-ui·converter 테스트가 검사하는 범위와 검사하지 않는 것
 ---
 
 # 검사: gate와 테스트 파일
@@ -40,9 +40,13 @@ Site B 전용(`smoke.test.mjs`의 Site B boot 검사): 실제 manifest·네트�
 
 `checkConformance()`와 실제 CLI 프로세스(`spawnSync`)를 실제 산출물과 임시 격리 복사본에 돌린다: 공유 규칙 리포트 보존, `fetch` 미호출, `test-slydata` 샘플, 파일·링크·이름·참조 이탈 실패 사례, private-context 선언, CORS 규칙 병합, 사이클 불확실·상한 경고. 센티널 값이 출력에 없음도 확인한다. [[conformance-cli]]
 
+## `tests/converter/` (변환기)
+
+glob `tests/**/*.test.mjs`가 하위 디렉터리를 포함하므로 `tests/converter/fixtures/integrity.test.mjs`·`parse.test.mjs`·`emit.test.mjs`·`e2e.test.mjs`·`web.test.mjs`도 같은 명령에서 돌아간다. 각 파일의 범위와 AW2·AW4 정적 검사 연계, 리뷰 교훈은 [[converter-verification]]에 있다. e2e는 저장소의 .theora 개발 영역 아래 임시 작업공간을 쓰고 지운다. 실제 브라우저 로드와 모델 동작은 이 테스트가 증명하지 않는다.
+
 ## `tests/peer.test.mjs`의 배포 설정 검사
 
-`site-b/_headers`에 `/*` ACAO `*`가 있고 credentials 허용이 없음, `.github/workflows/pages.yml`이 존재하고 `upload-pages-artifact`의 `path`가 `site-a`임을 정규식으로 확인한다. 설정 문자열 검사일 뿐 배포 활성화·공개 응답은 확인하지 않는다. [[deployment-and-release]]
+`site-b/_headers`에 `/*` ACAO `*`가 있고 credentials 허용이 없음, `site-b/404.html`이 스크립트·인라인 이벤트 없는 최상위 페이지임, `.github/workflows/pages.yml`이 존재하고 `upload-pages-artifact`의 `path`가 `site-a`임을 정규식으로 확인한다. 설정 문자열 검사일 뿐 배포 활성화·공개 응답은 확인하지 않는다. [[deployment-and-release]]
 
 ## 한계
 

@@ -1,5 +1,5 @@
 ---
-description: docs/demo-checklist.md 실제 브라우저 검증 원장의 구성, 증거 규칙, 시나리오 B01–B10, run 1 실패와 런타임 보정, run 2 재확인 범위와 남은 미확인
+description: docs/demo-checklist.md 실제 브라우저 검증 원장의 구성, 증거 규칙, 시나리오 B01–B10, run 1 실패와 보정, run 2 재확인, AW5 변환 번들의 로드·위임 PASS와 답변 품질 FAIL, 미확인
 ---
 
 # 실제 브라우저 검증 원장
@@ -16,6 +16,7 @@ description: docs/demo-checklist.md 실제 브라우저 검증 원장의 구성,
 | §3 실행 원장 | run 1 출처·한계, 사례 관찰, 발견과 후속, 승인된 소스 보정, run 2 중간·최종 재확인, 현재 수용 요약, 케이스 기록 템플릿 |
 | §4 공개 배포·심사 인계 | 활성화 뒤 체크 항목(모두 미체크) |
 | §5 영상 계획 | 한 사례 서사, 녹화본 아님 |
+| AW5 converter dogfooding | 변환 번들의 Node 정적 검증 요약, 재현 절차(계획), 사용자 승인 번들 실행 두 번의 결과와 답변 품질 진단 |
 
 B08은 [[conformance-cli]]의 `test-slydata` 샘플을 기존 `Engine.runTurn(…, { slyData })` 옵션으로 주입하고 정의 fetch의 URL·헤더·본문을 병행 관찰하도록 한다. 판정은 PASS·FAIL·UNVERIFIED이며 모델이 도구를 썼다거나 비밀을 지켰다고 말한 것은 증거가 아니다.
 
@@ -27,6 +28,15 @@ B08은 [[conformance-cli]]의 `test-slydata` 샘플을 기존 `Engine.runTurn(�
 ## run 2 재확인(보정된 런타임 해시와 대응)과 범위
 
 A/B 최상위 로더의 중복 이름 거부, 중복 피어의 피어 추론 전 거부, 패널 저장·선택·삭제·재로드와 두 모델 전환, 관찰된 A/B 정적 요청에 키 부재와 두 모델에서 caller router 유지가 PASS로 기록됐다. 반면 run 1의 나머지 사례(B01–B04, B06, B08–B09)는 run 1 관찰과 한계를 유지하며 보정 런타임에서 전부 다시 돌린 것이 아니다. B10 PASS는 관찰된 **24-agent 호출 상한**에 한정된다.
+
+## AW5 변환 산출물의 브라우저 기록
+
+`docs/demo-checklist.md`의 "AW5 converter dogfooding" 절이 변환기가 만든 번들([[converter-mapping-contract]])이 실제 브라우저 런타임에서 로드되고 위임되는지를 다룬다. Node 정적 검사(`CVT-VERIFY-001`; [[converter-verification]])와 분리된 근거다.
+
+- **실행 범위**: 사용자가 승인해 Claude 데스크톱 앱의 내장 브라우저가 루프백 정적 서버에서 Theora 샘플(`site-a/converter/samples/theora/layout.json`)을 변환한 번들을 두 번 실행했다. 키는 사용자가 내장 패널에만 입력했다. 구현자는 정제된 텍스트 기록을 읽었을 뿐 라이브 세션·스크린샷·provider 응답 본문을 보지 않았다. 원장이 보고된 소스 리비전과 변환·런타임 경로의 일치를 확인했다.
+- **관찰**: 변환 팀 로드와 coordinator → specialist → coordinator 위임이 두 번 모두 PASS(agent span 2·model_call span 3). 그러나 **답변 표시 품질은 두 번 모두 FAIL**(초안·메타 문구와 깨진 줄).
+- **원인 진단의 한계**: 같은 탭의 trace·history 비교가 결함을 모델 출력(조정자 스트리밍 내용과 specialist 결과 자체의 토큰 훼손)에 위치시켰고 변환기·런타임 손상 증거는 없다. 왜 모델이 그렇게 썼는지는 설명되지 않았고 다른 모델이나 런타임 밖 재현은 시험하지 않았다. 사용자는 프롬프트·런타임 수정 요청을 철회했고 품질 보정은 이뤄지지 않았다. 품질 FAIL은 그대로 남는다.
+- **아직 미확인**: 임의 입력의 위임 품질, 피어·동의·CORS·상한 집행(피어 이벤트가 0이라 운동되지 않음), 공개 HTTPS·심사자 접근. 이 기록은 AW4 사례(B01 등)와 다른 네트워크라 그것을 대신하지 않는다.
 
 ## 미확인으로 남은 것
 
