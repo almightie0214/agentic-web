@@ -8,7 +8,7 @@ description: Site A GitHub Pages 워크플로, Site B _headers CORS 설정, READ
 
 ## Site A — `.github/workflows/pages.yml`
 
-- 트리거: `main` push와 `workflow_dispatch`. 권한은 `contents: read`, 배포 job은 `pages: write`·`id-token: write`, 환경 `github-pages`.
+- 트리거: `site-a/**` 또는 이 워크플로를 바꾼 `main` push와 `workflow_dispatch`. 다른 경로만 바꾼 push는 배포하지 않는다. 권한은 `contents: read`, 배포 job은 `pages: write`·`id-token: write`, 환경 `github-pages`.
 - 단계: checkout → `actions/configure-pages` → `actions/upload-pages-artifact`(`path: site-a`) → `actions/deploy-pages`.
 - **아티팩트는 저장소 루트가 아니라 `site-a/`**다. Site B 파일이 A origin에 섞이지 않게 하는 이유다. 워크플로 주석도 같은 이유를 적는다.
 - 이 파일은 한때 후속 commit에서 통째로 삭제된 적이 있어 `tests/peer.test.mjs`의 "Site A Pages artifact" 테스트가 워크플로 존재와 업로드 `path: site-a`를 정규식으로 확인한다. 루트 업로드로 바꾸는 변이는 이 테스트가 실패시킨다. 단 GitHub Pages 활성화·실제 배포 결과는 이 테스트가 확인하지 못한다.
