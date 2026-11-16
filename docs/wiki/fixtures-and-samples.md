@@ -22,3 +22,7 @@ description: tests/fixtures.mjs의 정상 1·불량 3 검사 입력과 site-a/sa
 `valid`, `bad-frontman`, `bad-schema`, `bad-cycle` 각각 `<id>.network.json`이며 내용은 같은 id의 픽스처와 `deepEqual`이다(`tests/validator.test.mjs`의 `samples:` 테스트가 단언). 페이지의 샘플 버튼(`data-sample`)이 `./samples/<id>.network.json`을 가져와 입력란에 채우고 즉시 검사한다([[site-a-review-desk]]). 샘플 네트워크를 실행하거나 합성 피어에 접속하지 않으며, `bad-cycle`은 정적 진단만 보여 주고 실제 브라우저 순환 중단은 입증하지 않는다(`runtime.composition`은 모든 샘플에서 `unverified`).
 
 픽스처를 고치면 샘플 JSON도 같이 고쳐야 한다. 둘이 어긋나면 테스트가 실패한다.
+
+## `site-a/samples/test-slydata.network.json`
+
+위 네 샘플과 달리 픽스처 짝도 페이지 버튼도 없다. 무해한 센티널(`private_sentinel`, `public_sentinel`)과 per-agent `allow` 선언을 가진 입력 봉투이며 [[conformance-cli]]가 정적 형식·정책만 검사한다. JSON의 `sly_data`는 실행 컨텍스트에 들어가지 않으므로 실제 주입은 브라우저에서 기존 `runTurn` 옵션으로 한다([[browser-evidence-ledger]]).

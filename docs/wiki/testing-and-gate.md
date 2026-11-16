@@ -1,13 +1,13 @@
 ---
-description: theora.gate.json과 npm test의 동일한 glob 명령, smoke·peer·validator·actions·audit·desk-ui 테스트 파일이 검사하는 범위와 검사하지 않는 것
+description: theora.gate.json의 두 명령(node --test glob, 적합성 CLI)과 npm test, smoke·peer·conformance·validator·actions·audit·desk-ui 테스트가 검사하는 범위와 검사하지 않는 것
 ---
 
 # 검사: gate와 테스트 파일
 
 ## 명령
 
-- `theora.gate.json`: commands에 `node --test tests/**/*.test.mjs` 명령 하나(배열 인자 형태)를 두고 timeout은 `5m`이다.
-- `package.json`의 `scripts.test`: `node --test "tests/**/*.test.mjs"`. gate와 같은 glob이다. npm 의존성은 없고 Node.js 24를 쓴다(`README.md`).
+- `theora.gate.json`: commands에 `node --test tests/**/*.test.mjs`와 `node tools/check-conformance.mjs` 두 명령(배열 인자 형태)을 두고 timeout은 `5m`이다. 두 번째는 [[conformance-cli]]이며 실패 시 종료 코드 1이다.
+- `package.json`의 `scripts.test`: `node --test "tests/**/*.test.mjs"`. gate 첫 명령과 같은 glob이다(CLI는 포함하지 않는다). npm 의존성은 없고 Node.js 24를 쓴다(`README.md`).
 - `tests/` 디렉터리 자체를 인자로 쓰지 않는다. 아직 없는 후속 산출물은 현재 검사 조건으로 삼지 않는다. 검사 기능 테스트(`tests/validator.test.mjs` 등)도 같은 glob에 포함된다.
 
 ## `tests/smoke.test.mjs`
@@ -36,6 +36,14 @@ Site B 전용(`smoke.test.mjs`의 Site B boot 검사): 실제 manifest·네트�
 
 `node --test` glob에 포함되는 테스트로, 두 사이트의 실제 JSON 산출물과 레퍼런스 런타임을 읽는다. 검사 범위: A의 `links.json`·`allowed_peers`·`peer_policy` 정합, 닫힌 정책의 origin 판정, 동의가 선행하는 허용·거절·이름 불일치 시나리오(모델 호출만 스크립트), B manifest의 정확한 네트워크 이름·action 부재, 발췌 저작 원본과 네트워크 instructions의 포함 검사, B 네트워크의 1-agent 구조. [[peer-connection]], [[site-b-spec-scout]]
 
+## `tests/conformance.test.mjs` (적합성 CLI)
+
+`checkConformance()`와 실제 CLI 프로세스(`spawnSync`)를 실제 산출물과 임시 격리 복사본에 돌린다: 공유 규칙 리포트 보존, `fetch` 미호출, `test-slydata` 샘플, 파일·링크·이름·참조 이탈 실패 사례, private-context 선언, CORS 규칙 병합, 사이클 불확실·상한 경고. 센티널 값이 출력에 없음도 확인한다. [[conformance-cli]]
+
+## `tests/peer.test.mjs`의 배포 설정 검사
+
+`site-b/_headers`에 `/*` ACAO `*`가 있고 credentials 허용이 없음, `.github/workflows/pages.yml`이 존재하고 `upload-pages-artifact`의 `path`가 `site-a`임을 정규식으로 확인한다. 설정 문자열 검사일 뿐 배포 활성화·공개 응답은 확인하지 않는다. [[deployment-and-release]]
+
 ## 한계
 
-테스트는 DOM·storage·fetch를 최소 대체물로 흉내 내어 실제 런타임 코드를 실행한다. 실제 provider 호출, 실제 브라우저 세션, 배포된 CORS/호스팅은 검증하지 않는다(`README.md` Tests 절).
+테스트는 DOM·storage·fetch를 최소 대체물로 흉내 내어 실제 런타임 코드를 실행한다. 실제 provider 호출, 실제 브라우저 세션, 배포된 CORS/호스팅은 검증하지 않는다(`README.md` Tests 절). 브라우저 동작은 사용자가 실행한 로컬 관찰이 [[browser-evidence-ledger]]에 따로 기록돼 있으며 Node 검사가 그것을 대체하지 않는다. 런타임 smoke 테스트에는 중복 agent 이름 거부(`network rejects duplicate names after config filtering`)와 프로필이 쿠키를 읽거나 쓰지 않음(`profiles stay in localStorage without cookie access`) 회귀 검사도 있다.

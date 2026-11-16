@@ -34,7 +34,7 @@ coordinator instructions는 피어 결과를 요약할 때 출처 절·판본·�
 
 ## 아직 확인하지 못한 것
 
-- 실제 B 배포 URL, Cloudflare Pages `_headers`의 CORS, 라이브 동의 UI, 실제 provider로의 상호운용은 확인되지 않았다. `README.md`도 이를 미확인으로 구분한다. 실제 URL 확정과 두 선언의 동시 갱신은 후속 단계(AW4)의 몫이다.
+- 실제 B 배포 URL은 없다. `site-b/_headers`는 존재하지만(`/*`에 ACAO `*`) 설정 파일일 뿐 공개 응답 실측은 없다. 실제 URL 확정과 두 선언의 동시 갱신 절차는 [[deployment-and-release]]에 있으며 아직 수행되지 않았다. 동의 후 정확한 이름의 피어 로딩·거부된 origin·잘못된 이름 거부·caller router 유지·키 비전달은 로컬에서 사용자가 실행한 브라우저 관찰로 기록돼 있다([[browser-evidence-ledger]]). 공개 라이브 동의 UI와 실제 provider 요청 헤더·본문은 확인되지 않았다.
 - Site A 페이지의 "Audit Linked Peer" 프리셋과 "Ask Spec Scout" 초안 버튼은 `.invalid` 호스트를 placeholder로 보고 비활성이다(`site-a/site.js`의 `peerTargets`; [[site-a-review-desk]]). 실제 주소로 바꾸면 활성 조건이 달라진다.
 - 방문자가 런타임에서 링크를 직접 입력하는 경로(`onLinkRequired`)는 런타임 기능이며 이 배선의 테스트 대상이 아니다.
 
@@ -46,4 +46,4 @@ coordinator instructions는 피어 결과를 요약할 때 출처 절·판본·�
 - 허용 origin 판정: 같은 origin의 다른 경로는 허용, 다른 호스트·접미사 위장 호스트·`http`·다른 포트는 거부.
 - 동의 전 fetch 없음, 허용·거절·이름 불일치 세 시나리오(위 호출 순서).
 
-`tests/smoke.test.mjs`는 A의 `allowed_peers`와 coordinator의 `tools`(`['conformance_reviewer', 'spec_scout']`)를 단언하고, `tests/validator.test.mjs`는 실제 A manifest·네트워크·`links.json`이 Review Desk 자체 규칙([[validator-rules]])을 통과하는지 확인한다. 실제 네트워크 접속은 검증하지 않는다. [[testing-and-gate]].
+`tests/smoke.test.mjs`는 A의 `allowed_peers`와 coordinator의 `tools`(`['conformance_reviewer', 'spec_scout']`)를 단언하고, `tests/validator.test.mjs`는 실제 A manifest·네트워크·`links.json`이 Review Desk 자체 규칙([[validator-rules]])을 통과하는지 확인한다. 실제 네트워크 접속은 검증하지 않는다. 저장소 수준의 로컬 배선·이름 일치는 [[conformance-cli]]가 `publication.links.*`로 따로 확인한다. [[testing-and-gate]].

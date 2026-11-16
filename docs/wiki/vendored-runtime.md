@@ -16,14 +16,21 @@ description: site-a/runtime과 site-b/runtime에 복사된 nsDeploy 브라우저
 - `byok.js`: 프로필·탭 단위 키/라우터/모델 저장.
 - `actions.js` 등 action 관련 모듈, `sandbox*.js`, `mcp.js`, `remote.js`: 사이트 action과 피어/MCP. 현재 Site A는 manifest의 `actions`로 `validate_network` action 하나만 연결하고([[validator-action]]), `spec_scout` 링크 참조로 피어를 쓴다(`engine.js`의 `resolveLink`·`manifestAllowsPeer`·`resolveRemote`, 동의 훅 `onConsent`; [[peer-connection]]). Site B는 action도 피어도 연결하지 않는다. 검사 규칙은 `kernel.js`의 `filterConfig`, `generated/graph.gen.mjs`의 `find_front_man`·`is_mcp_ref`, `remote.js`의 `RemoteRegistry`를 재사용한다([[validator-rules]]).
 
-## 로컬 변경(호환 코드 제거)
+## 로컬 변경
 
-원본 대비 제거한 것만 있고 기능을 새로 만들지 않았다:
+호환 코드 제거(원본 대비 제거만, 기능 추가 없음):
 
 - `index.js`: 옛 `langgraph` runner 별칭. 지금은 `langchain` 선택이거나 미지정(기본)만 있다.
 - `ui.js`: 옛 manifest `mock`/`base_url`로 mock URL을 추정하던 대체 경로. 지금은 `llm_router.mock_router`만 읽는다. 또 폐기된 `activity` 테마 슬롯 처리와 전용 CSS, 검증 없던 welcome 마운트(이제 응답과 같은 정규화 사용).
 - `cruse.js`/`ui.js`: 누락된 `confirmText`를 `confirmLabel`이나 기본값에서 복원하던 분기. 이제 `confirm` 위젯은 비어 있지 않은 `confirmText`를 명시해야 하고 `confirmLabel`은 선택 사항이다.
 - `byok.js`: 옛 단독 키 슬롯 `nsweb-byok-key`의 읽기·쓰기·삭제. 현재 탭 설정(`nsweb-byok-tab-key`, `nsweb-byok-model`, `nsweb-byok-router`)과 저장된 프로필만 설정 출처다. 우선순위는 탭 설정이 프로필보다 앞이다.
+
+브라우저 검증 뒤 결함 보정:
+
+- `kernel.js`(A/B 동일): `AgentNetwork` 생성자가 `filterConfig` 치환·trim 뒤 중복 agent 이름을 `Duplicate agent name '<name>'.`으로 거부한다(`Map` 덮어쓰기 전). 최상위와 피어 컴파일 모두 해당한다.
+- `byok.js`/`ui.js`(A/B 동일): 키가 든 프로필 쿠키 미러링(loopback 포함)과 쿠키 공유 안내 제거. 브라우저 검증에서 키가 A의 정적 서버로 전달되는 것이 관찰돼 보정했다. 프로필은 origin 로컬 localStorage, 탭 설정이 우선이며 쿠키 이전·자동 정리는 없다. 경위: [[browser-evidence-ledger]].
+
+마지막 두 항목은 호환 코드 제거가 아니라 브라우저 검증에서 확인된 결함의 최소 보정이다. 각 `README.md`의 Local distribution notice에도 적혀 있다.
 
 Site A의 `README.md`에는 상류 문서(사이트 action을 `website_*` 도구로 노출하는 편집 등)가 그대로 보존돼 있다. 이는 상류 설명이며 이 프로젝트의 action 연결은 위 문단과 [[validator-action]]에 있다.
 

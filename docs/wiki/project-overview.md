@@ -6,7 +6,7 @@ description: 프로젝트의 목표·고정 제약·디렉터리 책임·현재 
 
 Agent Review Desk(Site A)와 Spec Scout(Site B)는 Worldwide Agentic Web MVP Profile 0.2를 따르는 정적 브라우저 에이전트 사이트 두 개다. 애플리케이션 백엔드·DB·결제·인증은 두지 않는다. 근거: `README.md`, `docs/worldwide_agentic_web_mvp_spec.md`.
 
-계획된 배포는 Site A = GitHub Pages, Site B = Cloudflare Pages(_headers 파일로 CORS 강제)이다. 설계 문서의 계획이며 저장소에는 호스팅 설정 파일이 아직 없다(`README.md`도 호스팅 설정은 제공하지 않는다고 적는다). 아래 [[vendored-runtime]] 등 세부 페이지와 [[testing-and-gate]]도 참고한다.
+배포 계획은 Site A = GitHub Pages(`.github/workflows/pages.yml`, 아티팩트는 `site-a/`만), Site B = Cloudflare Pages(`site-b/_headers`로 CORS)이다. 설정 파일은 저장소에 있지만 실제 활성화·공개 URL·공개 CORS 응답은 확인되지 않았다([[deployment-and-release]]). 아래 [[vendored-runtime]] 등 세부 페이지와 [[testing-and-gate]]도 참고한다.
 
 ## 현재 구현된 것
 
@@ -16,6 +16,9 @@ Agent Review Desk(Site A)와 Spec Scout(Site B)는 Worldwide Agentic Web MVP Pro
 - Site A 검사 기능: manifest + resolved network JSON을 결정적 규칙으로 판정하는 [[validator-rules]], 이를 에이전트에 읽기 전용 도구로 제공하는 [[validator-action]], 공개 URL의 JSON을 같은 규칙으로 판정하는 [[url-audit]], 정상/실패 데모 입력인 [[fixtures-and-samples]]. 판정은 규칙이 하고 에이전트는 설명만 한다.
 - Site B: 발췌 근거를 instructions에 직접 담은 1-agent `spec_scout` 네트워크를 `boot()`로 로드하는 정보 제공 전용 사이트. [[site-b-spec-scout]].
 - 피어 연결: Site A coordinator가 `links.json`의 심볼릭 `spec_scout`를 해석해 동의 후 B의 네트워크를 A의 브라우저 런타임에서 실행하는 배선. 목적지는 예약 주소 `https://spec-scout.invalid/spec_scout`이다. [[peer-connection]].
+- 저장소 정적 적합성 CLI `tools/check-conformance.mjs`: 공유 규칙을 재사용하고 발행 파일·링크·private-context 선언·CORS 설정을 감사한다. [[conformance-cli]].
+- 실제 브라우저 검증 원장 `docs/demo-checklist.md`: 사용자가 실행한 로컬 관찰과 미확인 항목. [[browser-evidence-ledger]].
+- 영문 `README.md`, 제출 초안 `docs/devpost.md`: [[deployment-and-release]].
 - 검사: [[testing-and-gate]].
 
 ## 디렉터리 책임
@@ -24,9 +27,10 @@ Agent Review Desk(Site A)와 Spec Scout(Site B)는 Worldwide Agentic Web MVP Pro
 | --- | --- |
 | `site-a/` | Site A 정적 번들: `index.html`, `site.js`, `styles.css`, `agent-manifest.json`, `links.json`, `review_desk.network.json`, 검사 모듈 `validator-rules.mjs`·`actions.js`·`audit.js`, 데모 입력 `samples/`, `runtime/` |
 | `site-b/` | Site B 정적 번들: `index.html`(스타일 인라인), `site.js`, `agent-manifest.json`, `spec_scout.network.json`(실행 배포본), `spec-excerpts.json`(발췌 저작 원본, 런타임이 읽지 않음), `runtime/`. Site A 파일에 의존하지 않는다 |
-| `tests/` | `smoke.test.mjs`, `peer.test.mjs`, `validator.test.mjs`, `actions.test.mjs`, `audit.test.mjs`, `desk-ui.test.mjs`, 공용 입력 `fixtures.mjs` |
-| `docs/` | 스펙 사본(위키는 `docs/wiki/`) |
-| tools 디렉터리 | README가 개발 도구용으로 예약했다고 말하지만 현재 파일이 없다 |
+| `tests/` | `smoke.test.mjs`, `peer.test.mjs`, `conformance.test.mjs`, `validator.test.mjs`, `actions.test.mjs`, `audit.test.mjs`, `desk-ui.test.mjs`, 공용 입력 `fixtures.mjs` |
+| `tools/` | `check-conformance.mjs` 정적 적합성 CLI |
+| `.github/workflows/` | `pages.yml`: Site A만 배포 |
+| `docs/` | 스펙 사본, `demo-checklist.md`(브라우저 검증 원장), `devpost.md`(제출 초안). 위키는 `docs/wiki/` |
 
 빈 디렉터리와 .gitkeep은 두지 않는다. 디렉터리는 파일이 생길 때 만들어진다.
 
@@ -41,8 +45,6 @@ Agent Review Desk(Site A)와 Spec Scout(Site B)는 Worldwide Agentic Web MVP Pro
 
 ## 아직 없는 것
 
-- 실제 Site B 배포 URL. 현재 링크·허용 출처는 예약 주소이며 실제 URL 확정과 `links.json`·`allowed_peers` 동시 갱신은 후속 단계(AW4)로 남아 있다.
-- 피어 경로의 라이브 확인(배포된 CORS, 실제 동의 UI, 실제 provider 상호운용).
-- 산출물 적합성을 gate 단계에서 따로 검사하는 명령(현재 gate는 `node --test`뿐이다).
-- 정적 검사가 증명하지 못하는 실행 동작(브라우저의 피어 순환 중단, 동의, CORS, 상한 집행). 규칙 리포트는 이를 `runtime.*` 미확인으로 표시한다.
-- 실제 provider나 배포된 브라우저 세션에 대한 검증. 현재 테스트는 이를 확인하지 않는다.
+- 실제 Site B 배포 URL. 현재 링크·허용 출처는 예약 주소이며 실제 URL 확정과 `links.json`·`allowed_peers` 동시 갱신은 남아 있다([[deployment-and-release]]).
+- 정적 검사가 증명하지 못하는 실행 동작(브라우저의 피어 순환 중단, 동의, CORS, 상한 집행). 규칙 리포트와 CLI는 이를 `runtime.*` 미확인으로 표시한다. 일부는 사용자가 실행한 로컬 브라우저 관찰로 기록돼 있다([[browser-evidence-ledger]]).
+- 공개 배포에 대한 검증(공개 HTTPS/CORS, 공개 리비전의 브라우저 확인, 심사자 접근)과 provider 요청 헤더·본문 직접 관찰. 이 상태에서는 출품 준비 완료로 표시하지 않는다.
