@@ -3025,3 +3025,103 @@ replace the paid public observations above. The README and Devpost draft were
 rewritten for product use; historical diagnostics, revisions and failure details
 remain in this ledger rather than their introductory text. Wiki updates are left
 to the post-Goal librarian stage.
+
+## 8. Measured execution limits
+
+### Source and eligibility
+
+`measured-limits` uses the eight fresh-dialogue runs in §7, observed against
+`9e9be81b982f3f93d222fbf77b8947538cb45ad6`. It does not perform a new live run.
+The source records remain under
+`I:/project/agentic-web/.theora/judge-facing/9e9be81-public-check/`.
+User input **83 / D61**, preserved in `measurement-decision.json`, approved this
+exact replacement measurement set and excluded the two measurement-tool failures
+with their original evidence intact. Those failures are not successful durations.
+No successful run in this approved set failed, was cancelled, remained incomplete,
+or was cut off by a deadline. This calculation does not silently discard a product
+failure or override the Goal's rule against deadline-censored measurements.
+
+The implementer ran **`node {tmp}/calculate-limits.mjs`**, exit **0**, from the
+`measured-limits` working tree based on `1e4b2c7e64e041d1c4bbbab74970f227e2f8cae7`.
+This read-only calculation re-read each `<case-id>/result.json` and checked:
+
+- the §7 SHA-256 hashes of `manifest-final.json` and `verification-final.json`;
+- each result's byte size and SHA-256 against that manifest;
+- the exact approved case list, matching source revision and empty starting history;
+- `executionOK: true`, exactly one `kind:"run"`, `phase:"end"` span, with
+  `parent:null`, `status:"ok"` and a finite positive `durationMs`;
+- no `composition_limit` event or error end span, and equality of the top-level
+  span duration with both `result.run.durationMs` and `verification-final.json`.
+
+Only that top-level span's duration enters the formula. Setup wall time, sums of
+nested spans, and the duration of Spec Scout as a peer within A do not substitute
+for a top-level network measurement. The calculation script is temporary, not a
+new required evidence location; the durable inputs and every numeric operand and
+result are recorded here so the calculation is reproducible without that script.
+
+### Calculation (milliseconds retained at original precision)
+
+For each network, `seconds = 30 * ceil(2 * max(durationMs) / 30000)`.
+There is no rounding or truncation of the measured durations before this formula.
+
+| Top-level network | Case | durationMs |
+| --- | --- | ---: |
+| review_desk | a-edge-1 | 77390.19999998808 |
+| review_desk | a-edge-2 | 78037.19999998808 |
+| review_desk | a-edge-3 | 51780.09999999404 |
+| review_desk | a-firefox-1 | 70328 |
+| spec_scout | b-edge-1 | 47318.19999998808 |
+| spec_scout | b-edge-2 | 29373.90000000596 |
+| converted_team | team-edge-1 | 40203.30000001192 |
+| converted_team | team-edge-2 | 43567.69999998808 |
+
+| Network | Longest case | max(durationMs) | 2 × max(durationMs) | 30-second multiples, rounded up | New max_execution_seconds |
+| --- | --- | ---: | ---: | ---: | ---: |
+| review_desk | a-edge-2 | 78037.19999998808 | 156074.39999997616 | 6 | 180 |
+| spec_scout | b-edge-1 | 47318.19999998808 | 94636.39999997616 | 4 | 120 |
+| converted_team | team-edge-2 | 43567.69999998808 | 87135.39999997616 | 3 | 90 |
+
+Both runtime copies now declare **`MAX_EXECUTION_SECONDS = max(90, 180, 120, 90)
+= 180`**. Review Desk changes from 240 to 180 seconds, Spec Scout from 180 to
+120 seconds, and converter output (both layouts) from 240 to 90 seconds. These
+are measured budgets for the fixed flows and conditions in §7, not a guarantee
+that arbitrary later questions or provider response times fit within them.
+
+### Runtime boundary and verification scope
+
+The original undeclared query default remains **90 seconds**:
+`min(network declaration ?? 90, MAX_EXECUTION_SECONDS)`. Both an oversized network
+query declaration and a standalone agent declaration are clamped to the new
+180-second runtime maximum. Earlier parent/composition deadlines still win. No
+agent-call, remote-call, per-peer, concurrency, depth, `max_steps` default, or
+action `timeoutMs` bounds were changed. Temperature and model policy are unchanged.
+
+The mapping example, converter fixtures and both runtime local distribution
+notices use the new values. The historical §7 and earlier records above are
+unchanged: their old declarations describe the version actually measured.
+New-limit public deployment and live remeasurement were not performed by this
+Task; the engine owns landing and gate execution. Wiki updates remain the
+post-Goal librarian's responsibility.
+
+After joining the converter implementation, the implementer ran the following
+checks on the changed working tree based on `1e4b2c7e64e041d1c4bbbab74970f227e2f8cae7`
+(not a claim about a later deployed revision):
+
+```text
+node --test --test-name-pattern "^(smoke: Site A publishes a resolved two-agent network with the read-only validator action|smoke: measured query limits match the approved longest run budgets|peer: Site B manifest resolves to the informational one-agent network|site-[ab]: runtime uses the top network query deadline with default and maximum)$" tests/smoke.test.mjs tests/peer.test.mjs
+node --test --test-name-pattern "^(CVT-NET/OUT-001: (mini-theora|sample-agents) parser-to-network byte snapshot and enumeration independence|CVT-NET-001/003/004: one role has the exact resolved envelope and no outgoing calls|converter web: both public samples use shared emitters, format metadata, AW2 reports and CLI-identical downloadable bytes|CVT-CLI/OUT-001: (theora|markdown) (explicit|auto) layout writes three byte snapshots|CVT-FRONT/OUT-001: (theora|markdown) explicit front overrides default/config and preserves all artifact bytes)$" tests/converter/emit.test.mjs tests/converter/web.test.mjs tests/converter/e2e.test.mjs
+node --check site-a/runtime/scope.js
+node --check site-b/runtime/scope.js
+node --check site-a/converter/emit-network.mjs
+```
+
+All five commands exited **0**: the first reported **pass 5 / fail 0**, the second
+**pass 10 / fail 0** (including both sample layouts' CLI/web byte equality), and
+the syntax checks had no output. Node's existing `MODULE_TYPELESS_PACKAGE_JSON`
+warning was present in the test runs. The new budget/cap assertions were also run
+before the implementation changes: **exit 1, pass 0 / fail 3**, rejecting the old
+240-second Review Desk declaration and the old runtime cap. The deadline checks
+use a mocked clock, not elapsed-time sleeps, and exercise undeclared 90-second
+queries, below/equal/above-cap declarations, and standalone agent clamping in
+both runtime copies. The three Task checks and full project gate remain assigned
+to the engine; this implementer did not run or claim those full checks.

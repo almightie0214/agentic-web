@@ -124,7 +124,7 @@ test('converter web: both public samples use shared emitters, format metadata, A
     const layout = sample.dataset.converterSample === 'theora' ? 'theora' : 'markdown';
     const description = `Converted ${layout === 'theora' ? 'Theora' : 'Markdown'} role conversation network.`;
     assert.equal(input.network.metadata.description, description);
-    assert.equal(input.network.max_execution_seconds, 240);
+    assert.equal(input.network.max_execution_seconds, 90);
     assert.equal(input.network.llm_config.temperature, 0.2);
     assert.equal(input.manifest.networks[0].description, description);
     const records = layout === 'theora'

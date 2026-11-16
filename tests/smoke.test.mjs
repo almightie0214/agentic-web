@@ -29,7 +29,7 @@ test('smoke: Site A publishes a resolved two-agent network with the read-only va
   const config = await readJSON(`site-a/${entry.hocon}`);
   assert.equal(config.llm_config.model_name, 'alibaba/qwen3.8-flash');
   assert.equal(config.llm_config.temperature, 0.2);
-  assert.equal(config.max_execution_seconds, 240);
+  assert.equal(config.max_execution_seconds, 180);
   assert.deepEqual(config.tools.map(agent => agent.name), ['review_coordinator', 'conformance_reviewer']);
   assert.ok(config.tools.some(agent => agent.name === entry.front_man), 'front_man must belong to tools');
   assert.deepEqual(config.tools[0].tools, ['conformance_reviewer', 'spec_scout']);
@@ -58,6 +58,28 @@ test('smoke: Site A publishes a resolved two-agent network with the read-only va
   assert.deepEqual(validateNetwork(network), { errors: [], warnings: [], externals: [], mcps: [] });
   for (const agent of config.tools) {
     assert.equal(network.getAgentSpec(agent.name).llm_config.model_name, 'alibaba/qwen3.8-flash');
+  }
+});
+
+test('smoke: measured query limits match the approved longest run budgets', async () => {
+  const { parseRoles } = await import('../site-a/converter/parse-roles.mjs');
+  const { emitNetwork } = await import('../site-a/converter/emit-network.mjs');
+  const { network: converted } = emitNetwork(parseRoles(await readJSON('site-a/converter/samples/theora/layout.json')));
+  // Unrounded top-level run durations from the approved public-check set (§7/§8).
+  const measurements = [
+    [await readJSON('site-a/review_desk.network.json'), [77390.19999998808, 78037.19999998808, 51780.09999999404, 70328], 180],
+    [await readJSON('site-b/spec_scout.network.json'), [47318.19999998808, 29373.90000000596], 120],
+    [converted, [40203.30000001192, 43567.69999998808], 90],
+  ];
+  const limits = measurements.map(([network, durations, expected]) => {
+    const seconds = 30 * Math.ceil(2 * Math.max(...durations) / 30000);
+    assert.equal(seconds, expected);
+    assert.equal(network.max_execution_seconds, seconds);
+    return seconds;
+  });
+  for (const site of ['site-a', 'site-b']) {
+    const { MAX_EXECUTION_SECONDS } = await import(new URL(`${site}/runtime/scope.js`, root));
+    assert.equal(MAX_EXECUTION_SECONDS, Math.max(90, ...limits));
   }
 });
 

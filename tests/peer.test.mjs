@@ -215,7 +215,7 @@ test('peer: Site B manifest resolves to the informational one-agent network', as
   const manifest = await readJSON(new URL('agent-manifest.json', siteB));
   const [entry] = manifest.networks;
   const config = await readJSON(new URL(entry.hocon, siteB));
-  assert.equal(config.max_execution_seconds, 180);
+  assert.equal(config.max_execution_seconds, 120);
   assert.equal(config.llm_config.temperature, 0.2);
   assert.deepEqual(config.tools.map(agent => agent.name), ['spec_scout']);
   const [scout] = config.tools;
@@ -410,7 +410,7 @@ for (const site of ['site-a', 'site-b']) {
 
   test(site + ': runtime uses the top network query deadline with default and maximum', async t => {
     const clock = useClock(t);
-    for (const [seconds, duration] of [[undefined, 90_000], [240, 240_000], [301, 300_000], [0.125, 125]]) {
+    for (const [seconds, duration] of [[undefined, 90_000], [120, 120_000], [180, 180_000], [181, 180_000], [240, 180_000], [301, 180_000], [0.125, 125]]) {
       const { engine, llm } = fixture({ ...(seconds === undefined ? {} : { max_execution_seconds: seconds }),
         tools: [{ name: 'front', instructions: 'Answer.', tools: [], max_execution_seconds: 500 }] });
       const started = Date.now();
@@ -437,9 +437,11 @@ for (const site of ['site-a', 'site-b']) {
       assert.equal(modelSignal.aborted, true);
     }
     // The same runtime maximum applies to an agent even without a composition.
-    const scope = createCallScope({}, { max_execution_seconds: 500 });
-    try { assert.equal(scope.deadline, Date.now() + 300_000); }
-    finally { scope.dispose(); }
+    for (const [seconds, duration] of [[undefined, Infinity], [90, 90_000], [180, 180_000], [181, 180_000], [500, 180_000]]) {
+      const scope = createCallScope({}, { ...(seconds === undefined ? {} : { max_execution_seconds: seconds }) });
+      try { assert.equal(scope.deadline, Date.now() + duration); }
+      finally { scope.dispose(); }
+    }
   });
 
   test(site + ': runtime peer declarations cannot extend the caller query deadline', async t => {

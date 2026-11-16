@@ -1,5 +1,5 @@
 // One invocation owns its deadline; shared sessions never retain a caller's scope.
-export const MAX_EXECUTION_SECONDS = 300;
+export const MAX_EXECUTION_SECONDS = 180;
 const originals = new WeakMap();
 const clocks = new WeakMap();
 

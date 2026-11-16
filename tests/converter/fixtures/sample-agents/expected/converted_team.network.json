@@ -7,7 +7,7 @@
     "temperature": 0.2
   },
   "max_steps": 12,
-  "max_execution_seconds": 240,
+  "max_execution_seconds": 90,
   "tools": [
     {
       "name": "coordinator",

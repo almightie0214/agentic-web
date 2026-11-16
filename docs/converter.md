@@ -216,7 +216,7 @@ Emit exactly these top-level fields in this order (Markdown example):
   "metadata": { "description": "Converted Markdown role conversation network." },
   "llm_config": { "model_name": "alibaba/qwen3.8-flash", "temperature": 0.2 },
   "max_steps": 12,
-  "max_execution_seconds": 240,
+  "max_execution_seconds": 90,
   "tools": []
 }
 ```
@@ -226,8 +226,11 @@ Emit exactly these top-level fields in this order (Markdown example):
 값을 모델 요청에 보낸다. 모델 선택 override와는 별개이며 caller의 temperature
 정책은 없다. 이 선언 자체가 실제 답 품질을 증명하지는 않는다.
 
-`max_execution_seconds`는 입력 형식과 무관하게 240초로 고정한다. 이는 최상위
-질의의 시간 한도 선언이며, 피어로 호출될 때 caller의 더 짧은 한도를 늘리지 않는다.
+`max_execution_seconds`는 입력 형식과 무관하게 90초로 고정한다. 변환 샘플의
+승인된 실측 최장 `durationMs` 43567.69999998808에
+`30 * ceil(2 * max(durationMs) / 30000)`을 적용한 값이다.
+[demo checklist §8](demo-checklist.md#8-measured-execution-limits)에서 회차별 원자료와 계산 근거를 기록한다.
+이는 최상위 질의의 시간 한도 선언이며, 피어로 호출될 때 caller의 더 짧은 한도를 늘리지 않는다.
 
 Replace `tools` as below. Identity/front are supplied by the manifest; do not add
 conflicting network-level identity. No `include`, `$include`, `$env`, substitutions,
