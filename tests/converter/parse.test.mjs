@@ -359,7 +359,7 @@ test('CVT-ADK-001: required strings, duplicate keys, quoted keys, and multiple d
   assert.equal(sanitized.instructions, '# Public\n[REDACTED_SECRET]\n[REDACTED_LOCAL_PATH]\nAnswer.');
 });
 
-test('CVT-ADK-001/MD-001: block indentation follows first content line and preserves relative indentation', () => {
+test('CVT-ADK-001/MD-001: block indentation follows first content line and preserves relative indentation', async t => {
   for (const indent of [' ', '    ']) {
     const instruction = `|\n${indent}Answer carefully.\n${indent}  Keep this indentation.\n\n${indent}Final paragraph.`;
     assert.equal(role([root(`name: root\ninstruction: ${instruction}`)]).instructions,
@@ -372,6 +372,33 @@ test('CVT-ADK-001/MD-001: block indentation follows first content line and prese
     '# Content, not a YAML comment.\nAnswer.');
   assert.equal(role([root('name: root\ninstruction: >-\n  Answer\n  carefully.\n\n  New paragraph.\n\n\n  Another paragraph.')]).instructions,
     'Answer carefully.\nNew paragraph.\n\nAnother paragraph.');
+  for (const [label, block, expected] of [
+    ['tab content', '|-\n  Example:\n  \tIndented example\n  End.', 'Example:\n\tIndented example\nEnd.'],
+    // Public instructions still receive CVT-ROLE-002 outer trimming after YAML parsing.
+    ['first-line NBSP content', '|-\n  \u00a0First\n  Second', 'First\nSecond'],
+    ['Unicode content', '|-\n  Example:\n  \u00a0Keep NBSP\n  \u2003Keep EM SPACE\n  End.', 'Example:\n\u00a0Keep NBSP\n\u2003Keep EM SPACE\nEnd.'],
+    ['whitespace-only content', '|-\n  Example:\n  \t\n  \u00a0\n  End.', 'Example:\n\t\n\u00a0\nEnd.'],
+    ['folded Unicode content', '>-\n  First\n  \u00a0Second\n  End.', 'First \u00a0Second End.'],
+    ['folded tab content', '>-\n  First\n  \tSecond\n  End.', 'First\n\tSecond\nEnd.'],
+  ]) await t.test(label, () => {
+    const source = `name: root\ninstruction: ${block}\nsub_agents:\n  - config_path: child.yaml`;
+    assert.deepEqual(adkReferences('root_agent.yaml', source), ['child.yaml']);
+    const parsed = parseRoles([root(source), file('child.yaml', adk('child'))]);
+    assert.equal(parsed.roles.find(role => role.name === 'root').instructions, expected);
+    assert.deepEqual(parsed.roles.find(role => role.name === 'root').tools, ['child']);
+    // Markdown descriptions share the reader, then collapse whitespace for display.
+    assert.equal(role(md(fm(`description: ${block}`))).description, expected.replace(/\s+/g, ' ').trim());
+  });
+  for (const source of [
+    '\tname: root\ninstruction: Reply.',
+    'name: root\ninstruction: |-\n\tInvalid indentation',
+    'name: root\ninstruction: |-\n    First\n  \tNot enough ASCII indentation',
+    'name: root\ninstruction: Reply.\nsub_agents:\n\t- config_path: child.yaml',
+    'name: root\ninstruction: Reply.\nsub_agents:\n  -\n  \tconfig_path: child.yaml',
+  ]) await t.test(`reject structural tabs ${JSON.stringify(source)}`, () => {
+    assert.throws(() => adkReferences('root_agent.yaml', source), /^Error: CVT-ADK-001:/);
+    rejects([root(source), file('child.yaml', adk('child'))], 'CVT-ADK-001');
+  });
 });
 
 test('CVT-SEC-003: notices contain only sanitized omitted key names, never their values', () => {

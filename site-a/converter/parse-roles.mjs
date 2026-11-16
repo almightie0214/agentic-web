@@ -124,9 +124,10 @@ function ignorable(line) {
   return !line.trim() || /^ *#/.test(line);
 }
 
-function indentation(line, rule, index) {
-  if (/^ *\t/.test(line)) fail(rule, index);
-  return line.length - line.trimStart().length;
+// YAML indentation is ASCII space only. Tabs and Unicode whitespace after
+// a block's required prefix belong to its scalar content, not its structure.
+function indentation(line) {
+  return line.match(/^ */)[0].length;
 }
 
 // Both formats use this selected-key YAML reader. Unknown fields are recorded by
@@ -137,7 +138,7 @@ function yamlMapping(lines, fields, rule, index, baseIndent = 0) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (ignorable(line)) continue;
-    if (indentation(line, rule, index) !== baseIndent) fail(rule, index);
+    if (indentation(line) !== baseIndent) fail(rule, index);
     const entry = line.slice(baseIndent).match(/^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^\s"'][^:]*?)\s*:(?:\s(.*)|$)/);
     if (!entry || /^(?:---|\.\.\.)(?:\s|$)/.test(line.trim())) fail(rule, index);
     const quotedKey = /^["']/.test(entry[1]);
@@ -146,9 +147,9 @@ function yamlMapping(lines, fields, rule, index, baseIndent = 0) {
     if (keys.includes(key)) fail(rule, index);
     keys.push(key);
     const continuation = [];
-    while (i + 1 < lines.length && (ignorable(lines[i + 1]) || indentation(lines[i + 1], rule, index) > baseIndent
+    while (i + 1 < lines.length && (ignorable(lines[i + 1]) || indentation(lines[i + 1]) > baseIndent
       || ((fields[key] === 'references' || !Object.hasOwn(fields, key))
-        && indentation(lines[i + 1], rule, index) === baseIndent && /^-(?: |$)/.test(lines[i + 1].slice(baseIndent))))) {
+        && indentation(lines[i + 1]) === baseIndent && /^-(?: |$)/.test(lines[i + 1].slice(baseIndent))))) {
       continuation.push(lines[++i]);
     }
     if (!Object.hasOwn(fields, key)) continue;
@@ -158,15 +159,15 @@ function yamlMapping(lines, fields, rule, index, baseIndent = 0) {
       if (style) fail(rule, index);
       const entries = continuation.filter((part) => !ignorable(part));
       if (!entries.length) fail(rule, index);
-      const indent = indentation(entries[0], rule, index);
+      const indent = indentation(entries[0]);
       const references = [];
       for (let j = 0; j < entries.length; j++) {
         const item = entries[j];
-        if (indentation(item, rule, index) !== indent || !/^-(?: |$)/.test(item.slice(indent))) fail(rule, index);
+        if (indentation(item) !== indent || !/^-(?: |$)/.test(item.slice(indent))) fail(rule, index);
         const mappingLines = item.slice(indent + 1).trim() ? [' '.repeat(indent + 2) + item.slice(indent + 2)] : [];
-        while (j + 1 < entries.length && indentation(entries[j + 1], rule, index) > indent) mappingLines.push(entries[++j]);
+        while (j + 1 < entries.length && indentation(entries[j + 1]) > indent) mappingLines.push(entries[++j]);
         if (!mappingLines.length) fail(rule, index);
-        const mapping = yamlMapping(mappingLines, { config_path: 'string' }, rule, index, indentation(mappingLines[0], rule, index));
+        const mapping = yamlMapping(mappingLines, { config_path: 'string' }, rule, index, indentation(mappingLines[0]));
         if (mapping.keys.length !== 1 || mapping.keys[0] !== 'config_path') fail(rule, index);
         references.push(mapping.values.config_path);
       }
@@ -174,13 +175,13 @@ function yamlMapping(lines, fields, rule, index, baseIndent = 0) {
     } else if (/^[|>]-?$/.test(style)) {
       // The first content line owns indentation; extra indentation is content.
       const contentLines = continuation.filter((part) => !new RegExp(`^ {0,${baseIndent}}#`).test(part));
-      const first = contentLines.find((part) => part.trim());
+      const first = contentLines.find((part) => !/^ *$/.test(part));
       if (!first) fail(rule, index);
-      const indent = indentation(first, rule, index);
+      const indent = indentation(first);
       if (indent <= baseIndent) fail(rule, index);
       const parts = contentLines.map((part) => {
-        if (!part.trim()) return '';
-        if (indentation(part, rule, index) < indent) fail(rule, index);
+        if (/^ *$/.test(part)) return '';
+        if (indentation(part) < indent) fail(rule, index);
         return part.slice(indent);
       });
       let block = '';
@@ -191,9 +192,9 @@ function yamlMapping(lines, fields, rule, index, baseIndent = 0) {
         block += current;
         if (j + 1 < parts.length) {
           let separator = '\n';
-          if (style[0] === '>' && next && !/^\s/.test(next)) {
-            if (current && !/^\s/.test(current)) separator = ' ';
-            else if (!current && previousContent && !/^\s/.test(previousContent)) separator = '';
+          if (style[0] === '>' && next && !/^[ \t]/.test(next)) {
+            if (current && !/^[ \t]/.test(current)) separator = ' ';
+            else if (!current && previousContent && !/^[ \t]/.test(previousContent)) separator = '';
           }
           block += separator;
         }
