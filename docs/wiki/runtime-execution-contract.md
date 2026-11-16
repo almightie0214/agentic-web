@@ -16,7 +16,7 @@ description: 두 runtime 사본의 실행 계약. 실패를 답 문자열로 바
 
 - 지운 것(파일 이름만 적는다): mcp.js, sandbox.js, sandbox-worker.js, discovered-actions.js, form-actions.js, action-bridge.js, langchain-runner.mjs, generated 폴더의 agent-runner 번들, 그리고 `web-crypto.js`의 SHA-256 구현(마지막 소비자 discovered-actions.js가 사라져 함께 제거; `randomUuid`만 남음).
 - 남긴 것: 로컬 site action 경로. `action-transport.js`의 `loadActionModule`·`reviewActions`(같은 출처 module 로딩과 확인), `actions.js`의 `ActionRegistry`·검증·실행·receipt, `website_*` 도구, 확인 UI. `site-a/runtime/generated/graph.gen.mjs`·`site-a/runtime/generated/validation.gen.mjs`와 `kernel.js`의 분류도 남아 Site A validator가 MCP 참조를 정적으로 판정한다([[validator-rules]]). 정적 validator 규칙은 바뀌지 않았다.
-- fail closed: `Engine._compile`(`engine.js`)이 `coded_tools`, 원격 action 필드(`catalog`·`pages`·`hostPage`·`bridge`·`callerOrigins`), `class`·`toolbox` 도구, `mcp`·`coded`·`toolbox`로 분류되는 참조를 모으고 `This runtime does not support …`로 실행 전에 거부한다. 조용히 무시하지 않는다. 명세 §6의 grounded capability는 MCP 또는 로컬 site action이면 되고 두 사이트는 후자(`validate_network`, [[validator-action]])를 쓴다.
+- fail closed: `Engine._compileDefinition`(`engine.js`; 주소에서 온 정의와 시험 실행의 편집기 정의가 공유하는 지점)이 `coded_tools`, 원격 action 필드(`catalog`·`pages`·`hostPage`·`bridge`·`callerOrigins`), `class`·`toolbox` 도구, `mcp`·`coded`·`toolbox`로 분류되는 참조를 모으고 `This runtime does not support …`로 실행 전에 거부한다. 조용히 무시하지 않는다. 명세 §6의 grounded capability는 MCP 또는 로컬 site action이면 되고 두 사이트는 후자(`validate_network`, [[validator-action]])를 쓴다.
 
 ## 실패는 경계 두 곳에서 던진다
 
@@ -45,9 +45,9 @@ description: 두 runtime 사본의 실행 계약. 실패를 답 문자열로 바
 
 ### composition deadline은 네트워크가 선언한다
 
-`Engine.runTurn`이 질의 `composition.deadline`을 최상위 네트워크의 `max_execution_seconds`로 정한다. 선언이 없을 때만 90초이고 선언값은 `MAX_EXECUTION_SECONDS`로 줄인다(`engine.js`의 `Math.min(선언 ?? 90, MAX_EXECUTION_SECONDS)`). 피어 네트워크의 선언은 caller의 composition을 바꾸지 못한다. 피어는 자기 에이전트 한도로만 더 짧게 할 수 있다. 명세 §3.1이 한도를 네트워크 단위로 설정할 수 있어야 한다고 하기 때문이다. 이전의 고정 90초에서 Spec Scout 질문이 피어 모델 호출 약 71초 뒤 coordinator 최종 호출에서 잘렸다. 공개 선언은 `site-a/review_desk.network.json`이 180, `site-b/spec_scout.network.json`이 120이고 변환기는 90을 내보낸다([[converter-mapping-contract]]).
+`Engine._turnBudget()`이 질의 `composition.deadline`을 최상위 네트워크의 `max_execution_seconds`로 정한다. `runTurn`(채팅)과 `runEditor`(시험 실행, [[editor-test-run]])가 이 한 함수를 쓴다. 선언이 없을 때만 90초이고 선언값은 `MAX_EXECUTION_SECONDS`로 줄인다(`engine.js`의 `Math.min(선언 ?? 90, MAX_EXECUTION_SECONDS)`). 시험 실행에서는 가져온 네트워크가 더 긴 시간을 선언해도 Review Desk 최상위 네트워크의 값이 예산이 된다. 피어 네트워크의 선언은 caller의 composition을 바꾸지 못한다. 피어는 자기 에이전트 한도로만 더 짧게 할 수 있다. 명세 §3.1이 한도를 네트워크 단위로 설정할 수 있어야 한다고 하기 때문이다. 이전의 고정 90초에서 Spec Scout 질문이 피어 모델 호출 약 71초 뒤 coordinator 최종 호출에서 잘렸다. 공개 선언은 `site-a/review_desk.network.json`이 180, `site-b/spec_scout.network.json`이 120이고 변환기는 90을 내보낸다([[converter-mapping-contract]]).
 
-선언 형식은 `kernel.js`의 `validateNetwork`가 `Engine._compile`에서 강제한다. 네트워크·에이전트 수준 `max_execution_seconds`가 유한한 양수 number가 아니거나(null·문자열·0·음수·NaN·Infinity), `max_steps`가 양의 정수가 아니면 실행 전에 거부한다. 소수 값은 허용한다. 정적 validator의 `execution.limit` 규칙만 이를 보던 때는 잘못된 값이 NaN deadline이 되어 타이머가 걸리지 않았다.
+선언 형식은 `kernel.js`의 `validateNetwork`가 `Engine._compileDefinition`에서 강제한다. 네트워크·에이전트 수준 `max_execution_seconds`가 유한한 양수 number가 아니거나(null·문자열·0·음수·NaN·Infinity), `max_steps`가 양의 정수가 아니면 실행 전에 거부한다. 소수 값은 허용한다. 정적 validator의 `execution.limit` 규칙만 이를 보던 때는 잘못된 값이 NaN deadline이 되어 타이머가 걸리지 않았다.
 
 ### 시간 상한은 실측에서 나온다
 

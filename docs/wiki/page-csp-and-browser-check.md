@@ -29,7 +29,8 @@ description: 두 사이트 페이지의 Content-Security-Policy meta 정책과 �
 수행하는 흐름:
 
 - Site A: 부팅·채팅 렌더(모델 요청 0건) → 키 없는 정상 샘플 검사 → 자기 URL 감사 → ⚙ 설정 컨트롤로 BYOK 적용·재로드 → 질문 한 번 → 동의 카드(그 시점까지 B로 가는 fetch 0건) → Allow → B의 manifest·정의 fetch → 피어 답과 최종 답 렌더. 모의 router는 `website_validate_network` 로컬 action 영수증도 만들게 한다.
-- 변환 탭: 두 샘플(claude·theora) 변환·정적 검사, 세 산출물 다운로드가 화면 값과 바이트 단위로 같은지 확인.
+- 변환 탭: 세 샘플(claude·adk·theora) 변환·정적 검사, 세 산출물 다운로드가 화면 값과 바이트 단위로 같은지 확인. ADK는 세 단계 간선(coordinator→specialist→researcher)과 알림의 `tools`·`model` 이름도 단언한다.
+- Review Desk 시험 실행: ADK 샘플을 변환해 같은 탭의 Review Desk로 열고(넘겨받기만으로는 모델 요청이 늘지 않음, 내려받기 바이트가 검사한 입력과 같음, 단계 링크가 현재 단계를 표시), Run으로 시험 실행해 답 렌더와 위임 span·tool 결과 반환, 실행 그래프의 `editor` 표지를 확인한다. 디렉터리 주소로 연 Review Desk에서 단계 이동이 document를 다시 로드하지 않고 검사한 입력·내려받기·답·그래프를 보존하는지도 확인한다([[editor-test-run]]). 두 페이지의 nav가 같은 다섯 단계와 대상 구역을 가지는지도 단언한다.
 - Site B: 부팅·렌더.
 - 각 페이지에 같은 출처의 탐침 스크립트(도구가 자기 서버에서 내보내는 가상 경로)를 일반 script로 넣어 인라인 script와 `eval` 탐침을 실행한다. CDP `Runtime.evaluate`의 CSP 우회 기본값은 `allowUnsafeEvalBlockedByCSP: false`로 끈다.
 

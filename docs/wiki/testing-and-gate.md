@@ -24,7 +24,8 @@ description: theora.gate.json의 두 명령(node --test glob, 적합성 CLI)과 
 - `tests/validator.test.mjs`: 픽스처 사전조건(`fixtures:`)과 규칙 판정(`rules:`), 샘플 파일이 픽스처와 같은 리포트를 내는지(`samples:`). 형식이 틀린 입력, 스키마 방언, resolved 의존, 참조 무결성, 명명된 링크, 합성·실행 상한 경계, `llm.temperature`(생략과 0·2 통과, 네트워크·에이전트 범위별 잘못된 값 실패)를 다룬다. [[validator-rules]], [[fixtures-and-samples]]
 - `tests/actions.test.mjs`: action 등록 메타데이터·입력 스키마, 영수증과 규칙 리포트의 동일성, 잘못된 인자와 JSON 오류 처리. [[validator-action]]
 - `tests/audit.test.mjs`: 대체 `fetchImpl`로 하위 경로 보존, 공개 GET 한정, 획득 실패와 규칙 위반 분리. [[url-audit]]
-- `tests/desk-ui.test.mjs`: 최소 DOM에서 실제 `site-a/site.js`를 실행해 키 없는 경로, 오래된 결과 무효화, 프리셋, 초안, 런타임 그래프를 확인. [[site-a-review-desk]]
+- `tests/desk-ui.test.mjs`: 최소 DOM에서 실제 `site-a/site.js`를 실행해 키 없는 경로, 오래된 결과 무효화, 프리셋, 초안, 런타임 그래프를 확인. 시험 실행 화면도 다룬다: 현재 검사에 실패가 없고 클릭했을 때만 실행, 실제 `Engine.runEditor`·runner·응답 파서를 거친 전체 답·구조화 답·표시 오류, Stop 취소와 채팅 배제, 내려받기 바이트와 이전 객체 URL 해제, 다섯 단계 nav의 목적지와 구역 존재, `[editor]` 출처 표지. [[site-a-review-desk]], [[editor-test-run]]
+- `tests/editor-runtime.test.mjs`: A/B 두 `runtime/engine.js`에 같은 조건으로 `Engine.runEditor`를 검사한다(router·키·history, 이름으로 액션·저장 링크를 물려받지 않음, 지원 밖 능력 거부, 절대 주소 피어의 정책·동의, 시간·step·호출 예산과 취소, 채팅과의 실행 소유). [[editor-test-run]]
 
 ## 공통·사이트 B 검사
 
@@ -40,6 +41,8 @@ Site B 전용(`smoke.test.mjs`의 Site B boot 검사): 실제 manifest·네트�
 
 `runtime …` 이름의 테스트가 [[runtime-execution-contract]]의 계약을 실제 `Engine`·`runAgent`·`dispatchToolCall`·`executeToolCalls`로 확인한다: 한도 선언 형식의 컴파일 거부(유한 양수만, 소수 허용), 최상위 네트워크 선언이 composition deadline이 되는 것과 기본 90초·최대 180초(네트워크 선언과 단독 에이전트 선언이 모두 상한으로 줄어든다), temperature 전달(에이전트 값이 네트워크 값보다 앞서고, 없으면 네트워크 값, 둘 다 없으면 body에 키 자체가 없음, 0은 0으로 감, 피어는 자기 값, 설정 화면 모델 override가 있어도 유지)과 temperature 선언의 컴파일 거부(에이전트·네트워크 각각, 유효한 에이전트 값에 가려진 잘못된 네트워크 값 포함; 0과 2는 통과), 피어 선언이 caller의 deadline을 늘리지 못함, 은퇴한 실행 기능 선언의 컴파일 거부, 쓸 수 없는 답의 실패와 정상 prose·유효 presentation의 수용, 모든 tool 실패가 `executeToolCalls`에서만 번역되는 것, website 실패의 receipt와 unknown 쓰기 결과 보존, ctx에서 읽은 함수형 속성과 모든 tool 종류가 abort된 scope에서 접촉 0으로 실패하는 것, 정책 뒤 동의 결정마다 이벤트 1개, 대기 중 작업이 자기·상속·composition deadline에서 끝남, 큐에 있던 입력과 commit 직전 취소의 무효화, 실제 피어 실패의 caller 전파와 자식 한도 초과 시 형제 유지. 시간 의존 검사는 실제 sleep이 아니라 mock Date·timer와 진입/완료 deferred로 제어한다(실제 시간 경과에 기대면 목표 대기 진입 전 만료도 통과할 수 있어 리뷰에서 지적됐다; [[no-compat-code-lessons]]).
 
+피어 목적지 규칙([[peer-destination-rule]])은 같은 파일의 `runtime binds nested relative peers to the immediate publisher`, `runtime keeps peer tool aliases distinct from published network names`, `runtime rejects foreign definition origins before contact`, `runtime rejects publication redirects without following HTTP locations`가 검사한다. 마지막 테스트는 `node:http` 서버 두 개로 manifest·정의·links 각각이 같은 출처와 다른 출처로 302를 내는 경우를 만들고, 실패가 caller에 오류 tool 결과로 가며 Location으로의 요청이 0건이고 피어 캐시가 비어 있음을 확인한다. redirect 없는 게시와 없는 links는 그대로 로드된다.
+
 `tests/desk-ui.test.mjs`는 trust 표시의 consent 결정 출처별 수를, `tests/smoke.test.mjs`는 boot 실패 화면의 `Loader error:`와 URL 비밀 가림, 설정 화면 모델 선택이 temperature를 지우지 않는 것, 세 네트워크 선언과 두 `MAX_EXECUTION_SECONDS`가 실측 공식(`30 * ceil(2 * max / 30000)`, 상한 `max(90, …)`)과 같은 것을 확인한다. `tests/conformance.test.mjs`·`tests/converter/`·`tests/peer.test.mjs`는 세 네트워크의 temperature 0.2 선언도 단언한다.
 
 ## `tests/conformance.test.mjs` (적합성 CLI)
@@ -48,7 +51,7 @@ Site B 전용(`smoke.test.mjs`의 Site B boot 검사): 실제 manifest·네트�
 
 ## `tests/converter/` (변환기)
 
-glob `tests/**/*.test.mjs`가 하위 디렉터리를 포함하므로 `tests/converter/fixtures/integrity.test.mjs`·`parse.test.mjs`·`emit.test.mjs`·`e2e.test.mjs`·`web.test.mjs`도 같은 명령에서 돌아간다. 각 파일의 범위와 AW2·AW4 정적 검사 연계, 리뷰 교훈은 [[converter-verification]]에 있다. e2e는 저장소의 .theora 개발 영역 아래 임시 작업공간을 쓰고 지운다. 실제 브라우저 로드와 모델 동작은 이 테스트가 증명하지 않는다.
+glob `tests/**/*.test.mjs`가 하위 디렉터리를 포함하므로 `tests/converter/fixtures/integrity.test.mjs`·`parse.test.mjs`·`emit.test.mjs`·`e2e.test.mjs`·`web.test.mjs`도 같은 명령에서 돌아간다(ADK 입력과 알림 검사 포함). 각 파일의 범위와 AW2·AW4 정적 검사 연계, 리뷰 교훈은 [[converter-verification]]에 있다. e2e는 저장소의 .theora 개발 영역 아래 임시 작업공간을 쓰고 지운다. 실제 브라우저 로드와 모델 동작은 이 테스트가 증명하지 않는다.
 
 ## `tests/peer.test.mjs`의 배포 설정 검사
 
@@ -56,7 +59,7 @@ glob `tests/**/*.test.mjs`가 하위 디렉터리를 포함하므로 `tests/conv
 
 ## 게이트 밖의 브라우저 확인
 
-`tools/browser-check.mjs`는 `npm test`·gate에 들어 있지 않다. Node 24와 로컬 Edge로 따로 돌리는 Task 확인이고 CSP 위반 수와 부팅·변환·채팅·피어 동의 흐름을 모의 router로 확인한다([[page-csp-and-browser-check]]).
+`tools/browser-check.mjs`는 `npm test`·gate에 들어 있지 않다. Node 24와 로컬 Edge로 따로 돌리는 Task 확인이고 CSP 위반 수와 부팅·변환·ADK 시험 실행·채팅·피어 동의 흐름을 모의 router로 확인한다([[page-csp-and-browser-check]]).
 
 ## 한계
 

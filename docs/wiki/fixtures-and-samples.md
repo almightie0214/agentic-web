@@ -19,13 +19,13 @@ description: tests/fixtures.mjs의 정상 1·불량 3 검사 입력과 site-a/sa
 
 ## `site-a/samples/`
 
-`valid`, `bad-frontman`, `bad-schema`, `bad-cycle` 각각 `<id>.network.json`이며 내용은 같은 id의 픽스처와 `deepEqual`이다(`tests/validator.test.mjs`의 `samples:` 테스트가 단언). 페이지의 샘플 버튼(`data-sample`)이 `./samples/<id>.network.json`을 가져와 입력란에 채우고 즉시 검사한다([[site-a-review-desk]]). 샘플 네트워크를 실행하거나 합성 피어에 접속하지 않으며, `bad-cycle`은 정적 진단만 보여 주고 실제 브라우저 순환 중단은 입증하지 않는다(`runtime.composition`은 모든 샘플에서 `unverified`).
+`valid`, `bad-frontman`, `bad-schema`, `bad-cycle` 각각 `<id>.network.json`이며 내용은 같은 id의 픽스처와 `deepEqual`이다(`tests/validator.test.mjs`의 `samples:` 테스트가 단언). 페이지의 샘플 버튼(`data-sample`)이 `./samples/<id>.network.json`을 가져와 입력란에 채우고 즉시 검사한다([[site-a-review-desk]]). 샘플 네트워크를 실행하거나 합성 피어에 접속하지 않는다(샘플을 불러오는 것은 검사만 한다. 검사 뒤 방문자가 시험 실행을 눌러야 도는 길은 [[editor-test-run]]에 있다). `bad-cycle`은 정적 진단만 보여 주고 실제 브라우저 순환 중단은 입증하지 않는다(`runtime.composition`은 모든 샘플에서 `unverified`).
 
 픽스처를 고치면 샘플 JSON도 같이 고쳐야 한다. 둘이 어긋나면 테스트가 실패한다.
 
 ## 변환기 픽스처와 샘플
 
-변환기는 별도 입력 세트를 쓴다. 테스트용 가상 Theora 프로젝트와 Markdown 역할, 기대 산출물 스냅샷은 `tests/converter/fixtures/`에 있고, 변환 탭의 두 공개 샘플은 `site-a/converter/samples/`에 있다. 내용과 검사는 [[converter-verification]]에서 다룬다. 위 검사 입력(`tests/fixtures.mjs`)과는 별개다.
+변환기는 별도 입력 세트를 쓴다. 테스트용 가상 Theora 프로젝트와 Markdown 역할, ADK 폴더(`tests/converter/fixtures/adk/`), 기대 산출물 스냅샷은 `tests/converter/fixtures/`에 있고, 변환 탭의 세 공개 샘플(Claude agents·Google ADK·Theora)은 `site-a/converter/samples/`에 있다. ADK 샘플은 저장소가 직접 쓴 세 단계(coordinator → specialist → researcher, 한 에이전트는 옮기지 않는 `tools`·`model` 키를 가져 알림이 보인다)이고 ADK 테스트 픽스처와 바이트가 같다. 내용과 검사는 [[converter-verification]]에서 다룬다. 위 검사 입력(`tests/fixtures.mjs`)과는 별개다. 변환 결과를 Review Desk에서 돌릴 때는 [[editor-test-run]]이 이 입력을 쓴다.
 
 ## `site-a/samples/test-slydata.network.json`
 

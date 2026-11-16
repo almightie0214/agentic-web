@@ -1,10 +1,10 @@
 ---
-description: docs/demo-checklist.md 브라우저 검증 원장의 구성과 증거 규칙, B01–B10, run 1 실패와 보정, 공개 측정(§4), AW5 번들, §6 실측, temperature 적용 뒤 실측(§7)과 시간 한도 계산(§8), 미확인
+description: docs/demo-checklist.md 브라우저 검증 원장의 구성과 증거 규칙, B01–B10, run 1 실패와 보정, 공개 측정(§4), AW5 번들, §6 실측, temperature 적용 뒤 실측(§7)과 시간 한도 계산(§8), ADK·Claude 변환 시험 실행 공개 실측(§9), 미확인
 ---
 
 # 실제 브라우저 검증 원장
 
-`docs/demo-checklist.md`는 절차 체크리스트이자 **사용자가 실행해 제공한** 초기 브라우저 관찰(로컬과 공개), 그 뒤 구현자가 직접 실행한 공개 브라우저 실측(§6·§7)과 공개 HTTP 측정의 원장이다. 체크리스트 작성이나 Node exit 0은 런타임 검증 완료가 아니다. 구현자는 정제된 Markdown 기록을 읽었을 뿐 라이브 브라우저 세션이나 스크린샷을 본 것이 아니며 원장은 그렇게 명시한다. 정적 쪽은 [[conformance-cli]], 배포는 [[deployment-and-release]]에 있다.
+`docs/demo-checklist.md`는 절차 체크리스트이자 **사용자가 실행해 제공한** 초기 브라우저 관찰(로컬과 공개), 그 뒤 구현자가 직접 실행한 공개 브라우저 실측(§6·§7·§9)과 공개 HTTP 측정의 원장이다. 체크리스트 작성이나 Node exit 0은 런타임 검증 완료가 아니다. 구현자는 정제된 Markdown 기록을 읽었을 뿐 라이브 브라우저 세션이나 스크린샷을 본 것이 아니며 원장은 그렇게 명시한다. 정적 쪽은 [[conformance-cli]], 배포는 [[deployment-and-release]]에 있다.
 
 ## 구성
 
@@ -20,6 +20,7 @@ description: docs/demo-checklist.md 브라우저 검증 원장의 구성과 증�
 | §6 judge-ready fixes release check | R01 공개 바이트·저장소 공개 여부, R02 착륙 트리 `browser-check`, R06 부팅 오류 화면, deadline-config 뒤 실행 갱신(공개 Edge/Firefox 실측, CLI Theora 묶음 실행, 증거 보존) |
 | §7 judge-facing public check | temperature 0.2 적용 뒤 고정 질문 여덟 번의 새 대화 실행(공개 A Edge 3·Firefox 1, 공개 B Edge 2, 변환 샘플 Edge 2)의 요청 값·경과 시간·답 가독성, 중단된 수집 시도, 증거 보존 위치 |
 | §8 measured execution limits | §7의 최상위 run span `durationMs`에서 세 네트워크 선언과 runtime 상한을 계산한 근거 |
+| §9 Convert → test run 공개 실측 | 공개 Review Desk에서 ADK 샘플 3회·Claude 샘플 1회의 변환 → 시험 실행과 Spec Scout 질문 1회, 보존된 미완료 시도, 요청 값·span·답 전문 읽기 |
 
 B08은 [[conformance-cli]]의 `test-slydata` 샘플을 기존 `Engine.runTurn(…, { slyData })` 옵션으로 주입하고 정의 fetch의 URL·헤더·본문을 병행 관찰하도록 한다. 판정은 PASS·FAIL·UNVERIFIED이며 모델이 도구를 썼다거나 비밀을 지켰다고 말한 것은 증거가 아니다.
 
@@ -86,6 +87,17 @@ A/B 최상위 로더의 중복 이름 거부, 중복 피어의 피어 추론 전
 | 변환 팀(converted_team) | `team-edge-2` | 43567.7 | 90초 |
 
 runtime 상한은 `max(90, 180, 120, 90) = 180`이다. 이 값은 고정 질문과 조건의 실측 예산이고 임의 질문이나 provider 응답 시간이 그 안에 들어오는 보장이 아니다. 새 한도의 공개 배포와 라이브 재측정은 하지 않았다. 이전 절의 옛 선언(240/180/240, 상한 300)은 그때 측정된 버전의 기록이다. 결과가 코드에 반영된 방식은 [[runtime-execution-contract]]의 "시간 상한은 실측에서 나온다"에 있다. 이 값이 `README.md`·`docs/devpost.md`의 본문에는 실리지 않는다([[deployment-and-release]]).
+
+## ADK·Claude 변환 시험 실행 공개 실측 (§9)
+
+`docs/demo-checklist.md` §9는 `convert-test-run`이 착륙한 판본(`fcc8c0410b268b0e69ecf3a199efa4cc5e6ec47c`)을 기준으로 구현자가 직접 돌린 관찰이다. 이 절은 위키 작성자가 라이브 세션을 본 것이 아니라 원장의 기록을 읽은 것이다. 변환 시험 실행([[editor-test-run]])과 피어 목적지 규칙([[peer-destination-rule]]) 뒤의 공개 사이트를 대상으로 한다.
+
+- **사전 대조**: 실행 전 공개 A·B의 변경 사이트 파일 23개(A 18, B 5)를 자격 없는 GET으로 읽어 모두 HTTP 200·redirect 없음·원본 바이트와 같음을 확인했다. 변경 파일 대조이지 사이트 전체 보안·CORS 감사가 아니다.
+- **조건**: 공개 Review Desk와 공개 Spec Scout, 실제 모델(`alibaba/qwen3.8-flash`)이고 모의 router는 쓰지 않았다. 설정 패널에는 개발용 loopback router와 가짜 sentinel 키만 넣었다. Edge(CDP)는 `LocalNetworkAccessChecks` 비활성, Firefox(BiDi)는 버리는 프로필의 로컬 네트워크 예외를 써야 했다. 기본 심사자 환경의 성공 증거가 아니다.
+- **질문과 흐름**: ADK 질문은 중간 에이전트를 거쳐 잎까지 가야만 답할 수 있는 것(경로 코드 `CEDAR-27`은 `researcher`에만 있다)으로 고정했다. 변환 실행은 샘플 버튼 → 정적 검사 통과 → Open in Review Desk → 같은 탭의 Test run 메시지·Run이고, 인계 직후 run이 없음을 확인한 뒤 눌렀다. Spec Scout는 기존 채팅 Send → 동의 카드 Allow 한 번이다.
+- **미완료 시도(실패 기록, PASS 아님)**: 최초 Edge ADK 시도(`adk-edge-1`)는 `observation timeout: sample conversion`으로 exit 1이었다. 사람 입력 86 / D67이 정적 HTML의 버튼이 모듈 핸들러 등록 전에 존재하는 **수집기 준비 경쟁**을 원인으로 확인했고, 실패 원본을 보존한 별도 재개(`adk-edge-1-r2`)를 승인했다. 제품 실패로 간주하지 않고 성공으로 바꾸지도 않는다.
+- **결과**: 다섯 실행(ADK Edge 2회·Firefox 1회, Claude Edge 1회, Spec Scout Edge 1회)이 모두 exit 0이고 모든 run·agent·tool·model 종료 span이 `ok`였다. 구현자가 읽은 답 전문 13개에 깨진 문장이 관찰되지 않았다. ADK 세 건은 뿌리 → 중간 → 잎의 두 위임 tool이 모두 성공이고 하위 에이전트의 답 전문이 다음 모델 요청의 tool 결과와 정확히 같았으며 화면에 `Not converted for specialist: tools, model.` 알림이 있었다. Claude는 coordinator → specialist가 성공했다(specialist 답이 `Recommendation to coordinator:`로 시작해 출력 규칙이 완벽히 지켜졌다고 주장하지 않는다). Spec Scout은 Allow 전 B 요청 0건·동의 이벤트 1개, 이후 B manifest·정의 200·`links.json` 404·피어 답이 caller의 tool 결과로 돌아온 성공이었다. 실제 모델 요청 21건 모두 `alibaba/qwen3.8-flash`·temperature 0.2·`stream: true`·HTTP 200이고, 세 페이지의 측정된 CSP 이벤트 배열은 비었다. 실행 시간은 원장 표의 `durationMs`이다(ADK 13.0–15.9초, Claude 28.7초, Spec Scout 81.8초 정도).
+- **한계**: 위 다섯 실행에 한정한 위임 성공·답 가독성 PASS다. 임의 입력, 정확성·인용 충실도, 일반 모델 안정성, 기본 심사자 추론 접근, 상한 만료·Stop·동시 실행 거부의 공개 운동, 모든 네트워크 요청의 키 격리 보증은 주장하지 않는다. 독립 리뷰·전체 gate·제출 준비 완료의 판정도 아니다. 증거는 git 밖 로컬 자료(프로젝트 개발 영역의 convert-test-run 아래 판본 이름 public-check 폴더, 시작점 `manifest-final.json`·`verification-final.json`)이며 공개 다운로드가 아니다.
 
 ## 미확인으로 남은 것
 

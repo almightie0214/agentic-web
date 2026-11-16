@@ -9,7 +9,7 @@ description: site-a/runtime과 site-b/runtime에 복사된 nsDeploy 브라우저
 ## 모듈 지도
 
 - `index.js`: 공개 진입. `boot(root, opts)`가 URL 쿼리 위생 처리, BYOK 설정 읽기, `Engine` 생성, `loadTop()`, `mountApp`을 수행한다. `Engine`·`TraceBus`·`mountApp` 등도 재export한다. runner 선택은 없다. 두 사이트 모두 `site.js`가 이 `boot`를 호출한다.
-- `engine.js`: manifest·네트워크 fetch와 컴파일(`_compile`: 은퇴 기능 거부, 구조 검증), 라우터 선택(`selectTopRouter`), 피어 정책, `_makeCtx`(호출 ctx와 동의 소유), `Session`. 원본 위치 기준 상대 URL을 해석한다.
+- `engine.js`: manifest·네트워크 fetch(`_compile`: 주소에서 정의와 links를 읽음)와 그 뒤 네트워크 만들기(`_compileDefinition`: 은퇴 기능 거부, 구조 검증, 라우터 선택), `selectTopRouter`·`selectPeerRouter`, 피어 정책, `_makeCtx`(호출 ctx와 동의 소유), `_turnBudget`·`_executeRun`(채팅 턴과 시험 실행이 공유하는 예산·진입 가드), `runTurn`·`runEditor`, `Session`. 원본 위치 기준 상대 URL을 해석한다.
 - `kernel.js`, `hocon.js`: `AgentNetwork`·`validateNetwork`(시간·step 한도와 `llm_config.temperature` 형식 검증 포함)와 정의 파싱.
 - `llm.js`: `LLMClient.chat`이 모델 요청 body를 만드는 유일한 경로다. `temperature`는 값이 있을 때만 body에 넣는다. 값을 고르는 쪽은 `runner.js`다([[runtime-execution-contract]]).
 - `runner.js`, `scope.js`: 유일한 에이전트 실행 루프와 호출 범위 취소(`createCallScope`·`scoped`·`bindContext`). 규칙은 [[runtime-execution-contract]].
@@ -35,9 +35,14 @@ description: site-a/runtime과 site-b/runtime에 복사된 nsDeploy 브라우저
 
 심사 전 결함 수정(두 사본 동일, 상세는 [[runtime-execution-contract]]):
 
-- 선택형 LangChain 루프(`Engine.enableLangChain`, `ctx.externalRunner`와 그 모듈·번들)와 쓰지 않는 기능(MCP·sandbox·sandbox worker·원격 action 발견·host form·bridge 모듈)을 지웠다. 지운 파일 목록은 [[runtime-execution-contract]]. 이를 선언한 네트워크는 `Engine._compile`에서 거부된다. 로컬 site action 경로와 `site-a/runtime/generated/graph.gen.mjs`·`site-a/runtime/generated/validation.gen.mjs`는 남았다.
+- 선택형 LangChain 루프(`Engine.enableLangChain`, `ctx.externalRunner`와 그 모듈·번들)와 쓰지 않는 기능(MCP·sandbox·sandbox worker·원격 action 발견·host form·bridge 모듈)을 지웠다. 지운 파일 목록은 [[runtime-execution-contract]]. 이를 선언한 네트워크는 `Engine._compileDefinition`에서 거부된다. 로컬 site action 경로와 `site-a/runtime/generated/graph.gen.mjs`·`site-a/runtime/generated/validation.gen.mjs`는 남았다.
 - 실패 경계(`runAgent`·`dispatchToolCall`은 던지고 `executeToolCalls`만 오류 tool 결과로 바꿈), 호출 범위 deadline, 정책 뒤 동의 기록, 네트워크 선언 composition deadline, 한도 선언 형식 검증, 부팅 오류 표시.
 - 이 수정은 `site-a/runtime/README.md`·`site-b/runtime/README.md`의 Local distribution notice에도 적혀 있다.
+
+변환 시험 실행을 위한 변경(두 사본 동일, 각 README의 Local distribution notice에도 적혀 있다):
+
+- `engine.js`: `_compile`을 나눠 주소 읽기와 네트워크 만들기(`_compileDefinition`)를 분리했다. 메모리의 정의로 들어가는 `runEditor(input, userText, { signal })`가 게시 출처(base) 없는 피어 세션을 만든다. 이유와 규칙은 [[editor-test-run]]에 있다. `_turnBudget()`은 턴 예산을 만드는 한 곳이고 `running`이 두 진입점의 겹침을 막는다. 채팅 실행도 외부 abort signal을 받는다.
+- `kernel.js`·`runner.js`·`remote.js`·`engine.js`: 피어 참조를 부른 쪽 base로 한 번 풀고(`parseExternalAgent`) 정책·동의·순환·캐시·예산·읽기가 같은 정식 주소를 쓴다. 게시 파일은 그 출처에서만 redirect 없이 읽는다(`fetchPublished`). 도구 별칭은 목적지와 분리된다(`toolPath`). [[peer-destination-rule]].
 
 공개 실측 뒤 수정(두 사본 동일):
 

@@ -6,10 +6,11 @@ description: Site A(Agent Review Desk)의 페이지 구성, 키 없이 쓰는 �
 
 ## 구성
 
-- `site-a/index.html`: 헤더, 검사 패널(`#review-tools`: 샘플 버튼 4개, 붙여넣기 폼 `#validate-form`, URL 감사 폼 `#audit-form`과 프리셋), 규칙 리포트 `#rule-report`와 구성 그래프 `#review-graph`, 실행 그래프 섹션, 채팅 영역. 런타임이 채우는 슬롯 `data-ns-slot="header" | "settings" | "chat" | "agents"`를 가진 `section#agent-app`은 처음에 `hidden`이다. 모든 참조는 `./styles.css`, `./site.js`처럼 상대경로다. 콘텐츠는 영어.
-- `site-a/converter.html`·`site-a/converter.js`: 키 없이 쓰는 역할 변환 탭. `index.html` 헤더에서 링크하고 `styles.css`를 공유한다. [[converter-code-structure]]. `index.html`·`converter.html` 모두 restrictive CSP meta를 선언한다([[page-csp-and-browser-check]]).
+- `site-a/index.html`: 헤더와 다섯 단계 nav, 검사 패널(`#review-tools`: 샘플 버튼 4개, 붙여넣기 폼 `#validate-form`, URL 감사 폼 `#audit-form`과 프리셋), 규칙 리포트 `#rule-report`와 구성 그래프 `#review-graph`, 시험 실행 구역 `#test-run`, 내려받기 구역 `#download`, 실행 그래프 섹션, 채팅 영역. 런타임이 채우는 슬롯 `data-ns-slot="header" | "settings" | "chat" | "agents"`를 가진 `section#agent-app`은 처음에 `hidden`이다. 모든 참조는 `./styles.css`, `./site.js`처럼 상대경로다. 콘텐츠는 영어.
+- `site-a/converter.html`·`site-a/converter.js`: 키 없이 쓰는 변환 탭(Theora·Markdown·ADK). 두 페이지 머리의 같은 nav(Import → Check → Ask the spec → Test run → Download)로 이어지고 `styles.css`를 공유한다. [[converter-code-structure]]. `index.html`·`converter.html` 모두 restrictive CSP meta를 선언한다([[page-csp-and-browser-check]]).
 - `site-a/styles.css`: 사이트 스타일(`.site-shell`, `.desk-workspace`, `.desk-panel`, `.desk-check`의 `data-state`별 색, `.desk-graph`, `.desk-trust` 등).
-- `site-a/site.js`: 검사 UI와 부트 셸. 규칙은 [[validator-rules]], URL 감사는 [[url-audit]]에서 가져다 쓴다. 새 설정 UI나 키 저장 로직은 없다.
+- `site-a/site.js`: 검사 UI, 시험 실행·내려받기 제어, 부트 셸. 규칙은 [[validator-rules]], URL 감사는 [[url-audit]]에서 가져다 쓴다. 새 설정 UI나 키 저장 로직은 없다.
+- `site-a/artifact-download.js`: `artifactDownloads(container, input, { sources, networkName })`. 변환 탭과 Review Desk가 같은 함수로 network·manifest·(있으면) links의 객체 URL 다운로드 링크를 만들고 해제 함수를 돌려준다.
 
 ## 키 없는 검사
 
@@ -26,13 +27,17 @@ description: Site A(Agent Review Desk)의 페이지 구성, 키 없이 쓰는 �
 
 실패/오류 행에는 "Explain in Review Desk"와 "Ask Spec Scout about the clause" 버튼이 붙는다(`draftExplanation`). 둘 다 채팅 입력창에 **초안만** 채우고(기존 초안은 `window.confirm` 확인 후 교체) 전송은 사용자가 한다. 초안에는 해당 발견과 공개 아티팩트가 "신뢰할 수 없는 데이터"로 담긴다. Spec Scout 버튼은 유효 링크에 `spec_scout`라는 이름의 실제 피어가 설정되어 있을 때만 활성이다. `peerTargets`는 `test`·`invalid`·`example` 호스트 같은 placeholder를 걸러내는데, 현재 발행된 바인딩(`https://spec-scout.pages.dev/spec_scout`)은 걸러지지 않아 boot 뒤 활성 조건을 충족한다. 이 판정은 호스트 이름 규칙이라 예약 주소를 공개 주소로 바꿀 때 코드 변경 없이 켜졌고, 접근 가능하다는 증거는 따로 공개 실측에 있다([[peer-connection]]). 활성 상태에서도 초안은 피어 접촉을 허가하지 않고 런타임의 평소 동의 흐름을 우회하지 않는다. 채팅을 쓸 수 없으면 안내만 보이고 리포트는 유지된다.
 
+## 시험 실행과 내려받기
+
+검사에 실패가 없는 입력(붙여넣기·샘플·URL 감사·변환 탭에서 넘겨받은 것)을 방문자가 **Test run** 구역에서 Run을 눌렀을 때만 같은 탭의 런타임으로 한 메시지 돌린다. `site.js`가 `runtime.engine.runEditor(reviewed, 메시지, { signal })`를 부르고, 가져온 정의는 게시 출처 없는 피어로 Review Desk의 router·키·모델과 턴 예산으로 돈다. 채팅과 겹치지 않고 Stop으로 취소한다. 규칙과 이유는 [[editor-test-run]]에 있다. 같은 페이지의 **Download** 구역은 현재 검사한 입력의 바이트를 그대로 내려받게 한다. 입력 편집은 `clearReview`가 검토 상태와 다운로드를 지워 다시 검사하게 한다.
+
 ## 실행 그래프와 신뢰 배지
 
-`#runtime-config`는 이 페이지의 채팅 런타임(검토 대상 네트워크가 아님)의 manifest와 유효 링크에서 만든 구성이며 "설정상 기대"로만 표시한다. `#trust-state`와 `#runtime-events`는 `runtime.trace`의 실제 이벤트(`observe`)를 최신 채팅 run(`latestRun`)의 span·부모 관계로 모은다. 에이전트·모델 호출(router host/model/mock 여부)·피어 fetch/call span과 consent·`composition_limit` 결정 이벤트를 센다. consent는 결정 출처(`source`: `prompt_allow`·`prompt_always`·`remembered_always`·`decline`·`headless_default`)별로 표시하는 수를 따로 세고, 런타임이 결정마다 이벤트를 하나 남기므로 "동의 이벤트 없는 동의" 미확인 문구는 더 이상 쓰지 않는다(`site-a/site.js`의 `observe`; [[runtime-execution-contract]]). 채팅 전에는 "Not run"이다. 요청 요약이나 선언된 정책, 성공한 호출만으로 보안을 입증했다고 주장하지 않으며 CORS, 순환 중단, 상한 집행, 자격·비공개 맥락 격리는 런타임 보고일 뿐 증명이 아니다. 별도 Probe 토글·상시 sentinel·런타임 어댑터·감사 증거 JSON 다운로드는 만들지 않았다.
+`#runtime-config`는 이 페이지의 채팅 런타임(검토 대상 네트워크가 아님)의 manifest와 유효 링크에서 만든 구성이며 "설정상 기대"로만 표시한다. `#trust-state`와 `#runtime-events`는 `runtime.trace`의 실제 이벤트(`observe`)를 최신 run(`latestRun`; 채팅 턴 또는 시험 실행)의 span·부모 관계로 모은다. 에이전트·모델 호출(router host/model/mock 여부)·피어 fetch/call span과 consent·`composition_limit` 결정 이벤트를 센다. consent는 결정 출처(`source`: `prompt_allow`·`prompt_always`·`remembered_always`·`decline`·`headless_default`)별로 표시하는 수를 따로 세고, 런타임이 결정마다 이벤트를 하나 남기므로 "동의 이벤트 없는 동의" 미확인 문구는 더 이상 쓰지 않는다(`site-a/site.js`의 `observe`; [[runtime-execution-contract]]). 실행 그래프 패널은 채팅 턴과 시험 실행 중 최신 run 하나만 보이고, 각 행에 `[출처 → 피어 출처]` 표지를 붙인다. 시험 실행의 정의는 host 대신 `editor`로 표시된다. 아직 아무것도 돌지 않았으면 "Not run"이다. 요청 요약이나 선언된 정책, 성공한 호출만으로 보안을 입증했다고 주장하지 않으며 CORS, 순환 중단, 상한 집행, 자격·비공개 맥락 격리는 런타임 보고일 뿐 증명이 아니다. 별도 Probe 토글·상시 sentinel·런타임 어댑터·감사 증거 JSON 다운로드는 만들지 않았다.
 
 ## 변환 탭에서 온 입력 받기
 
-페이지 로드 때 `site.js`의 `receiveConvertedInput()`이 변환 탭이 `sessionStorage`에 둔 한 번용 payload(`agent-review-desk:converter`)를 읽는 즉시 지우고 구조를 검사해 입력란을 채운 뒤 같은 `validateNetwork` 리포트를 보인다. 잘못된 payload는 오류 문구만 보이고 아무것도 실행하지 않는다. 이 경로는 채팅 런타임에 변환 네트워크를 올리거나 피어 동의를 건너뛰지 않는다. 변환기 쪽 설명은 [[converter-code-structure]].
+페이지 로드 때 `site.js`의 `receiveConvertedInput()`이 변환 탭이 `sessionStorage`에 둔 한 번용 payload(`agent-review-desk:converter`)를 읽는 즉시 지우고 구조를 검사해 입력란을 채운 뒤 같은 `validateNetwork` 리포트를 보인다. 잘못된 payload는 오류 문구만 보이고 아무것도 실행하지 않는다. 이 경로 자체는 네트워크를 실행하거나 피어 동의를 건너뛰지 않는다. 받은 뒤 시험 실행은 방문자가 Run을 눌러야 시작된다. 변환기 쪽 설명은 [[converter-code-structure]].
 
 ## 부팅 흐름
 
