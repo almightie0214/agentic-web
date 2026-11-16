@@ -1,4 +1,11 @@
 // Pure CVT network emission. Public-text sanitation belongs to parseRoles.
+import { describeLayout } from './describe-layout.mjs';
+
+// CVT-NET-005: append after the sanitized source, according to the selected front.
+const outputRules = {
+  front: 'Return only the final answer intended for the visitor. Do not include drafts, plans, process notes, or messages addressed to other roles.',
+  specialist: 'Return only the answer to the inquiry sent by the front agent. Do not include drafts, plans, process notes, or messages addressed to other roles.',
+};
 function fail(rule) {
   // Never include rejected front values or source text in diagnostics.
   throw new Error(`${rule}: invalid converter input.`);
@@ -6,7 +13,7 @@ function fail(rule) {
 
 /**
  * Emit from parseRoles' sanitized IR without mutating it or the options.
- * @param {{roles: {name: string, description: string, instructions: string}[], configFront?: string}} parsed
+ * @param {{roles: {name: string, description: string, instructions: string}[], configFront?: string, layout: 'theora'|'markdown'}} parsed
  * @param {{front?: string}} options Explicit front overrides the validated config candidate.
  * @returns {{network: object, frontMan: string}} Selected front is also used by the manifest emitter.
  */
@@ -29,12 +36,13 @@ export function emitNetwork(parsed, options = {}) {
     if (candidate !== undefined && (typeof candidate !== 'string'
       || !roles.some(({ name }) => name === candidate))) fail('CVT-FRONT-001');
   }
+  const description = describeLayout(parsed.layout);
   const frontMan = options.front ?? parsed.configFront ?? roles[0].name;
   const others = roles.filter(({ name }) => name !== frontMan);
   const front = roles.find(({ name }) => name === frontMan);
 
   const network = {
-    metadata: { description: 'Converted Markdown role conversation network.' },
+    metadata: { description },
     llm_config: { model_name: 'alibaba/qwen3.8-flash' },
     max_steps: 12,
     max_execution_seconds: 90,
@@ -51,7 +59,7 @@ export function emitNetwork(parsed, options = {}) {
           additionalProperties: false,
         },
       },
-      instructions: role.instructions,
+      instructions: `${role.instructions}\n\n## Converter-owned output rule\n${outputRules[role.name === frontMan ? 'front' : 'specialist']}`,
       tools: role.name === frontMan ? others.map(({ name }) => name) : [],
     })),
   };

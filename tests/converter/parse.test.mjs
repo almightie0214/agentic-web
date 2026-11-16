@@ -27,16 +27,25 @@ test('CVT-CORE-001: shared parser has no node imports and loads as a browser-por
 });
 
 for (const layout of ['mini-theora', 'sample-agents']) {
-  test(`CVT-IR-001: ${layout} fixture yields sanitized roles matching publication snapshots`, async () => {
+  test(`CVT-IR-001: ${layout} fixture yields role text and format from input`, async () => {
     const files = layout === 'mini-theora'
       ? JSON.parse(await readFile(new URL('mini-theora/layout.json', fixtures), 'utf8'))
       : await Promise.all((await readdir(new URL('sample-agents/', fixtures))).filter((name) => name.endsWith('.md'))
         .map(async (name) => file(name, await readFile(new URL(`sample-agents/${name}`, fixtures), 'utf8'))));
-    const snapshot = JSON.parse(await readFile(new URL(`${layout}/expected/converted_team.network.json`, fixtures), 'utf8'));
-    const expected = snapshot.tools.map(({ name, function: fn, instructions }) => ({ name, description: fn.description, instructions }));
+    // These public fixtures need only frontmatter removal and outer trimming.
+    // Derive source text from the inputs, not emitter-owned publication instructions.
+    const expected = files.filter(({ path }) => path.endsWith('.md')).map(({ path, content }) => {
+      const instructions = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
+      return {
+        name: layout === 'mini-theora' ? path.split('/').at(-2) : path.slice(0, -3),
+        description: content.match(/^description: (.+)$/m)?.[1] ?? instructions.split('\n')[0].slice(2),
+        instructions,
+      };
+    }).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
     const frozen = Object.freeze(files.map((entry) => Object.freeze(entry)));
     const parsed = parseRoles(frozen, Object.freeze({}));
-    assert.deepEqual(parsed, { roles: expected, configFront: layout === 'mini-theora' ? 'coordinator' : undefined });
+    assert.deepEqual(parsed, { roles: expected, configFront: layout === 'mini-theora' ? 'coordinator' : undefined,
+      layout: layout === 'mini-theora' ? 'theora' : 'markdown' });
     assert.deepEqual(parseRoles([...files].reverse()), parsed);
     assert.deepEqual(parseRoles(files), parsed);
   });
@@ -47,6 +56,8 @@ test('CVT-IN-002/003: exact Theora selection wins mixed input and keeps the enti
   const files = [theora('Zulu', body), theora('alpha'), file('root.md', fm('name: [')),
     file('.theora/roles/nested/more/agent.md', ''), file('.theora/roles/ignored/readme.md', '')];
   const parsed = parseRoles(files);
+  assert.equal(parsed.layout, 'theora');
+  assert.equal(parseRoles(files, { layout: 'theora' }).layout, 'theora');
   assert.deepEqual(parsed.roles.map(({ name }) => name), ['Zulu', 'alpha']);
   assert.equal(parsed.roles[0].instructions, body);
   assert.equal(parsed.roles[0].description, 'Directory role');
@@ -63,8 +74,9 @@ test('CVT-IN-004: Claude agents directory excludes root and nested Markdown', ()
     file('.claude/agents/nested/ignored.md', ''), file('.claude/agents/upper.MD', ''),
     config('not JSON'), theora('other', '')];
   assert.deepEqual(parseRoles(files, { layout: 'markdown' }), {
-    roles: [{ name: 'reader', description: 'Claude reader', instructions: '# Claude reader' }], configFront: undefined,
+    roles: [{ name: 'reader', description: 'Claude reader', instructions: '# Claude reader' }], configFront: undefined, layout: 'markdown',
   });
+  assert.equal(parseRoles([file('reader.md')]).layout, 'markdown');
   assert.equal(role([file('reader.md'), file('nested/ignored.md', ''), file('upper.MD', ''), config('invalid')]).name, 'reader');
 });
 
