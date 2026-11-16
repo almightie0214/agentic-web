@@ -45,7 +45,7 @@ export function emitNetwork(parsed, options = {}) {
     metadata: { description },
     llm_config: { model_name: 'alibaba/qwen3.8-flash' },
     max_steps: 12,
-    max_execution_seconds: 90,
+    max_execution_seconds: 240,
     tools: [front, ...others].map((role) => ({
       name: role.name,
       function: {

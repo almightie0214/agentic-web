@@ -41,6 +41,10 @@ Agent calls and tool dispatch now either return an accepted answer/result or thr
 Only `executeToolCalls` converts failures into error tool results, preserving
 website receipts and uncertain write outcomes; diagnostics never become answer
 text. Each invocation inherits the earliest parent, composition or own deadline.
+The top network's `max_execution_seconds` sets the query budget (90 seconds when
+absent, capped at 300 seconds); peers cannot extend it. Agent limits are also
+capped at 300 seconds. Compilation rejects declared time limits unless they are
+finite positive numbers, and declared `max_steps` unless they are positive integers.
 Model and peer I/O and all context functions share that invocation's cancellation
 scope; pending consent, link and action-confirmation UI close on abort and ignore
 late input. Policy is checked before consent, and every consent decision has one

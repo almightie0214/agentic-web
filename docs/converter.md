@@ -216,10 +216,13 @@ Emit exactly these top-level fields in this order (Markdown example):
   "metadata": { "description": "Converted Markdown role conversation network." },
   "llm_config": { "model_name": "alibaba/qwen3.8-flash" },
   "max_steps": 12,
-  "max_execution_seconds": 90,
+  "max_execution_seconds": 240,
   "tools": []
 }
 ```
+
+`max_execution_seconds`는 입력 형식과 무관하게 240초로 고정한다. 이는 최상위
+질의의 시간 한도 선언이며, 피어로 호출될 때 caller의 더 짧은 한도를 늘리지 않는다.
 
 Replace `tools` as below. Identity/front are supplied by the manifest; do not add
 conflicting network-level identity. No `include`, `$include`, `$env`, substitutions,

@@ -5,6 +5,7 @@
   "llm_config": {
     "model_name": "alibaba/qwen3.8-flash"
   },
+  "max_execution_seconds": 180,
   "tools": [
     {
       "name": "spec_scout",

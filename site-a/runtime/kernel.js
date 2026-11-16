@@ -1,5 +1,5 @@
 // kernel.js — the pure, framework-free orchestration logic.
-// Changed by Agent Review Desk + Spec Scout: reject duplicate normalized agent names.
+// Changed by Agent Review Desk + Spec Scout: reject duplicate names and invalid execution limits.
 //
 // This module is the browser-side reference for what the plan calls the
 // "cross-compilable kernel": config filter chain, AgentNetwork, the activation
@@ -224,6 +224,22 @@ export function validateNetwork(network) {
   const errors = validate_network(network.config).filter((message) =>
     ![...network.linkSlots].some((ref) => message.includes(`references missing tool '${ref}'.`))
   );
+  // Execution bounds are part of structural validation, not just static advice.
+  // Check the network separately: an agent override cannot hide a bad default.
+  for (const [label, config] of [
+    ["Network", network.config],
+    ...(network.config.tools || []).map(spec => [`Agent '${spec.name}'`, spec]),
+  ]) {
+    if (Object.hasOwn(config, "max_execution_seconds")
+        && !(typeof config.max_execution_seconds === "number"
+          && Number.isFinite(config.max_execution_seconds) && config.max_execution_seconds > 0)) {
+      errors.push(`${label} max_execution_seconds must be a finite positive number.`);
+    }
+    if (Object.hasOwn(config, "max_steps")
+        && !(Number.isInteger(config.max_steps) && config.max_steps > 0)) {
+      errors.push(`${label} max_steps must be a positive integer.`);
+    }
+  }
   const warnings = [];
 
   // The externals/mcps list (for the trace's cross-origin permission view) is a

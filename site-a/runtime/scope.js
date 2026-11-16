@@ -1,4 +1,5 @@
 // One invocation owns its deadline; shared sessions never retain a caller's scope.
+export const MAX_EXECUTION_SECONDS = 300;
 const originals = new WeakMap();
 const clocks = new WeakMap();
 
@@ -37,8 +38,9 @@ export async function scoped(signal, operation) {
 
 export function createCallScope(ctx, spec) {
   assertActive(ctx.signal);
-  const seconds = Number(spec?.max_execution_seconds);
-  const ownDeadline = Number.isFinite(seconds) && seconds >= 0 ? Date.now() + seconds * 1000 : Infinity;
+  // Declared limits have already passed kernel structural validation.
+  const seconds = spec?.max_execution_seconds;
+  const ownDeadline = seconds === undefined ? Infinity : Date.now() + Math.min(seconds, MAX_EXECUTION_SECONDS) * 1000;
   const deadline = Math.min(ctx.deadline ?? Infinity, ctx.composition?.deadline ?? Infinity, ownDeadline);
   const controller = new AbortController();
   const inherit = () => controller.abort(ctx.signal.reason);
