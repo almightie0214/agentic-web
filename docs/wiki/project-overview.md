@@ -19,7 +19,9 @@ Agent Review Desk(Site A)와 Spec Scout(Site B)는 Worldwide Agentic Web MVP Pro
 - 저장소 정적 적합성 CLI `tools/check-conformance.mjs`: 공유 규칙을 재사용하고 발행 파일·링크·private-context 선언·CORS 설정을 감사한다. [[conformance-cli]].
 - 실제 브라우저 검증 원장 `docs/demo-checklist.md`: 사용자가 실행한 로컬·공개 브라우저 관찰, 공개 HTTP 측정, 미확인 항목. [[browser-evidence-ledger]].
 - 역할 변환기(AW5): Theora 역할 지시문이나 범용 Markdown 에이전트 파일을 결정적으로 이 사이트의 런타임이 실행하는 resolved JSON 네트워크·manifest·links로 내보낸다. 규칙 명세 [[converter-mapping-contract]], 순수 코어·Node CLI·웹 탭 구조 [[converter-code-structure]], 테스트와 교훈 [[converter-verification]]. 쉘·git·gate 같은 하네스 기능은 변환하지 않는다.
-- 영문 `README.md`, 제출 초안 `docs/devpost.md`: [[deployment-and-release]].
+- 실행 계약: 두 runtime 사본이 하나의 실행 루프, 실패를 답 문자열로 바꾸지 않는 경계 두 곳, 호출 범위 시간 한도와 네트워크 선언 composition deadline, 정책 뒤 동의 기록, 화면에 보이는 부팅 오류를 지킨다. 쓰지 않는 기능(MCP·toolbox·coded tool·원격 action)은 컴파일에서 거부된다. [[runtime-execution-contract]].
+- 페이지 CSP와 `tools/browser-check.mjs`: [[page-csp-and-browser-check]].
+- 영문 `README.md`, 제출 초안 `docs/devpost.md`: [[deployment-and-release]]. 두 문서는 영어 Testing instructions와 제출 마감을 갖춘다.
 - 검사: [[testing-and-gate]].
 
 ## 디렉터리 책임
@@ -29,7 +31,7 @@ Agent Review Desk(Site A)와 Spec Scout(Site B)는 Worldwide Agentic Web MVP Pro
 | `site-a/` | Site A 정적 번들: `index.html`, `site.js`, `styles.css`, `agent-manifest.json`, `links.json`, `review_desk.network.json`, 검사 모듈 `validator-rules.mjs`·`actions.js`·`audit.js`, 데모 입력 `samples/`, 변환 탭 `converter.html`·`converter.js`와 순수 변환 모듈·샘플 `converter/`, `runtime/` |
 | `site-b/` | Site B 정적 번들: `index.html`(스타일 인라인), `site.js`, `agent-manifest.json`, `spec_scout.network.json`(실행 배포본), `spec-excerpts.json`(발췌 저작 원본, 런타임이 읽지 않음), `runtime/`. Site A 파일에 의존하지 않는다 |
 | `tests/` | `smoke.test.mjs`, `peer.test.mjs`, `conformance.test.mjs`, `validator.test.mjs`, `actions.test.mjs`, `audit.test.mjs`, `desk-ui.test.mjs`, 공용 입력 `fixtures.mjs`, 변환기 테스트·픽스처 `converter/` |
-| `tools/` | `check-conformance.mjs` 정적 적합성 CLI, `theora2hocon/theora2hocon.mjs` 변환 CLI |
+| `tools/` | `check-conformance.mjs` 정적 적합성 CLI, `theora2hocon/theora2hocon.mjs` 변환 CLI, `browser-check.mjs` Edge/CDP 브라우저 확인(게이트 밖) |
 | `.github/workflows/` | `pages.yml`: Site A만 배포 |
 | `docs/` | 스펙 사본, `converter.md`(변환 매핑 규약), `demo-checklist.md`(브라우저 검증 원장), `devpost.md`(제출 초안). 위키는 `docs/wiki/` |
 
@@ -46,5 +48,5 @@ Agent Review Desk(Site A)와 Spec Scout(Site B)는 Worldwide Agentic Web MVP Pro
 
 ## 아직 없는 것
 
-- 정적 검사가 증명하지 못하는 실행 동작(브라우저의 피어 순환 중단, 동의, CORS, 상한 집행). 규칙 리포트와 CLI는 이를 `runtime.*` 미확인으로 표시한다. 일부는 사용자가 실행한 로컬 브라우저 관찰로 기록돼 있다. 변환 번들은 로드·위임이 반복 관찰됐지만 답변 품질은 FAIL로 남아 있다([[browser-evidence-ledger]]).
+- 정적 검사가 증명하지 못하는 실행 동작(브라우저의 피어 순환 중단, 동의, CORS, 상한 집행). 규칙 리포트와 CLI는 이를 `runtime.*` 미확인으로 표시한다. 일부는 사용자가 실행한 로컬 브라우저 관찰로 기록돼 있다. 변환 번들은 로드·위임이 반복 관찰됐지만 답변 품질은 FAIL로 남아 있고, 출력 규칙 도입 뒤 CLI 생성 묶음 1회 실행의 내부 specialist 답에도 메타 텍스트가 남았다. 공개 Edge·Firefox 실측에서 피어 답의 모델 토큰도 일부 깨졌다([[browser-evidence-ledger]]).
 - 독립 심사자 본인의 공개 사이트 접근 확인, 영상, 최종 제출, provider 요청 헤더·본문 직접 관찰. 공개 HTTP·브라우저 측정은 특정 리비전·시각의 스냅샷이며 이 상태에서는 출품 준비 완료로 표시하지 않는다.

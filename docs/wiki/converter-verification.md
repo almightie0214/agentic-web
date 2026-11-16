@@ -16,6 +16,8 @@ description: 변환기 테스트(fixture·parse·emit·e2e·web), 정적 적합�
 | `e2e.test.mjs` | 실제 CLI 프로세스로 픽스처→3개 산출물 바이트 대조(자동·명시 레이아웃, `--front` 재정렬), 인자·입력 오류 시 부분 번들 없음과 진단 비노출, 심볼릭 링크 비추종, 대소문자 변형 경로 비선택, AW2·AW4 정적 검사 연계 |
 | `web.test.mjs` | 두 샘플의 공유 파이프라인·AW2 리포트·다운로드 바이트, 디렉터리/개별 파일 획득, CLI와 웹의 BOM 동등성, 무관 이진 파일 비해독, 오류 시 이전 산출물 제거와 진단 정화, 늦은 획득 무시, 전달 저장소 차단, Review Desk 일회성 소비와 불량 payload 거부 |
 
+출력 규칙(`CVT-NET-005`)과 형식별 설명(`CVT-META-001`)이 생기면서 `tests/converter/fixtures/`의 두 입력 디렉터리 아래 expected 스냅샷도 같이 바뀌었다. `parse.test.mjs`는 기대 instructions 원문을 산출물 snapshot이 아니라 입력(가상 파일)에서 얻는다. snapshot 산출물의 instructions에는 emitter가 붙인 규칙 문장이 섞여 있어 파서가 낸 원문의 기대값으로 쓸 수 없기 때문이다. CLI와 웹이 같은 바이트를 내는지는 `e2e.test.mjs`·`web.test.mjs`가 계속 확인한다.
+
 e2e의 임시 입력·산출물은 OS 임시 폴더가 아니라 저장소의 개발 영역(.theora 아래 tmp/converter-e2e) `mkdtemp` 작업공간에 만들고 `t.after`로 지운다. 저장소에 실제 `.theora` 상태를 커밋하지 않고 입력용 Theora 레이아웃도 이 작업공간 안에서만 조립한다.
 
 ## AW2·AW4 정적 검증 연계

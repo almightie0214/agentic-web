@@ -11,10 +11,10 @@ Site B는 스펙 질문에 답하는 정보 제공 전용 사이트다. 직접 �
 | 경로 | 책임 |
 | --- | --- |
 | `site-b/agent-manifest.json` | 네트워크 이름 `spec_scout`, `front_man: spec_scout`, `hocon: ./spec_scout.network.json`. 라우터는 Site A와 같은 hosted Otari 기본값(`mock: false`). `allowed_peers: []`, `peer_policy.mode: closed`, `deployment.mode: static`. `actions`와 `coded_tools`는 없다 |
-| `site-b/spec_scout.network.json` | 실행에 쓰는 배포본. resolved JSON, agent 하나(`spec_scout`, `tools: []`, `class`/`toolbox` 없음) |
+| `site-b/spec_scout.network.json` | 실행에 쓰는 배포본. resolved JSON, agent 하나(`spec_scout`, `tools: []`, `class`/`toolbox` 없음). 네트워크 수준 `max_execution_seconds: 180`이 직접 방문 질의의 composition deadline이다. Site A에 피어로 불릴 때는 caller의 deadline을 늘리지 못한다([[runtime-execution-contract]]) |
 | `site-b/spec-excerpts.json` | 발췌의 저작 원본(출처 `source` + `excerpts[]`: `id`·`topic`·`section`·`text`). 런타임이 읽지 않는다 |
 | `site-b/site.js` | 부트. `./runtime/index.js`의 `boot()`로 네트워크를 그대로 로드한다 |
-| `site-b/index.html` | 스타일 인라인. `header`·`agents` 슬롯은 `hidden inert`, `settings`·`chat` 슬롯을 쓴다 |
+| `site-b/index.html` | 스타일 인라인. `header`·`agents` 슬롯은 `hidden inert`, `settings`·`chat` 슬롯을 쓴다. restrictive CSP meta를 선언한다(인라인 스타일을 위해 `style-src`에는 `'unsafe-inline'`이 있고 script는 `'self'`만; [[page-csp-and-browser-check]]) |
 
 manifest의 네트워크 이름은 Site A 링크의 마지막 segment와 정확히 같아야 한다. 런타임이 manifest에서 이름이 정확히 일치하는 항목만 고르고 없으면 실패하기 때문이다(스펙 §3.2의 발췌 `exact-network-resolution`).
 
@@ -30,8 +30,8 @@ manifest의 네트워크 이름은 Site A 링크의 마지막 segment와 정확�
 ## `site.js`의 동작
 
 1. URL의 `key` 쿼리를 `history.replaceState`로 제거한다. 런타임 import가 실패해도 제거는 먼저 일어난다. 다른 쿼리(`router`·`model` 등)는 남기며 `boot`가 읽는 규칙은 [[vendored-runtime]]에 있다.
-2. `boot(root, { originUrl, sandboxWorkerUrl })`를 호출한다. 두 URL은 `import.meta.url` 기준이라 하위 경로 배포에서도 맞다. `boot`가 `loadTop()`으로 manifest와 네트워크를 가져와 검증하고 UI를 마운트한다. 발췌 파일을 가져오거나 주입하지 않는다.
-3. 성공하면 `#agent-app`을 보이고 준비 문구(provider 키가 필요하고 답변은 정보 제공일 뿐 적합성 인증이 아니라는 안내)를 쓴다. 실패하면 앱을 숨기고 `role="alert"`, `data-state="error"`로 manifest·네트워크 정의·런타임을 확인하라는 문구를 보인다. 오류 객체와 URL 키 값은 문구에 넣지 않는다.
+2. `boot(root, { originUrl })`를 호출한다. URL은 `import.meta.url` 기준이라 하위 경로 배포에서도 맞다. `boot`가 `loadTop()`으로 manifest와 네트워크를 가져와 검증하고 UI를 마운트한다. 발췌 파일을 가져오거나 주입하지 않는다.
+3. 성공하면 `#agent-app`을 보이고 준비 문구(provider 키가 필요하고 답변은 정보 제공일 뿐 적합성 인증이 아니라는 안내)를 쓴다. 실패하면 앱을 숨기고 `role="alert"`, `data-state="error"`로 manifest·네트워크 정의·런타임을 확인하라는 고정 문구 뒤에 `Loader error: <로더 오류>`를 보인다. `bootError`가 URL 쿼리의 키·토큰 값, URL 자격, Authorization·Cookie 줄을 가린다(`tests/smoke.test.mjs`의 Site B boot 검사가 `url-secret`이 화면 문구에 없음을 단언).
 
 Site A의 `mountDesk()`와 같은 `boot` 경로를 쓴다는 점이 이전의 수동 마운트(`Engine`·`mountApp` 직접 사용, 채팅 비활성) 셸과 다르다. 초기 boot는 공개 아티팩트만 가져오고 모델 요청을 만들지 않는다.
 

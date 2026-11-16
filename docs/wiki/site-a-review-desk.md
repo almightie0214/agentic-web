@@ -7,7 +7,7 @@ description: Site A(Agent Review Desk)의 페이지 구성, 키 없이 쓰는 �
 ## 구성
 
 - `site-a/index.html`: 헤더, 검사 패널(`#review-tools`: 샘플 버튼 4개, 붙여넣기 폼 `#validate-form`, URL 감사 폼 `#audit-form`과 프리셋), 규칙 리포트 `#rule-report`와 구성 그래프 `#review-graph`, 실행 그래프 섹션, 채팅 영역. 런타임이 채우는 슬롯 `data-ns-slot="header" | "settings" | "chat" | "agents"`를 가진 `section#agent-app`은 처음에 `hidden`이다. 모든 참조는 `./styles.css`, `./site.js`처럼 상대경로다. 콘텐츠는 영어.
-- `site-a/converter.html`·`site-a/converter.js`: 키 없이 쓰는 역할 변환 탭. `index.html` 헤더에서 링크하고 `styles.css`를 공유한다. [[converter-code-structure]].
+- `site-a/converter.html`·`site-a/converter.js`: 키 없이 쓰는 역할 변환 탭. `index.html` 헤더에서 링크하고 `styles.css`를 공유한다. [[converter-code-structure]]. `index.html`·`converter.html` 모두 restrictive CSP meta를 선언한다([[page-csp-and-browser-check]]).
 - `site-a/styles.css`: 사이트 스타일(`.site-shell`, `.desk-workspace`, `.desk-panel`, `.desk-check`의 `data-state`별 색, `.desk-graph`, `.desk-trust` 등).
 - `site-a/site.js`: 검사 UI와 부트 셸. 규칙은 [[validator-rules]], URL 감사는 [[url-audit]]에서 가져다 쓴다. 새 설정 UI나 키 저장 로직은 없다.
 
@@ -28,7 +28,7 @@ description: Site A(Agent Review Desk)의 페이지 구성, 키 없이 쓰는 �
 
 ## 실행 그래프와 신뢰 배지
 
-`#runtime-config`는 이 페이지의 채팅 런타임(검토 대상 네트워크가 아님)의 manifest와 유효 링크에서 만든 구성이며 "설정상 기대"로만 표시한다. `#trust-state`와 `#runtime-events`는 `runtime.trace`의 실제 이벤트(`observe`)를 최신 채팅 run(`latestRun`)의 span·부모 관계로 모은다. 에이전트·모델 호출(router host/model/mock 여부)·피어 fetch/call span과 consent·`composition_limit`·`composition_skip` 결정 이벤트를 센다. 채팅 전에는 "Not run"이다. 요청 요약이나 선언된 정책, 성공한 호출만으로 보안을 입증했다고 주장하지 않으며 동의 이벤트 없는 동의, CORS, 순환 중단, 상한 집행, 자격·비공개 맥락 격리는 미확인으로 둔다. 별도 Probe 토글·상시 sentinel·런타임 어댑터·감사 증거 JSON 다운로드는 만들지 않았다.
+`#runtime-config`는 이 페이지의 채팅 런타임(검토 대상 네트워크가 아님)의 manifest와 유효 링크에서 만든 구성이며 "설정상 기대"로만 표시한다. `#trust-state`와 `#runtime-events`는 `runtime.trace`의 실제 이벤트(`observe`)를 최신 채팅 run(`latestRun`)의 span·부모 관계로 모은다. 에이전트·모델 호출(router host/model/mock 여부)·피어 fetch/call span과 consent·`composition_limit` 결정 이벤트를 센다. consent는 결정 출처(`source`: `prompt_allow`·`prompt_always`·`remembered_always`·`decline`·`headless_default`)별로 표시하는 수를 따로 세고, 런타임이 결정마다 이벤트를 하나 남기므로 "동의 이벤트 없는 동의" 미확인 문구는 더 이상 쓰지 않는다(`site-a/site.js`의 `observe`; [[runtime-execution-contract]]). 채팅 전에는 "Not run"이다. 요청 요약이나 선언된 정책, 성공한 호출만으로 보안을 입증했다고 주장하지 않으며 CORS, 순환 중단, 상한 집행, 자격·비공개 맥락 격리는 런타임 보고일 뿐 증명이 아니다. 별도 Probe 토글·상시 sentinel·런타임 어댑터·감사 증거 JSON 다운로드는 만들지 않았다.
 
 ## 변환 탭에서 온 입력 받기
 
@@ -38,10 +38,10 @@ description: Site A(Agent Review Desk)의 페이지 구성, 키 없이 쓰는 �
 
 `site-a/site.js`의 `mountDesk()`:
 
-1. `./runtime/index.js`를 동적 import해 `boot(root, { originUrl, sandboxWorkerUrl })`를 호출한다. 두 URL은 `import.meta.url` 기준 상대 해석이라 하위 경로 배포에서도 맞다.
+1. `./runtime/index.js`를 동적 import해 `boot(root, { originUrl })`를 호출한다. URL은 `import.meta.url` 기준 상대 해석이라 하위 경로 배포에서도 맞다(coded tool sandbox worker가 은퇴해 worker URL 옵션은 없다).
 2. `boot`(`site-a/runtime/index.js`)가 `Engine`을 만들고 `engine.loadTop()`으로 `agent-manifest.json`과 네트워크 JSON을 읽어 검증한 뒤 `mountApp`으로 공식 설정 패널·채팅·에이전트 UI를 마운트한다. 데이터는 [[network-publication]], 런타임 동작은 [[vendored-runtime]].
 3. 성공하면 `#agent-app`을 보이게 하고 준비 문구(채팅에는 provider 키가 필요하지만 정적 검사와 URL 감사에는 필요 없다)를 쓴다. 런타임 구성 그래프와 피어 프리셋을 갱신하고 `runtime.trace`를 구독한다.
-4. 실패하면 앱을 숨기고 `role="alert"`, `data-state="error"`로 "could not be loaded" 안내를 보이되 키 없는 검사와 URL 감사는 계속 쓸 수 있다고 알린다. 오류 객체를 문구에 노출하지 않는다.
+4. 실패하면 앱을 숨기고 `role="alert"`, `data-state="error"`로 "could not be loaded" 고정 안내를 보이되 키 없는 검사와 URL 감사는 계속 쓸 수 있다고 알린다. 이어서 `Loader error: <로더 오류>`를 붙여 중복 agent 이름 같은 구체적 원인을 화면에서 볼 수 있게 한다(이전에는 DevTools에서만 보였다). `bootError`가 URL 쿼리의 비밀 값·URL 자격·Authorization·Cookie·key/token 값을 가린다([[runtime-execution-contract]]).
 
 ## 설정과 키
 

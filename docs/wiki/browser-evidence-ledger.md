@@ -1,5 +1,5 @@
 ---
-description: docs/demo-checklist.md 실제 브라우저 검증 원장의 구성, 증거 규칙, 시나리오 B01–B10, run 1 실패와 보정, run 2 재확인, 공개 배포 HTTP 측정과 공개 브라우저 피어 흐름(§4), AW5 변환 번들의 로드·위임 PASS와 답변 품질 FAIL, 미확인
+description: docs/demo-checklist.md 실제 브라우저 검증 원장의 구성, 증거 규칙, 시나리오 B01–B10, run 1 실패와 보정, 공개 배포 측정(§4), AW5 변환 번들, judge-ready 수정 뒤 착륙 트리·공개 Edge/Firefox 실측(§6), 미확인
 ---
 
 # 실제 브라우저 검증 원장
@@ -17,6 +17,7 @@ description: docs/demo-checklist.md 실제 브라우저 검증 원장의 구성,
 | §4 공개 배포 측정·심사 인계 | P01 공개 HTTP 측정(스크립트·표·해시·후속 재측정), P02 공개 브라우저 피어 흐름(run 1 실패·run 2 범위 PASS), 남은 인계 체크리스트 |
 | §5 영상 계획 | 한 사례 서사, 녹화본 아님 |
 | AW5 converter dogfooding | 변환 번들의 Node 정적 검증 요약, 재현 절차(계획), 사용자 승인 번들 실행 두 번의 결과와 답변 품질 진단 |
+| §6 judge-ready fixes release check | R01 공개 바이트·저장소 공개 여부, R02 착륙 트리 `browser-check`, R06 부팅 오류 화면, deadline-config 뒤 실행 갱신(공개 Edge/Firefox 실측, CLI Theora 묶음 실행, 증거 보존) |
 
 B08은 [[conformance-cli]]의 `test-slydata` 샘플을 기존 `Engine.runTurn(…, { slyData })` 옵션으로 주입하고 정의 fetch의 URL·헤더·본문을 병행 관찰하도록 한다. 판정은 PASS·FAIL·UNVERIFIED이며 모델이 도구를 썼다거나 비밀을 지켰다고 말한 것은 증거가 아니다.
 
@@ -44,12 +45,27 @@ A/B 최상위 로더의 중복 이름 거부, 중복 피어의 피어 추론 전
 
 - **P01 — 자격 없는 HTTP 측정**: 먼저 공개 A의 `links.json`·`agent-manifest.json`을 저장소와 바이트 비교하고 다르면 중단하는 선행 조건이 있다. 그 뒤 모든 요청은 `credentials: 'omit'`·`redirect: 'manual'`·키·Cookie·Authorization 없이 보낸다. 결과는 A·B의 응답 전부 ACAO `*`·리다이렉트 없음, 200 본문은 저장소와 바이트 동일, B의 없는 경로는 공유 404 HTML이다. 리비전 `298ce2bee1001e7186e7f5325975c063729881d5`에서 세 번(최초·재측정·후속) 찍었고 Node 명령행 Origin/ACAO는 브라우저 CORS 집행이나 키 격리의 증거가 아니다.
 - **P02 — 공개 브라우저 피어 흐름**: 사용자가 내장 패널에만 키를 넣었다. run 1(Resource Timing 기반)은 동의·피어 호출·호출자 라우터는 관찰했지만 피어가 도구 호출 마크업을 돌려줘 **답변이 실패**했고 와이어 키 격리는 미확인이었다. 별도 run 2(Edge/CDP, `Network.requestWillBeSentExtraInfo`로 실제 와이어 헤더 확인)는 Allow 전 B 요청 0건, B manifest·정의 200, `links.json` 404, `remote_call spec_scout`, 호출자 `api.otari.ai` 모델 호출, 완성된 답을 기록했고 캡처된 B GET 3건에 Cookie·Authorization·본문·`otk_`가 없다. run 1 실패는 run 2로 덮어쓰지 않고 남긴다.
-- **한계**: PASS는 세 B 요청과 그 답의 인용 구조에 한정된다(인용 정확성 미검사, provider 헤더·본문 미관찰). Allow에는 전용 consent 이벤트가 없고, 관찰된 별도 출처 요청의 정체는 미확인이며, run 1의 마크업 출력은 재현되지 않아 원인 미진단이다. 이 관찰은 특정 시점의 스냅샷이다. 이 절의 정리된 의미는 [[peer-connection]], 배포 절차는 [[deployment-and-release]]에 있다.
+- **한계**: PASS는 세 B 요청과 그 답의 인용 구조에 한정된다(인용 정확성 미검사, provider 헤더·본문 미관찰). 당시 Allow에는 전용 consent 이벤트가 없었고(지금 코드는 결정마다 하나 남긴다), 관찰된 별도 출처 요청의 정체는 미확인이었고, run 1의 마크업 출력은 재현되지 않아 원인 미진단이다. 이 관찰은 특정 시점의 스냅샷이다. 이 절의 정리된 의미는 [[peer-connection]], 배포 절차는 [[deployment-and-release]]에 있다.
 - **미완료 인계**: 독립 심사자 본인의 접근, 영상, 최종 제출은 이 절에서 모두 체크되지 않았다. HTTP 측정만으로 "제출 준비 완료"를 선언하지 않는다.
+
+## judge-ready 수정 뒤 실측 (§6)
+
+`docs/demo-checklist.md` §6은 심사 전 수정([[runtime-execution-contract]], [[page-csp-and-browser-check]], [[converter-mapping-contract]])이 착륙된 뒤의 공개 배포와 로컬 착륙 트리를 관찰한 기록이다. 이 절도 위키 작성자가 라이브 세션을 본 것이 아니라 정제된 원장 기록을 읽은 것이다. 수치는 원장이 적은 값이다.
+
+- **R01 공개 바이트·저장소**: `deadline-config` 착륙 리비전(`225890d241a9f4ef15956c9c3a69c5ece004d771`)에서 변경된 사이트 경로 67개 중 51개가 자격 없는 GET에 200과 동일 바이트로 응답하고 삭제된 런타임 모듈 16개는 404를 낸다. 저장소는 PUBLIC, Apache-2.0이고 공유 활동은 미기록이다. B의 `/index.html`은 `/`로 308 리다이렉트되어 정본 URL에서 비교했다.
+- **R02 착륙 트리 `tools/browser-check.mjs`**: exit 0, Edge 157.0.4341.60, 모의 router만 사용, `unexpectedViolations: 0`, 세 페이지 모두 기대 위반(inline·eval)만 기록하고 inline은 실행되지 않았으며 eval은 `EvalError`를 냈다.
+- **R06 부팅 오류 화면**: 네트워크 정의 응답만 중복 worker 이름 픽스처로 바꿔 서빙한 로컬 실행(원본 사이트·런타임 파일은 고치지 않음)에서 두 사이트 모두 고정 안내와 `Loader error: Duplicate agent name 'worker'.`를 보였고, URL 비밀 변형은 `[redacted]`로 가려졌다.
+- **공개 Edge(CDP)·Firefox(BiDi) 실측**: 개발용 loopback router(`http://127.0.0.1:8640/api/v1`)와 가짜 sentinel 키만 패널에 넣었다(실제 키는 브라우저에 들어가지 않음). Allow 전 B 요청 0건, `consent` 이벤트 정확히 1개(`prompt_allow`), trust 표시 `Allow once: 1`, B manifest·정의 200과 `links.json` 404, 피어 답이 caller의 정상 tool 결과가 되어 최종 답까지 완료됐다. 캡처된 B 요청(브라우저당 32건)에는 Authorization·Cookie·sentinel이 없었고 세 페이지의 CSP 이벤트 배열은 비어 있었다. 두 피어 답 모두 모델 토큰이 일부 깨졌고 caller 최종 답이 그 사실을 밝혔다. **실행 완료는 관찰됐지만 답 품질은 PASS가 아니다.** 개발 router 접근을 위해 Edge는 `LocalNetworkAccessChecks` 비활성, Firefox는 임시 프로필의 `network.lna.skip-domains`를 써야 했다(기본 Firefox 프로필에서는 설정 대기가 시간 초과됐고 정확한 원인은 미진단). 기본 심사자 설정의 증거가 아니다.
+- **`lc.getunicorn.org` 요청**: 두 브라우저 각각 8건 재현됐고 Edge는 문서 파서 위치를 initiator로 보고했으며 Firefox는 `type:other`만 주었다. 사용자 제공 환경 진단은 로컬 HTTPS 필터 주입이며 사이트 코드가 아니다. 필터 자체를 새로 검사한 것은 아니다.
+- **CLI 생성 Theora 묶음 loopback 1회**(`127.0.0.1:8601`/`8602`): coordinator → specialist → 최종 호출이 모두 ok로 끝났고 최종 답에는 초안·계획 독백이 관찰되지 않았다. 다만 specialist 내부 답에는 메타 문장과 깨진 토큰이 남아 출력 규칙이 내부 메타 텍스트를 없애지는 못했다. 이전 AW5 품질 FAIL은 그대로 남는다.
+- **시간 초과 기록**: 수정 전 고정 90초 composition deadline에서 Spec Scout 질문이 최종 호출에서 잘린 실패는 지워지지 않는다. 이후 한도는 네트워크 선언(240/180)으로 바뀌어 공개 Edge 실행(합계 약 159.8초)과 Firefox 실행(약 94.2초)이 한도 안에서 끝까지 완료됐다. 이 절은 정상 완료 측정이고 한도 만료 중단은 결정적 테스트가 다룬다.
+- **증거 보존 교훈**: 첫 검토에서 원장이 실행 종료 시 지워지는 run tmp를 증거 보존 위치로 적었다. 실행 수명과 독립 검토 인계 수명을 혼동한 것이다. 이후 승인된 프로젝트 근거 루트에 저장된 원 출력 사본, 정확 복구본, 필드 추출본, 86파일 소스 재구성과 manifest·검증 결과를 두었다. 전체 live JSON과 전체 trace 배열은 복구되지 않았고 복구는 새 실행이 아니다. 요약이나 해시만으로 원자료를 대신하지 않는다(교훈: [[no-compat-code-lessons]]).
+
+이 절은 독립 검토·gate 판정이 아니다. 남은 한계는 피어·내부 specialist 모델 품질, 인용 정확성, provider 응답 본문과 caller tool payload 전체, 임의 변환 입력, 기본 심사자 추론 접근(참가자 소유의 열린 항목)이다.
 
 ## 미확인으로 남은 것
 
-provider 요청의 직접 헤더·본문, 정의 응답 본문 전체 검사, sentinel 헤더 검사 누락분, 실행되지 않은 한도(진행 중 deadline 포함), replacement_values 중복의 브라우저 확인과 최상위 B의 잘못된 형식·빈 그래프·누락 참조 변형, 심사자 접근. 이들은 Node 결과로 대체하지 않는다. 사용자 확인된 키 폐기는 사용자의 보고이지 계정 검증이 아니다. 어느 것도 "출품 준비 완료"로 읽으면 안 된다.
+provider 요청의 직접 헤더·본문, 정의 응답 본문 전체 검사, sentinel 헤더 검사 누락분, 실시간 한도 만료 중단(결정적 테스트만 다룸; AW4 당시 B10은 24-agent 상한만 관찰), replacement_values 중복의 브라우저 확인과 최상위 B의 잘못된 형식·빈 그래프·누락 참조 변형, 심사자 접근. 이들은 Node 결과로 대체하지 않는다. 사용자 확인된 키 폐기는 사용자의 보고이지 계정 검증이 아니다. 어느 것도 "출품 준비 완료"로 읽으면 안 된다.
 
 ## 기록할 때의 교훈
 

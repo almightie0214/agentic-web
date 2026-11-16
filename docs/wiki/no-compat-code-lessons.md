@@ -26,6 +26,11 @@ description: 호환 코드 금지 규칙이 벤더링 런타임에 적용된 방
 14. **정적 호스트의 기본 동작을 가정하지 않는다.** Cloudflare Pages는 최상위 `404.html`이 없으면 없는 경로에 `index.html`을 200으로 돌려줘 정의·links 실패가 숨는다. `site-b/404.html`이 이를 막고 공개 측정에서 404로 확인됐다([[deployment-and-release]]).
 15. **변환기에서도 실제 경계에서 가정이 깨졌다.** 파일시스템 조회가 대소문자를 구분한다는 가정, 디렉터리의 모든 파일이 역할이라는 가정, BOM을 여러 단계가 지운다는 가정이 획득 경계에서 리뷰로 지적됐다. 현재 코드의 방어와 회귀 검사는 [[converter-verification]]에 있다.
 
+16. **실패 판정은 표현과 무관해야 한다.** AAOSA 응답의 `Response`가 문자열이면 `cruse.js`가 재귀 해석 없이 바로 text로 돌려줘, 잘못된 presentation이나 쓸 수 없는 action만 참조한 presentation이 정상 답으로 통과했다. 객체·문자열·fenced 문자열을 같은 `unwrap` 경로로 보내 presentation 정규화와 `runAgent`의 답 수용 검사를 거치게 했고 두 사본(`site-a/runtime/cruse.js`, `site-b/runtime/cruse.js`) 모두 고쳤다. 회귀 검사는 정상 AAOSA 응답의 실제 presentation 내용과 빈 text를 단언하고 불량 변형은 실제 피어 세션에서 `status=error`와 agent·`remote_call`·tool 오류 span을 확인한다([[runtime-execution-contract]]).
+17. **시간 한도 검사는 결정적 제어로 쓴다.** 실제 시간 경과나 sleep에 기대면 목표 대기에 들어가기 전에 만료돼도 통과하고 느리다. mock Date·timer와 진입/완료 deferred로 한도 직전·만료 시각을 명시적으로 진행하고, 늦게 온 입력과 형제 완료가 부수 효과를 남기지 않는지 확인한다([[testing-and-gate]]).
+18. **기능을 지운 diff는 마지막 호출자를 잃은 선언도 함께 지운다.** 원격 action 발견 모듈을 지우자 SHA-256의 마지막 소비자가 사라졌는데 `web-crypto.js`의 전용 구현이 남아 있었다. 두 사본에서 함께 제거하고 `engine.js`가 쓰는 `randomUuid`는 남겼다([[vendored-runtime]]).
+19. **증거의 수명과 검토 인계의 수명은 다르다.** 원장이 실행 종료 시 지워지는 run tmp를 독립 검토용 보존 위치로 적어 검토자가 원자료를 대조하지 못했다. 승인된 프로젝트 근거 루트에 원 출력·복구본·재구성 소스와 manifest를 보존하고 README·devpost의 같은 전제를 함께 고쳤다. 소실된 자료는 소실이라고 구분해 적는다([[browser-evidence-ledger]]).
+
 ## 이 페이지가 보장하지 않는 것
 
 교훈 자료는 리뷰 결과 요약이며, 위 항목의 수정은 현재 파일에서 확인한 내용(예: `site-a/runtime/index.js`에 별칭이 없고 `byok.js`가 탭·프로필 설정만 다룸)에 한정한다. 검사 통과 여부를 이 위키 작성 중 실행해 확인하지는 않았다.

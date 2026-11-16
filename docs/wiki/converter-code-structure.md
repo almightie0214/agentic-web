@@ -1,5 +1,5 @@
 ---
-description: 변환기의 코드 구조. site-a/converter/ 순수 모듈 3개, Node CLI의 파일 획득 경계, Site A 변환 탭과 Review Desk 일회성 전달의 호출 관계와 경계
+description: 변환기의 코드 구조. site-a/converter/ 순수 모듈 4개, Node CLI의 파일 획득 경계, Site A 변환 탭과 Review Desk 일회성 전달의 호출 관계와 경계
 ---
 
 # 변환기 코드 구조
@@ -8,15 +8,16 @@ description: 변환기의 코드 구조. site-a/converter/ 순수 모듈 3개, N
 
 ## 순수 코어 `site-a/converter/`
 
-변환 로직은 DOM·저장소·네트워크·파일시스템·`node:*` 없이 메모리 값만 다루는 모듈 셋이다. Pages 아티팩트가 `site-a/`만 담기 때문에(`.github/workflows/pages.yml`, [[deployment-and-release]]) 웹 탭이 import하려면 코어가 `tools/`가 아니라 `site-a/` 아래에 있어야 한다. 그래서 Node CLI가 저장소 상대 경로로 `site-a/converter/`의 모듈을 import한다.
+변환 로직은 DOM·저장소·네트워크·파일시스템·`node:*` 없이 메모리 값만 다루는 모듈이다(파서·네트워크 emitter·manifest emitter와 둘이 공유하는 설명 함수). Pages 아티팩트가 `site-a/`만 담기 때문에(`.github/workflows/pages.yml`, [[deployment-and-release]]) 웹 탭이 import하려면 코어가 `tools/`가 아니라 `site-a/` 아래에 있어야 한다. 그래서 Node CLI가 저장소 상대 경로로 `site-a/converter/`의 모듈을 import한다.
 
 | 파일 | 함수 | 책임 |
 | --- | --- | --- |
-| `site-a/converter/parse-roles.mjs` | `parseRoles(files, { layout })` | 가상 파일 검증·정규화, 레이아웃 선택, frontmatter 부분집합 해석, 비밀/로컬 경로 줄 제거(`sanitize`), 이름·설명 도출, config의 front 후보 검증. `{ roles, configFront }`를 낸다 |
-| `site-a/converter/emit-network.mjs` | `emitNetwork(parsed, { front })` | 중간 표현을 다시 검증하고, 명시 front → config → 첫 역할 순으로 front를 정해 front 우선 배열과 별 모양 배선의 네트워크를 만든다. `{ network, frontMan }` 반환 |
-| `site-a/converter/emit-manifest.mjs` | `emitManifest(frontMan)` | 이름 문법을 확인하고 manifest와 빈 links 스텁을 새 객체로 낸다 |
+| `site-a/converter/parse-roles.mjs` | `parseRoles(files, { layout })` | 가상 파일 검증·정규화, 레이아웃 선택, frontmatter 부분집합 해석, 비밀/로컬 경로 줄 제거(`sanitize`), 이름·설명 도출, config의 front 후보 검증. `{ roles, configFront, layout }`을 낸다(`layout`은 선택된 입력 형식) |
+| `site-a/converter/emit-network.mjs` | `emitNetwork(parsed, { front })` | 중간 표현을 다시 검증하고, 명시 front → config → 첫 역할 순으로 front를 정해 front 우선 배열과 별 모양 배선의 네트워크를 만든다. 각 instructions 뒤에 front/specialist별 출력 규칙(`outputRules`)을 붙이고 `max_execution_seconds: 240`을 낸다. `{ network, frontMan }` 반환 |
+| `site-a/converter/emit-manifest.mjs` | `emitManifest(frontMan, layout)` | 이름 문법을 확인하고 형식별 설명을 담은 manifest와 빈 links 스텁을 새 객체로 낸다 |
+| `site-a/converter/describe-layout.mjs` | `describeLayout(layout)` | `theora`·`markdown`만 받아 `Converted <Theora\|Markdown> role conversation network.`를 만든다. network와 manifest가 같은 함수를 쓰고 다른 값은 `CVT-META-001`로 거부한다 |
 
-책임을 이렇게 나눈 이유: 공개 텍스트 정화는 파서에서 한 번만 하고(주석: "Public-text sanitation belongs to parseRoles") 이후 단계는 정화된 값만 받는다. 최종 front 선택은 명시 옵션이 있는 emitter의 몫이라서 파서는 config 후보만 넘긴다. emitter는 후보와 옵션을 모두 검증해 어느 쪽도 조용히 폴백하지 않는다. 모든 단계의 오류는 `CVT-*: invalid converter input.` 형태이고 원문·경로·JSON 파서 메시지를 싣지 않는다. 입력 배열과 옵션은 바꾸지 않는다.
+책임을 이렇게 나눈 이유: 공개 텍스트 정화는 파서에서 한 번만 하고(주석: "Public-text sanitation belongs to parseRoles") 이후 단계는 정화된 값만 받는다. 출력 규칙은 파서가 아니라 emitter가 붙이므로 정화는 원문에만 적용되고 변환기가 쓴 문장은 정화를 거치지 않는다. 형식은 어댑터가 추측하지 않고 `parseRoles` 결과의 `layout`을 그대로 두 emitter에 넘긴다(`tools/theora2hocon/theora2hocon.mjs`와 `site-a/converter.js`가 같은 호출을 한다). 최종 front 선택은 명시 옵션이 있는 emitter의 몫이라서 파서는 config 후보만 넘긴다. emitter는 후보와 옵션을 모두 검증해 어느 쪽도 조용히 폴백하지 않는다. 모든 단계의 오류는 `CVT-*: invalid converter input.` 형태이고 원문·경로·JSON 파서 메시지를 싣지 않는다. 입력 배열과 옵션은 바꾸지 않는다.
 
 파서 내부 요점: 경로 검사는 `(?![\s\S])` 끝 단언을 써서 JS `$`가 마지막 개행을 허용하는 틈으로 경로·이름 검증이 빠지지 않게 한다. 스칼라 파서는 암묵적 타입(null·숫자 등)을 오류로 거절하는 문자열 전용 부분집합이다. 코드 펜스 안의 제목은 설명 후보에서 제외한다(`firstHeading`). 선두 BOM은 `normalize()` 한 곳에서만 제거한다. 획득 단계가 BOM을 미리 지우면 두 번 지워져 CLI와 웹이 어긋난 적이 있다(아래 어댑터 참고).
 
