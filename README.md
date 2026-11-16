@@ -2,7 +2,8 @@
 
 An Open Agentic Web Challenge project built on the Worldwide Agentic Web MVP
 Profile 0.2: inspect portable agent-network artifacts, explain deterministic
-findings, and ask a linked, excerpt-grounded specification assistant.
+findings, ask a linked, excerpt-grounded specification assistant, and convert
+Markdown roles into portable conversation-network artifacts.
 
 Two static browser-based sites are configured for separate hosts: Site A (Agent
 Review Desk) on GitHub Pages and Site B (Spec Scout) on Cloudflare Pages. There is
@@ -14,7 +15,9 @@ uses an external LLM router; static inspection requires no provider key.
 - **Implemented:** Site A's two-agent network, read-only validation action,
   key-free paste/sample/URL inspection, configuration and execution graphs; Site
   B's informational one-agent network; symbolic peer wiring; a repository static
-  conformance CLI; Site A deployment workflow and Site B CORS configuration.
+  conformance CLI; Site A deployment workflow and Site B CORS configuration;
+  a deterministic Theora / Markdown role converter with Node CLI and key-free
+  browser UI, sharing pure parsing and emission modules.
 - **Not a live peer URL:** `site-a/links.json` still binds `spec_scout` to
   `https://spec-scout.invalid/spec_scout`. `site-a/agent-manifest.json` allows the
   matching reserved origin under a closed peer policy. This is not a public
@@ -39,6 +42,19 @@ uses an external LLM router; static inspection requires no provider key.
   limits (including in-flight deadline behavior), and other unrecorded subcases.
   See the ledger's [current acceptance summary](docs/demo-checklist.md#current-acceptance-summary-and-remaining-owners)
   for scope and owners. Node tests or static CLI exit 0 do not fill these gaps.
+- **AW5 converter local load/delegation PASS; answer quality FAIL:** under user
+  approval, the Claude desktop built-in browser loaded a generated **Theora role
+  team** bundle on loopback. Browser AW2 static checks passed (runtime items stayed
+  unverified). Runs `s3` and `s300` each completed coordinator → specialist →
+  coordinator, with 2 agent spans and 3 model-call spans, but both visible answers
+  leaked draft/meta text and garbled lines. Same-tab trace/history diagnostics
+  locate this in model output: coordinator drafts arrived in streamed content,
+  and specialist replies already had garbled tokens; no converter/runtime
+  corruption was evidenced. The user withdrew the requested prompt/runtime fix
+  after that diagnosis; no new paid run was required. See
+  [AW5 converter dogfooding](docs/demo-checklist.md#aw5-converter-dogfooding).
+  This scoped evidence is separate from AW4, not a guarantee of model-output
+  quality or public acceptance.
 - **Public release pending:** hosting activation, real HTTPS URLs, measured public
   CORS responses, public-revision browser checks, and judge access are not established
   here. Do not describe the entry as submission-ready until these are confirmed.
@@ -64,6 +80,11 @@ Site A: Agent Review Desk (GitHub Pages origin)
 Site B: Spec Scout (separate Cloudflare Pages origin)
   agent-manifest.json -> spec_scout.network.json (embedded cited excerpts)
   own reference runtime / settings / chat for direct visits
+
+Node CLI / Site A Role Converter
+  -> shared site-a/converter/ parser + emitters
+  -> converted_team.network.json + agent-manifest.json + links.json
+  -> web AW2 report / downloads / one-time Review Desk inspection (not execution)
 
 tools/check-conformance.mjs -> imports Site A's shared validator rules
                            -> reads both publication roots + Site B _headers
@@ -133,6 +154,67 @@ replace the reserved peer binding with a working local destination.
   stale fetch results cannot replace them. The configuration graph shows expected
   configuration, not execution.
 
+### Convert Theora or Markdown roles
+
+The [mapping contract](docs/converter.md) fixes the deterministic rules; no LLM is
+involved. The Node CLI and [Role Converter](site-a/converter.html) share the pure
+modules in `site-a/converter/`.
+
+```sh
+node tools/theora2hocon/theora2hocon.mjs <input-dir> <out-dir> [--front <role>] [--layout theora|markdown]
+```
+
+- Without `--layout`, auto-detection selects Theora when an exact
+  `.theora/roles/<role>/agent.md` exists; otherwise it selects Markdown. Use
+  `--layout theora` or `--layout markdown` to require that layout, without fallback.
+- Theora input is a project root containing those role files and optionally
+  `.theora/config/theora.json`. Markdown input can be a project with immediate
+  `.claude/agents/*.md` files, or an agents directory's immediate `*.md` files.
+  Claude agents take precedence over root Markdown; input sets are not merged.
+  Markdown `name`/`description` frontmatter uses the contract's bounded YAML subset;
+  absent names derive from the filename, with a heading fallback when needed.
+- `--front <role>` chooses an exact final name; otherwise Theora config's
+  `front_man`, then the first name-sorted role wins. Invalid names/config fail
+  rather than guessing. The front calls all other roles in a default star graph;
+  specialists have no outgoing calls. Every role uses a common `inquiry` schema.
+- The output is exactly `converted_team.network.json` (resolved JSON),
+  `agent-manifest.json`, and `links.json` (empty peer-binding stub). CLI exit 0
+  means the files were written, not that they were validated, deployed or
+  browser-verified. The bundle contains data, not a runtime or hosted application.
+
+For the key-free web flow, follow **Role Converter** from Review Desk (local preview:
+`http://127.0.0.1:8000/site-a/converter.html`). Choose a project directory or Markdown
+files, or load **Claude agents team** / **Theora role team**, the two-role samples.
+For local input choose **Convert and check**; samples use the same conversion
+pipeline immediately. The page applies the shared AW2 rules, displays findings,
+and offers all three files for inspection and download. Static failures remain
+failures; a downloadable artifact is not certification. Browsers must include
+hidden `.theora` / `.claude` directories to discover those project layouts.
+
+**Open artifacts in Review Desk** transfers the three objects through same-origin
+sessionStorage. Review Desk removes the payload on receipt, including invalid
+payloads, checks its structure and applies AW2 rules. This consume-once handoff
+only fills the static review inputs; it does not load the converted network into
+chat, run it, send a message, supply credentials or bypass peer consent. Execution
+requires a separate static publication with the reference browser runtime and its
+existing settings; no new runtime adapter or configuration UI is generated.
+
+**Limits:** this exports sanitized role text plus a default conversation graph,
+not the Theora or Claude harness. Shell, git, gates, tests, filesystem operations,
+permissions, scheduling, state, skills, source tools/MCP and lifecycle policies are
+not converted. Prose requesting them grants no capability. Pattern removal of
+secrets/local paths is incomplete and does not replace publication review; review
+all three artifacts, source-instruction licensing and suitability before sharing.
+A callable specialist alone does not prove that a model will delegate to it. The
+[AW5 browser record](docs/demo-checklist.md#aw5-converter-dogfooding) separately
+records two successful local delegations for the Theora sample, with answer-quality
+failures both times; it does not establish arbitrary inputs' behavior or quality.
+The supplied run used revision `298ce2bee1001e7186e7f5325975c063729881d5` on
+Windows 11 in Claude desktop's built-in browser (version not captured), not a
+fresh run of this candidate. Converter/runtime paths match base
+`27c293226bb67d7efae2429610060a79c352f324`; Review Desk peer bindings differ,
+whereas this generated manifest has empty allowed peers under a closed policy.
+
 ### Chat and runtime observations
 
 Use the built-in **AI model settings** panel to select the router/model and enter
@@ -185,6 +267,7 @@ Section references are to the [pinned MVP Profile 0.2 specification](docs/worldw
 | §4: pluggable inference and router-only key disclosure | Built-in settings, default Otari metadata, reference runtime; scripted router inheritance tests | B07/run 2 record both panel-selected models, caller-router retention despite conflicting peer metadata, and key absence on observed A/B static requests after cookie removal; direct provider headers/bodies and comprehensive prompt/action/error inspection remain unverified |
 | §§2.1, 5, 6: private context by named exception | CLI `publication.private_context` audits per-agent allow declarations | B08 records actual invocation-option injection and post-filter `remote_call.requestPayload.sly_data` field sets (public_sentinel only vs {}), with peer execution; exact delivered values, upstream/general scoping and missing sentinel-header checks remain unverified |
 | §§3.1–3.2, 5–6: cycles, finite execution and fail closed | Shared `peer.composition` diagnoses known active-chain re-entry with supplied context; `execution.limit` declaration checks/warnings | B09 records synthetic ancestor re-entry skipped with no forbidden invocation; B10 records visible rejection beyond the 24-agent cap. Other limits, including in-flight deadline behavior, remain unverified |
+| §7: framework-converter opportunity | Shared pure role parser/emitters, Node CLI, browser conversion/download and AW2 inspection; [mapping and limits](docs/converter.md) | [AW5 record](docs/demo-checklist.md#aw5-converter-dogfooding): Theora sample loopback load and coordinator → specialist → coordinator PASS twice; answer quality FAIL twice (draft/meta text and garbled lines). Trace/history diagnostics locate the failure in model output, not converter/runtime corruption; no prompt/runtime fix or new paid run was requested after diagnosis. This is a role-text/star-graph export, not a guarantee of answer quality, a source-harness port or a claim of community sharing |
 
 For the automated test suite:
 
@@ -244,11 +327,16 @@ These account-owned actions remain open; no credentials should be committed.
 ## Repository layout
 
 - `site-a/`: Review Desk page, styles, boot entry, manifest, links, resolved network,
-  validator/action/audit modules, samples and independent `runtime/`.
+  validator/action/audit modules, samples and independent `runtime/`;
+  `converter.html` / `converter.js` provide the converter UI and `converter/`
+  contains the shared pure modules and two-role web samples.
 - `site-b/`: Spec Scout page/boot, manifest, resolved network, excerpt authoring
   data, `_headers` and independent `runtime/`.
 - `tools/check-conformance.mjs`: static repository publication audit.
-- `tests/`: Node smoke, validator, action, URL audit, UI, peer and CLI tests.
+- `tools/theora2hocon/theora2hocon.mjs`: Node role-conversion CLI.
+- `tests/`: Node smoke, validator, action, URL audit, UI, peer and CLI tests;
+  `converter/` holds converter fixtures, parser/emitter, CLI e2e and web tests.
+- `docs/converter.md`: deterministic input/mapping, sanitation and loss-of-semantics contract.
 - `.github/workflows/pages.yml`: Site A-only Pages deployment.
 - `docs/worldwide_agentic_web_mvp_spec.md`: attributed reference specification.
 - `docs/devpost.md`: English submission draft and release handoff tracker.

@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmod, copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { validateNetwork } from '../../site-a/validator-rules.mjs';
+import { checkConformance } from '../../tools/check-conformance.mjs';
 
 const cli = fileURLToPath(new URL('../../tools/theora2hocon/theora2hocon.mjs', import.meta.url));
 const fixtures = new URL('./fixtures/', import.meta.url);
@@ -133,6 +135,112 @@ for (const layout of ['theora', 'markdown']) {
     }
   });
 }
+
+// The AW4 CLI audits a repository-shaped tree, not an arbitrary output folder.
+// Stage byte-identical generated data at both roots, with unchanged checker
+// dependencies/sample/CORS configuration. Never overwrite either real site.
+async function publicationTree(root, output) {
+  const tree = join(root, 'publication');
+  for (const site of ['site-a', 'site-b']) {
+    await mkdir(join(tree, site), { recursive: true });
+    for (const name of artifacts) await copyFile(join(output, name), join(tree, site, name));
+  }
+  for (const path of ['tools/check-conformance.mjs', 'site-a/validator-rules.mjs',
+    'site-a/samples/test-slydata.network.json', 'site-b/_headers']) {
+    await mkdir(dirname(join(tree, path)), { recursive: true });
+    await copyFile(new URL(`../../${path}`, import.meta.url), join(tree, path));
+  }
+  // AW2 imports helpers from the vendored runtime. Copy it unchanged for module
+  // resolution only; no boot, Engine, vendor loader or model is run in Node.
+  await cp(new URL('../../site-a/runtime/', import.meta.url), join(tree, 'site-a/runtime'), { recursive: true });
+  return tree;
+}
+
+async function bundleInput(output) {
+  const [manifest, network, links] = await Promise.all(artifacts.map(async name =>
+    JSON.parse(await readFile(join(output, name), 'utf8'))));
+  return { manifest, network, links, networkName: 'converted_team' };
+}
+
+function runConformance(tree) {
+  const result = spawnSync(process.execPath, [join(tree, 'tools/check-conformance.mjs')],
+    { cwd: tree, encoding: 'utf8', timeout: 15_000 });
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  return result;
+}
+
+for (const layout of ['theora', 'markdown']) {
+  for (const front of ['coordinator', 'specialist']) {
+    test(`CVT-VERIFY-001: ${layout} front ${front} generated files pass AW2 and the AW4 CLI`, async (t) => {
+      const ws = await workspace(t);
+      await assemble(ws.input, layout);
+      success(invoke([ws.input, ws.output, '--front', front]));
+      const input = await bundleInput(ws.output);
+      const shared = validateNetwork(input);
+      assert.equal(shared.valid, true, JSON.stringify(shared.checks));
+      const tree = await publicationTree(ws.root, ws.output);
+      const report = await checkConformance({ root: pathToFileURL(`${tree}/`) });
+      assert.equal(report.valid, true, JSON.stringify(report.checks));
+      for (const site of ['site-a', 'site-b']) {
+        for (const name of artifacts) {
+          assert.deepEqual(await readFile(join(tree, site, name)), await readFile(join(ws.output, name)));
+        }
+        const checks = report.checks.filter(check => check.site === site && check.networkName === 'converted_team');
+        assert.deepEqual(checks.filter(check => !check.ruleId.startsWith('publication.'))
+          .map(({ site, networkName, ...check }) => check), shared.checks);
+        for (const rule of ['runtime.safety', 'runtime.composition']) {
+          assert.ok(checks.some(check => check.ruleId === rule && check.status === 'unverified'));
+        }
+      }
+      const result = runConformance(tree);
+      assert.equal(result.status, 0, result.stdout);
+      assert.match(result.stdout, /Static repository conformance: PASS/);
+      for (const site of ['site-a', 'site-b']) {
+        assert.match(result.stdout, new RegExp(`\\[pass\\] ${site}/converted_team network.front_man.selected`));
+        assert.match(result.stdout, new RegExp(`\\[pass\\] ${site}/converted_team tool.local`));
+      }
+      assert.match(result.stdout, /Browser behavior,.*remain unverified/);
+      assert.doesNotMatch(result.stdout, /\[pass\].*runtime\.(safety|composition)/);
+    });
+  }
+}
+
+test('CVT-VERIFY-001: corrupted generated bundles fail shared rules and CLI publication checks', async (t) => {
+  const cases = [
+    { name: 'missing front agent', file: 'agent-manifest.json', rule: 'network.front_man.exists', shared: true,
+      change: value => { value.networks[0].front_man = 'missing'; } },
+    { name: 'dangling local call', file: 'converted_team.network.json', rule: 'tool.local', shared: true,
+      change: value => { value.tools[0].tools = ['missing']; } },
+    { name: 'stale links network key', file: 'links.json', rule: 'publication.links.network',
+      change: value => { value.networks = { stale: {} }; } },
+    { name: 'missing generated definition', file: 'converted_team.network.json', rule: 'publication.file' },
+  ];
+  for (const row of cases) await t.test(row.name, async (t) => {
+    const ws = await workspace(t);
+    await assemble(ws.input, 'markdown');
+    success(invoke([ws.input, ws.output]));
+    const tree = await publicationTree(ws.root, ws.output);
+    const target = join(tree, 'site-a', row.file);
+    if (row.change) {
+      const value = JSON.parse(await readFile(target, 'utf8'));
+      row.change(value);
+      await writeFile(target, bytes(value));
+    } else await rm(target);
+    if (row.shared) {
+      const shared = validateNetwork(await bundleInput(join(tree, 'site-a')));
+      assert.equal(shared.valid, false);
+      assert.ok(shared.checks.some(check => check.ruleId === row.rule && check.status === 'fail'));
+    }
+    const report = await checkConformance({ root: pathToFileURL(`${tree}/`) });
+    assert.equal(report.valid, false);
+    assert.ok(report.checks.some(check => check.site === 'site-a' && check.ruleId === row.rule && check.status === 'fail'));
+    const result = runConformance(tree);
+    assert.equal(result.status, 1, result.stdout);
+    assert.ok(result.stdout.includes(`[fail] site-a${row.shared ? '/converted_team' : ''} ${row.rule} `), result.stdout);
+    assert.match(result.stdout, /Static repository conformance: FAIL/);
+  });
+});
 
 test('CVT-IN-003/FRONT-001: valid config wins over sorted default, explicit front wins over config', async (t) => {
   const ws = await workspace(t);

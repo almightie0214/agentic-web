@@ -22,6 +22,15 @@ an exact/account-verified timestamp); no dashboard or credential was reviewed.
 Public HTTPS/CORS and judging access remain UNVERIFIED. Writing this checklist,
 passing Node checks, or merging it does not complete runtime acceptance.
 
+**AW5 converter:** the user-authorized local browser record now reports generated
+Theora-team loading and coordinator → specialist delegation **PASS**, twice, but
+answer presentation quality **FAIL**, twice (draft/meta text and garbled lines).
+Follow-up trace/history diagnostics locate the quality failure in model content,
+without evidence of converter/runtime corruption. In input 60 the user withdrew
+the prompt/runtime fix request and required no new paid run. The quality FAIL is
+retained, not repaired. See [AW5 dogfooding](#aw5-converter-dogfooding) for evidence,
+revision correspondence and diagnostic limits; the AW4 records remain separate.
+
 ### Original preparation record (before user run; not browser evidence)
 
 - Inspected source revision: `3e5040b05f664bcf1b7f56d5584f01e364fc0fa4`.
@@ -1135,6 +1144,316 @@ Counts and absent prohibited calls, observed through completion:
 Evidence attachment identifier or inline excerpt / capture time:
 Verdict PASS | FAIL | UNVERIFIED / limitation and next action / owner:
 ```
+
+## AW5 converter dogfooding
+
+### Current verdict and provenance
+
+**Load/delegation PASS; model-output presentation FAIL; no prompt/runtime fix
+requested after diagnosis.**
+Inputs 57 and 58, received on 2026-11-16, report a user-authorized Claude desktop
+built-in-browser run, not merely permission or a planned checklist. The user alone
+entered the key in the page's existing AI model settings field; the operator did
+not type, read or record its value. This AW5 approval supersedes the earlier
+user-executes-only preparation handoff for these runs, not the competition-credit
+restriction or private key-entry requirement. No personal billing is authorized.
+
+The implementer read the supplied sanitized text record
+`I:/project/agentic-web/.theora/aw5-demo/EVIDENCE.md`, initial lines 1–17 and later
+appended diagnostics at 18–41 (user input 60). SHA-256 of the complete 41-line
+record is `189b7004d0f079574ff244d47090da47b876d609e301e3597c1246ece110aea6`.
+The essential observations are transcribed below so review does not depend on that
+local path. The implementer has no browser-control tool and did not observe the
+live session, screenshots, provider response bodies or full traces. These are
+operator-reported browser results, not implementer-run inference. AW4 B01/run 1
+and run 2 used different networks and are not substitutes for these AW5 runs.
+
+Reported source revision: `298ce2bee1001e7186e7f5325975c063729881d5` (main).
+Implementation base/HEAD: `27c293226bb67d7efae2429610060a79c352f324` (CLI dependency
+`1ec1422467b79765d468b5d0491e604858cd68bf`, web dependency at that HEAD).
+The implementer ran:
+
+```sh
+git diff 27c293226bb67d7efae2429610060a79c352f324 298ce2bee1001e7186e7f5325975c063729881d5 -- site-a/converter site-a/runtime site-a/converter.js site-a/site.js tools/theora2hocon
+```
+
+Exit 0, empty output: those conversion/runtime/page paths are identical between
+the reported source and this Task base. A broader diff of `site-a` and
+`tools/theora2hocon` exited 0 and showed only the original Review Desk peer binding
+and allowed origin changing from `https://spec-scout.invalid` to
+`https://spec-scout.pages.dev`. The generated manifest replaces those declarations
+with `allowed_peers: []` and closed policy, and its links stub has no binding.
+This is source correspondence, not a new browser run on this uncommitted candidate.
+The served JSON hashes below were independently recomputed and match the report.
+The later supplied runtime hashes also match the six corresponding served/current
+source files (see diagnostics below); browser-fetched response-byte correspondence
+remains UNVERIFIED. An additional in-memory reconstruction using the
+current `parseRoles`, `emitNetwork` and `emitManifest`, default options and the
+public Theora sample produced byte-identical JSON for all three files (Node
+`assert.deepEqual` against the served files; exit 0). This ties the served data to
+the current converter without modifying any fixture, runtime or operating state;
+it is not a browser-fetched response comparison.
+
+### Node integration evidence (static only)
+
+Added `CVT-VERIFY-001` e2e cases read the three actual CLI-generated files for
+both Theora and Markdown fixtures, with coordinator and non-first specialist as
+front. They call AW2 `validateNetwork` and stage byte-identical generated data in
+both publication roots of a disposable checker-compatible tree under
+`.theora/tmp/converter-e2e/`. The unchanged AW4 checker, AW2 rules and runtime
+module dependencies, public sample and Site B `_headers` are copied there; no
+operational publication file is replaced. The real AW4 CLI subprocess audits that
+tree, not the checkout's original Review Desk/Spec Scout networks. Each workspace
+is removed after use. No browser loader, `Engine`, DOM/storage simulation or model
+is executed in Node.
+
+The tests compare the AW4 shared-rule report with direct AW2 output, assert CLI
+exit 0/PASS for generated bundles, and retain `runtime.safety` and
+`runtime.composition` as UNVERIFIED. Disposable negative controls corrupt a front
+reference, local tool edge, links network key, or remove the generated definition;
+they require the relevant rule failure and CLI exit 1/FAIL. The shared-rule
+mutations must also fail direct AW2 validation.
+
+Fresh static check on the uncommitted candidate atop the base above (Windows
+x64, Node.js `v24.16.0`):
+
+```sh
+node --test --test-name-pattern=^CVT-VERIFY-001: tests/converter/e2e.test.mjs
+```
+
+Exit 0, actual output (individual case durations omitted):
+
+```text
+✔ CVT-VERIFY-001: theora front coordinator generated files pass AW2 and the AW4 CLI
+✔ CVT-VERIFY-001: theora front specialist generated files pass AW2 and the AW4 CLI
+✔ CVT-VERIFY-001: markdown front coordinator generated files pass AW2 and the AW4 CLI
+✔ CVT-VERIFY-001: markdown front specialist generated files pass AW2 and the AW4 CLI
+▶ CVT-VERIFY-001: corrupted generated bundles fail shared rules and CLI publication checks
+  ✔ missing front agent
+  ✔ dangling local call
+  ✔ stale links network key
+  ✔ missing generated definition
+✔ CVT-VERIFY-001: corrupted generated bundles fail shared rules and CLI publication checks
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1193.6767
+```
+
+After the documentation lane joined, the same narrowed command exited 0 again:
+`tests 9`, `pass 9`, `fail 0`, `skipped 0`, `duration_ms 1246.641`, with unchanged
+test/input code. `node --check tests/converter/e2e.test.mjs` exited 0 with empty
+output. Node also emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for
+`site-a/runtime/kernel.js`; no package configuration was changed to suppress it.
+There is no build step or Go package in this dependency-free JavaScript repository.
+
+After this run, Node crypto SHA-256 identified the tested e2e file as
+`b03eca56baf6ed92a16d4ce86c523f7d572a801a01c35dcb2808ddd903916a4d`.
+The CLI and pure converter modules remain unchanged from the base; their hashes:
+
+| Input code | SHA-256 |
+| --- | --- |
+| tools/theora2hocon/theora2hocon.mjs | `1192ba89a5d57f65157dacff71c2f4c15e059dc89b2106916084522384740306` |
+| site-a/converter/parse-roles.mjs | `73e66ea829f5c93a00aab59a1379961dc93e805222790cafafb2c7133ac3ea35` |
+| site-a/converter/emit-network.mjs | `b56d669b62e19917382554e4dd44c4963fa5737f35fd1a23c59c107a5280b819` |
+| site-a/converter/emit-manifest.mjs | `50c854d66357257e625b8d049ac53d3fd1872864e2fbe6bf2d9500d5b6c250c4` |
+
+The full `node --test tests/converter/e2e.test.mjs` and
+`node tools/check-conformance.mjs` Task checks are engine-owned; this narrowed
+execution does not claim those commands ran. None of these static assertions
+complete the browser requirement or prove public HTTPS/CORS/judge access.
+
+### Reproduction procedure (planned example, not the observed run)
+
+Use a fresh disposable directory and the current corrected vendored runtime;
+follow §1's cookie/key safety hold before contacting a previously used test host.
+Record source commit, dirty diff and actual commands. The example uses the public
+Claude agents sample (museum-visit coordinator and specialist), not private role
+instructions or the historical AW4 action fixture. All commands below are planned
+steps, not observed results. Run from the repository root, using already-installed
+Python/Node only; if unavailable, stop and ask rather than install software.
+
+1. Prepare a new copy (copytree refuses an existing destination). If this run path
+   exists, archive it and choose a new run directory consistently; do not overwrite
+   an earlier record or mutate the checkout's real publication roots:
+
+   ```sh
+   python -c "import shutil; from pathlib import Path; d=Path('.theora/aw5-demo/run1'); d.mkdir(parents=True,exist_ok=True); shutil.copytree('site-a',d/'site-a')"
+   node tools/theora2hocon/theora2hocon.mjs site-a/converter/samples/claude-agents .theora/aw5-demo/run1/site-a --layout markdown --front coordinator
+   python -m http.server 8015 --bind 127.0.0.1 --directory .theora/aw5-demo/run1/site-a
+   ```
+
+   The converter replaces only the copy's manifest/network/links. The old
+   `review_desk.network.json` may remain in the copy, but is not referenced by the
+   generated manifest. Do not modify `runtime/`, source instructions, source tool
+   lists or generated JSON to manufacture a successful delegation.
+2. Record SHA-256 of the three served generated JSON files and runtime files, and
+   verify served response bodies match them. In particular the manifest must
+   select `converted_team`, `front_man: coordinator` and
+   `./converted_team.network.json`, with an empty peer allowlist and link stub.
+   Use a real browser with cache disabled and Network logging preserved. Open
+   `http://127.0.0.1:8015/`. Observe normal runtime compilation and chat mounting
+   from these fetched artifacts; record URLs/status and compile/run trace, not
+   just a Review Desk pasted-data report. Record browser exact version, OS, UTC,
+   router/model and operator. A leftover original network loading is a failed setup.
+3. Before inference, optionally open `/converter.html`, load **Claude agents team**,
+   inspect AW2 findings and all three downloads, and compare their bytes with the
+   CLI result for the same sample/options. **Open artifacts in Review Desk** only
+   reviews data and consumes the same-origin handoff; it does not execute the
+   imported network. This UI path alone cannot satisfy the runtime check. The
+   normal page runtime in this disposable copy uses the generated served manifest.
+4. Privately check authorized credits, then configure the built-in **AI model
+   settings** panel with hosted Otari and the sample's default model
+   `alibaba/qwen3.8-flash`; user enters a key only there, never in a task reply or
+   artifact. After **Save and start**/reload, ask:
+
+   > Ask specialist to suggest a calm 45-minute museum route for two adults who
+   > need seated rest breaks. The only supplied facts are three small galleries
+   > and a quiet foyer with seating; opening hours and other facilities are unknown.
+   > Summarize the specialist's advice and distinguish facts from assumptions.
+
+5. In Developer view and the execution graph require a real coordinator agent,
+   a `specialist` tool call and descendant specialist agent/model span, a returned
+   recommendation, and coordinator completion in that same run. Retain sanitized
+   IDs/parents/seq/times and actual model-call status. Inspect the inquiry argument
+   and actual reply; the common inquiry schema is not a source harness. Record
+   the final visible response and whether it used the specialist's advice without
+   pretending to check live facilities, book tickets, run shell/git/gates or use
+   source `Read, Bash` tools. A model claiming delegation without descendant
+   spans, compile-only success, authentication failure or a static report is not PASS.
+6. Generated local role calls require no peer. Record actual request destinations;
+   do not weaken peer policy, grant remembered consent or bypass runtime controls.
+   Privately inspect for key disclosure, then return only reviewed booleans and
+   redacted excerpts under §1's evidence rules. No raw HAR, storage or key-panel
+   screenshot. Stop on a leak or unauthorized cost. Preserve failed attempts.
+
+### AW5 browser result record — two observed local runs
+
+The procedure above is a museum/Claude sample example, **not** the actual run.
+`EVIDENCE.md:3–7` instead reports the following execution:
+
+- Date: 2026-11-16. Later diagnostics supply event-wall-clock UTC ranges:
+  `s3` **01:45:05Z–01:46:50Z**, `s300` **01:50:06Z–01:52:03Z**.
+  OS: Windows 11. Browser: Claude desktop built-in browser; exact version not
+  captured. Runner: **manual**, top front man `coordinator` (`EVIDENCE.md:20–21`).
+- Copies: `.theora/aw5-demo/site-a` for conversion, `.theora/aw5-demo/served`
+  for the converted team; loopback `http.server` on `127.0.0.1:9100` / `9101`.
+  Exact server command lines and per-request status/headers were not supplied.
+- Input: **Theora role team**, `site-a/converter/samples/theora/layout.json`,
+  reconstructed as a project directory and converted by `tools/theora2hocon`.
+  The browser conversion was checked with AW2: static rules PASS, runtime items
+  UNVERIFIED. Exact CLI flags and cross-adapter byte comparison were not recorded.
+- The implementer read the served manifest (lines 1–23), network (1–56) and
+  links (1–6). They select `converted_team`, `coordinator`,
+  `./converted_team.network.json`, coordinator → specialist and no specialist
+  outgoing calls. Workshop coordinator/specialist text is preserved, not the
+  museum sample text. Model: `alibaba/qwen3.8-flash`; router: `api.otari.ai`,
+  non-mock; empty peer allowlist, closed policy and empty link binding map.
+- The user approved the browser execution and privately entered the key through
+  the existing panel. The records contain no key value. No credit balance or
+  comprehensive key-isolation observation is supplied; do not infer either.
+
+Served artifact hashes (`EVIDENCE.md:6`), independently recomputed from the served
+files using Node crypto SHA-256 with matching output:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| agent-manifest.json | `dd2a8f558dc9f9bc211e78e319774f0d1346d89c241edda5e274be499512cad9` |
+| converted_team.network.json | `86c5a9c9e1d93775c44878aa74d1e10a3da84be046470353ef3ce3e60010fdf0` |
+| links.json | `1615f9e8c559c80bf8c767aea061ffe57024cac0f33686fa5cafdb75b172604d` |
+
+| Observation | Run s3 (`EVIDENCE.md:8–11`) | Run s300 (`EVIDENCE.md:13–17`) |
+| --- | --- | --- |
+| Converted-team runtime load | PASS, operator reports the served team loaded and ran | Same page/team, run completed |
+| Delegation | PASS: coordinator model call ok → specialist tool call ok → specialist model call ok → final coordinator model call ok | PASS again, same reported path |
+| Runtime graph counts | 2 agent spans, 3 model-call spans; 0 peer-fetch, 0 peer-call, 0 explicit consent-decision events | 2 agent spans, 3 model-call spans; peer/consent counts not separately provided |
+| Visible answer presentation | FAIL: draft/meta text such as "Wait… we need cleanup…", garbled lines and unrelated outline content | FAIL again: "Need final clean…", "Wait…", repeated drafts and garbled lines before a readable final outline |
+
+Run 2 used the same page, message and existing key entry, not a fresh engine or
+independent model comparison. The later diagnostics below supply message, span IDs
+and content/result comparisons; full parent/seq details and provider response
+bodies were not supplied. The two runs establish reported loading/delegation,
+**not** acceptable model-output quality. CORS, consent flow, limit enforcement,
+private-context isolation, cycle interruption, public HTTPS and judge access remain
+UNVERIFIED; zero peer events do not exercise these protections.
+
+### Answer-quality diagnostics — model output, not converter/runtime corruption
+
+The initial record left attribution open and the user requested cause-level
+correction. Request 38 therefore asked for boundary comparisons rather than changing
+prompts or stripping draft phrases. Input 60 supplied the still-open tab's
+`window.__nsweb.trace` and `engine.history` diagnostics (`EVIDENCE.md:19–41`),
+without reading keys, request headers or storage and without new inference.
+The diagnostic read time is only reported as `2026-11-16T02:1xZ`, not an exact
+minute; the run times above come from event wall clocks instead.
+
+Actual message in both runs (`EVIDENCE.md:24`):
+
+> Help me plan a beginner repair workshop with a safety-focused session outline.
+
+The model wrote the `inquiry` arguments. Reported prefixes (`EVIDENCE.md:25`,
+ellipses are in the source, not full recovered arguments):
+
+- Run 1: "Create a beginner-friendly repair workshop outline focused on safety first. ..."
+- Run 2: "I need a safety-focused session outline for a beginner-friendly community repair workshop. ..."
+
+The supplied model-call table (`EVIDENCE.md:27–35`); all calls finished ok,
+`alibaba/qwen3.8-flash` via `api.otari.ai`:
+
+| Span | Role | Finish reason | contentChars | Completion / reasoning tokens |
+| --- | --- | --- | --- | --- |
+| s5 | coordinator first | tool_calls | 0 | 252 / 157 |
+| s9 | specialist | stop | 1753 | 872 / 489 |
+| s134 | coordinator final | stop | 2477 | 3071 / 2542 |
+| s302 | coordinator first | tool_calls | 0 | 200 / 107 |
+| s306 | specialist | stop | 2968 | 1645 / 1002 |
+| s507 | coordinator final | stop | 6580 | 2920 / 1362 |
+
+The operator found "Need final clean…", "Wait…" and "Let's final." **inside the
+streamed content** of `s134`/`s507`. Their content lengths equal the coordinator
+`agent_result` and displayed-history lengths (2477 and 6580). The operator reports
+coordinator result and final display as equal. Specialist `agent_result` spans
+`s7`/`s304` (1753/2968 characters) contain no draft markers, but already end with
+degenerate mixed-language tokens: "…sampleパ young clear." and
+"…nóiqueludo ammonia azidr  Unicode alone spellchecker…". The tool's
+`resultPreview` is only a 240-character prefix of the specialist JSON
+`{"cruse":1,"text":…}`, not its full result (`EVIDENCE.md:37–40`).
+
+These comparisons locate the observed defect in **model output**: specialist
+text degeneration and coordinator drafting in content, passed through rather than
+introduced by the converter/runtime. Source inspection agrees with the boundary
+report: the served workshop instructions are preserved; neither has those draft
+phrases. The manual `llm.js` path reads `delta.content`, not `reasoning_content`;
+`runner.js` returns the final no-tool model content. This does **not** establish
+why the model generated poor text or prove runtime correctness in general. The
+provider reported reasoning-token usage, but provider response bodies and
+`reasoning_content` were not captured (the tab's network log was empty).
+Another model and the same prompt outside this runtime were not tested.
+
+Served runtime hashes from `EVIDENCE.md:22`. The implementer recomputed SHA-256
+for each served file and the corresponding current `site-a/runtime/` file: all
+six equal the reported value (exit 0); no runtime was modified.
+
+| Runtime file | Served and current SHA-256 |
+| --- | --- |
+| engine.js | `48f30e80ba724f807eb745f8e2dd5a630f9aa518184307981fe5cf5863bcd5ac` |
+| llm.js | `c5d4023570f44b62fc913ff772c7c2c2ee47241ada450ffbef27da7f94dcbc5e` |
+| kernel.js | `a89e949dd6c01d31e8de063aa15ce8fb625e1faede3ee8f27b94be2ddef7ac67` |
+| runner.js | `57d9d91e1c05ae4078ed7b361ff4c2481e0e1a78ad02d2007464b7f9b0e08f78` |
+| byok.js | `7884823b767745c93c963572997dd9ab3ca572b1d5fcd4e3d7a164c3d2ae8c73` |
+| ui.js | `14e4cb7cc6171648f410bd7f93fa211b60c760ba5d1b0f536a5960805c4470da` |
+
+**User disposition (input 60, 2026-11-16):** the earlier quality-fix instruction
+was withdrawn after the model-output diagnosis. The user directed retaining sample
+prompts and runtime, recording load/delegation PASS and the quality observation,
+and finishing this Task without another paid run. No prompt/runtime patch or
+quality repair is claimed. The required converted-bundle load/delegation has been
+observed; model-output quality remains FAIL, and public acceptance and the other
+unexercised protections remain separate open items.
 
 ## 4. Public deployment and judging handoff (after activation)
 
