@@ -18,7 +18,7 @@
     "module": "./actions.js",
     "agentTools": ["validate_network"]
   },
-  "allowed_peers": ["https://spec-scout.invalid"],
+  "allowed_peers": ["https://spec-scout.pages.dev"],
   "peer_policy": {
     "mode": "closed"
   },

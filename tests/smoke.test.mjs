@@ -18,7 +18,9 @@ test('smoke: Site A publishes a resolved two-agent network with the read-only va
   });
   assert.equal(manifest.deployment.mode, 'static');
   assert.equal(manifest.peer_policy.mode, 'closed');
-  assert.deepEqual(manifest.allowed_peers, ['https://spec-scout.invalid']);
+  const links = await readJSON('site-a/links.json');
+  const peerOrigin = new URL(links.networks.review_desk.spec_scout).origin;
+  assert.deepEqual(manifest.allowed_peers, [peerOrigin]);
   assert.deepEqual(manifest.actions, {
     version: 1, module: './actions.js', agentTools: ['validate_network'],
   });

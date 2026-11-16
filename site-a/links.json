@@ -2,7 +2,7 @@
   "version": 1,
   "networks": {
     "review_desk": {
-      "spec_scout": "https://spec-scout.invalid/spec_scout"
+      "spec_scout": "https://spec-scout.pages.dev/spec_scout"
     }
   }
 }

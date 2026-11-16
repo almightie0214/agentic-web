@@ -9,12 +9,12 @@ const siteA = new URL('../site-a/', import.meta.url);
 const siteB = new URL('../site-b/', import.meta.url);
 const readJSON = async url => JSON.parse(await readFile(url, 'utf8'));
 
-test('peer: Site A maps review_desk to the reserved Spec Scout network URL', async () => {
+test('peer: Site A maps review_desk to the public Spec Scout network URL', async () => {
   const links = await readJSON(new URL('links.json', siteA));
   assert.deepEqual(links, {
     version: 1,
     networks: {
-      review_desk: { spec_scout: 'https://spec-scout.invalid/spec_scout' },
+      review_desk: { spec_scout: 'https://spec-scout.pages.dev/spec_scout' },
     },
   });
   const manifestA = await readJSON(new URL('agent-manifest.json', siteA));
@@ -29,7 +29,7 @@ test('peer: Site A maps review_desk to the reserved Spec Scout network URL', asy
   assert.equal(peer.pathname.split('/').pop(), manifestB.networks[0].name);
   // B deploys at root; peer site bases in general may also contain a path prefix.
   assert.equal(new URL('./agent-manifest.json', peer).href,
-    'https://spec-scout.invalid/agent-manifest.json');
+    `${peer.origin}/agent-manifest.json`);
 });
 
 test('peer: Site B configures public artifact CORS for Cloudflare Pages (not live response evidence)', async () => {
@@ -37,6 +37,14 @@ test('peer: Site B configures public artifact CORS for Cloudflare Pages (not liv
   // Cover the public static bundle, not just the HTML entry page.
   assert.match(headers, /^\/\*\r?\n[ \t]+Access-Control-Allow-Origin:[ \t]*\*[ \t]*$/m);
   assert.doesNotMatch(headers, /Access-Control-Allow-Credentials:[ \t]*true/i);
+});
+
+test('peer: Site B publishes a script-free top-level 404 page to disable the Pages SPA fallback (not live response evidence)', async () => {
+  const html = await readFile(new URL('404.html', siteB), 'utf8');
+  assert.match(html, /<!doctype html>/i);
+  assert.match(html, /<html\s+lang="en">/i);
+  assert.match(html, /<h1>[^<]+<\/h1>/i);
+  assert.doesNotMatch(html, /<script\b|\bon\w+\s*=|javascript:/i);
 });
 
 test('peer: Site A Pages artifact preserves separate publication roots (not activation evidence)', async () => {
@@ -47,13 +55,15 @@ test('peer: Site A Pages artifact preserves separate publication roots (not acti
 
 test('peer: Site A closed policy permits only the declared Spec Scout origin', async () => {
   const manifest = await readJSON(new URL('agent-manifest.json', siteA));
+  const links = await readJSON(new URL('links.json', siteA));
+  const peer = new URL(links.networks.review_desk.spec_scout);
   for (const [target, allowed] of [
-    ['https://spec-scout.invalid/spec_scout', true],
-    ['https://spec-scout.invalid/agents/spec_scout', true],
+    [peer.href, true],
+    [`${peer.origin}/agents/spec_scout`, true],
     ['https://other.invalid/spec_scout', false],
-    ['https://spec-scout.invalid.attacker.invalid/spec_scout', false],
-    ['http://spec-scout.invalid/spec_scout', false],
-    ['https://spec-scout.invalid:8443/spec_scout', false],
+    [`https://${peer.hostname}.attacker.invalid/spec_scout`, false],
+    [`http://${peer.hostname}/spec_scout`, false],
+    [`https://${peer.hostname}:8443/spec_scout`, false],
   ]) {
     assert.equal(manifestAllowsPeer(target, manifest), allowed, target);
   }
@@ -61,11 +71,12 @@ test('peer: Site A closed policy permits only the declared Spec Scout origin', a
 
 test('peer: coordinator resolves the symbolic Spec Scout tool before consent-gated local execution', async t => {
   const base = 'https://review-desk.invalid/desk';
-  const peerBase = 'https://spec-scout.invalid';
-  const target = `${peerBase}/spec_scout`;
   const manifestA = await readJSON(new URL('agent-manifest.json', siteA));
   const configA = await readJSON(new URL('review_desk.network.json', siteA));
   const links = await readJSON(new URL('links.json', siteA));
+  const target = links.networks.review_desk.spec_scout;
+  const peer = new URL(target);
+  const peerBase = peer.origin;
   const manifestB = await readJSON(new URL('agent-manifest.json', siteB));
   const configB = await readJSON(new URL('spec_scout.network.json', siteB));
   const originalFetch = globalThis.fetch;
@@ -110,7 +121,7 @@ test('peer: coordinator resolves the symbolic Spec Scout tool before consent-gat
       const question = 'What does section 3.2 require for peer loading?';
       engine.onConsent = async info => {
         assert.deepEqual(events, [], 'consent must precede any peer fetch');
-        assert.equal(info.peerOrigin, 'spec-scout.invalid');
+        assert.equal(info.peerOrigin, peer.host);
         assert.equal(info.requestText, question);
         events.push('consent');
         return scenario === 'decline' ? 'decline' : 'allow';
@@ -140,7 +151,7 @@ test('peer: coordinator resolves the symbolic Spec Scout tool before consent-gat
         await assert.rejects(invoke(), /No published network named 'spec_scout'/);
         assert.equal(modelCalls, 0);
       } else if (scenario === 'decline') {
-        assert.match(await invoke(), /user declined to contact spec-scout.invalid/);
+        assert.ok((await invoke()).includes(`user declined to contact ${peer.host}`));
         assert.equal(modelCalls, 0);
       } else {
         assert.equal((await invoke()).text, 'Scripted Spec Scout answer.');
