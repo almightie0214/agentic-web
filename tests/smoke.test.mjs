@@ -234,7 +234,7 @@ async function checkReviewWiring(engine) {
 }
 
 test('smoke: Site A boot shows the desk only after success and reports failures', async t => {
-  const originals = new Map(['document', '__siteABoot'].map(name =>
+  const originals = new Map(['document', 'window', '__siteABoot'].map(name =>
     [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   t.after(() => {
     for (const [name, descriptor] of originals) {
@@ -272,6 +272,9 @@ test('smoke: Site A boot shows the desk only after success and reports failures'
       querySelector: selector => elements.get(selector) ?? null,
       querySelectorAll: () => [], createElement: element,
     };
+    globalThis.window = Object.assign(new EventTarget(), {
+      location: new URL('https://example.test/agentic-web/site-a/'),
+    });
     const calls = [];
     const entered = Promise.withResolvers();
     const loaded = Promise.withResolvers();
