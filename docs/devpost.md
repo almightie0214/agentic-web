@@ -19,12 +19,23 @@ Otari account creation/feedback is optional under Official Rules §4, not a rele
 requirement. Replace open fields with verified facts before publishing; do not turn
 scoped observations into full release acceptance.
 
+Separately, user-approved AW5
+loopback runs in Claude desktop's built-in browser loaded a converted Theora team
+and completed coordinator → specialist → coordinator twice (`s3`, `s300`), but
+answer quality failed twice with leaked draft/meta text and garbled lines.
+Same-tab trace/history diagnostics locate the defect in model output, with no
+evidence of converter/runtime corruption. The user withdrew the requested
+prompt/runtime correction and required no new paid run; answer quality is not
+claimed to be fixed. See
+[AW5 converter dogfooding](demo-checklist.md#aw5-converter-dogfooding).
+
 ## Project name and short description
 
 **Agent Review Desk + Spec Scout**
 
 Inspect portable agent-network artifacts, get report-grounded explanations, and
 consult a linked specification assistant through two static browser agent sites.
+Convert Theora or Markdown roles into reviewable portable conversation artifacts.
 
 ## Inspiration and problem
 
@@ -77,6 +88,42 @@ non-disclosure proof. Public run 1 (input 59) returned literal WebFetch markup a
 a retry was declined; run 2 did not reproduce it, without establishing its cause.
 See [the public ledger](demo-checklist.md#4-public-deployment-measurements-and-judging-handoff).
 
+The key-free **Role Converter** at `site-a/converter.html` accepts Theora project
+files, generic Markdown / `.claude/agents` roles, or two-role **Claude agents team**
+and **Theora role team** samples. The page uses shared pure modules to convert
+without an LLM, then applies AW2 static rules, displays findings and offers three downloads:
+`converted_team.network.json` (resolved JSON), `agent-manifest.json`, and an empty
+peer-binding `links.json` stub. Files are processed in the browser, not uploaded.
+**Open artifacts in Review Desk** uses a same-origin sessionStorage handoff that
+is removed on receipt, including invalid payloads, then structure-checked and
+statically validated. It is review-only: it does not load the converted team into
+chat, execute it, supply credentials or waive peer consent.
+
+The same conversion is available from Node:
+
+```sh
+node tools/theora2hocon/theora2hocon.mjs <input-dir> <out-dir> [--front <role>] [--layout theora|markdown]
+```
+
+Without `--layout`, an exact `.theora/roles/<role>/agent.md` selects Theora;
+otherwise Markdown is selected. Markdown discovery prefers immediate
+`.claude/agents/*.md`, then immediate root `*.md`; an agents directory itself also
+works. Explicit layout selection does not fall back. Front precedence is exact
+`--front`, Theora config's `front_man`, then the first name-sorted role. CLI exit 0
+means files were written, not deployment or runtime validation. The complete
+[mapping contract](converter.md) defines metadata, sanitization and failure rules.
+
+This is role text plus a default front-to-specialist star graph and common
+`inquiry` schema, not an executable Theora/Claude harness. Shell, git, gates,
+permissions, filesystem operations, tests, state, skills, scheduling, lifecycle
+hooks and source tools/MCP are not converted. Remaining prose grants none of those
+abilities. Secret/local-path pattern removal is incomplete and never replaces
+publication review. Authors must review every output and the suitability and
+licensing of the source instructions. The three data files are not a hosted app;
+publication with the reference runtime and its existing settings is separate.
+There is no generated runtime adapter or second configuration UI. A callable role
+is not evidence that a model actually delegates to it.
+
 The UI distinguishes expected configuration from latest-run trace events. It is a
 review aid, not a security certificate or an automated deployment repair service.
 
@@ -98,6 +145,13 @@ review aid, not a security certificate or an automated deployment repair service
   UI, site action, URL audit and `tools/check-conformance.mjs`. The CLI adds file,
   local link, private-context declaration and CORS-configuration audits without
   emulating a browser or forcing the vendor loader to run in Node.
+- Deterministic converter modules in `site-a/converter/`, reused by the Node CLI
+  at `tools/theora2hocon/theora2hocon.mjs` and Site A's browser converter. This
+  addresses the specification §7 framework-converter opportunity as role-text
+  export, not full source-framework semantics. Generated artifacts can be checked
+  with the existing AW2 rules and AW4 static CLI; these checks cannot establish
+  runtime behavior or answer quality. The separate local browser record shows
+  load/delegation PASS but model-output quality FAIL, not a guarantee of answer quality.
 - The runtime's existing AI model settings panel for router/model selection and
   BYOK. Hosted Otari (`https://api.otari.ai/api/v1`) is the default router;
   `alibaba/qwen3.8-flash` is a model hint. Live inference needs a visitor key.
@@ -146,12 +200,23 @@ defect candidate; quotation fidelity and attribution of the separate
 `lc.getunicorn.org` request remain open. See the ledger for bounded observations,
 not a universal security claim or a substitute for independent judge access.
 
+The §7 converter shares deterministic parsing/emission across CLI and browser,
+then sends artifacts to the same validator rather than inventing another rule set.
+Separate from AW4, its generated Theora sample loaded and delegated successfully
+in two local browser runs; both visible answers failed presentation quality.
+Same-tab trace/history diagnostics locate the failure in model output: coordinator
+drafts were already in streamed content and specialist output already contained
+garbled tokens. There is no evidence of converter/runtime corruption; the user
+withdrew the prompt/runtime fix request and required no new paid run.
+
 ### 2. Design
 
 > Does the project deliver a complete, coherent product experience not just a technical proof of concept?
 
 The intended experience connects key-free inspection, actionable report locations,
 reviewed chat explanation drafts, and specification help in one review workflow.
+The converter adds files/samples → shared conversion → static findings → download
+or consume-once Review Desk inspection, without turning inspection into execution.
 The UI separates expected configuration from observed execution, keeps static checks
 usable when chat fails, and uses the reference runtime's model settings rather
 than a second configuration UI. The planned demonstration will follow one problem
@@ -171,12 +236,18 @@ quotation fidelity.
 The target audience is authors publishing portable browser agent networks who
 need to locate invalid artifacts and avoid mistaking declarations for safety
 proof. Deterministic reports and section-cited peer explanations aim to make fixes
-and evidence gaps explicit. The repository contains the reusable validator, static
-CLI and sample/test inputs under Apache-2.0; confirming public repository access
-and sharing these tools with the community remains a release handoff item. The
-impact case is specific to that author workflow; no adoption or measured improvement
-is claimed. Public run 2 demonstrates one bounded specification-question flow,
-not adoption or a complete submission demonstration.
+and evidence gaps explicit. The §7 role converter offers a concrete starting point
+for authors with Theora or Markdown/Claude role instructions: portable public text,
+a predictable star graph and artifacts they can inspect before publication. It
+does not transfer executable harness capabilities or prove semantic equivalence.
+The repository contains the reusable validator, static CLI, converter CLI/web core
+and sample/test inputs under Apache-2.0; confirming public repository access and
+sharing these tools with the community remains a release handoff item. The impact
+case is specific to that author workflow. Two local Theora-sample runs demonstrate
+load and delegation, but both fail model-output quality; no quality guarantee
+follows from conversion. No adoption, measured improvement, quality resolution or
+completed public sharing is claimed. Public run 2 demonstrates one bounded
+specification-question flow, not adoption or a complete submission demonstration.
 
 ### 4. Quality of the Idea
 
@@ -211,7 +282,8 @@ missing-path 404 behavior.
 ## What is implemented, and what is next
 
 The repository contains both site bundles, shared artifact checks, report-backed
-agent instructions, peer wiring, tests and deployment configuration. See the
+agent instructions, peer wiring, tests, deployment configuration and the shared
+CLI/web role converter. See the
 [README spec mapping](../README.md#checks-and-spec-mapping) for the implemented
 checks and their limits. Public A and B now serve the paired publication artifacts;
 the HTTP measurements alone do not establish a live peer demo. Public run 2 adds
@@ -250,6 +322,33 @@ draft's implementer:
   both models. The user subsequently confirmed old-key revocation, not an
   independently verified account timestamp. Unrelated run 1 cases were not all
   rerun on the corrected runtime.
+
+The [AW5 converter record](demo-checklist.md#aw5-converter-dogfooding) is separate
+from AW4. Under user approval, the Claude desktop built-in browser on Windows 11
+(version not captured) loaded a generated **Theora role team** bundle on loopback.
+Browser conversion passed AW2 static rules with runtime items still unverified;
+the served bundle was rebuilt through the CLI using the shared emitters. With
+non-mock `api.otari.ai` / `alibaba/qwen3.8-flash`, each of `s3` and `s300` completed
+coordinator → specialist → coordinator (2 agent spans, 3 model-call spans).
+**Load/delegation: PASS; answer quality: FAIL twice.** Draft/meta text and garbled
+lines appeared in both visible answers; the second also contained a readable final
+outline, which does not erase the leaked draft. Follow-up inspection of the same
+tab's trace/history locates the failure in model output: coordinator final calls
+`s134`/`s507` already streamed the draft in content (2477/6580 characters), matching
+the returned/displayed answer lengths. Specialist output was already garbled.
+No converter/runtime corruption was evidenced. Provider response bodies were not
+captured, and no other-model or outside-runtime comparison was performed. The user
+withdrew the earlier quality-fix request and asked to retain prompts/runtime and
+finish without another paid run; the quality FAIL remains recorded, not repaired.
+
+The source run used revision `298ce2bee1001e7186e7f5325975c063729881d5`; it is
+supplied evidence, not a fresh run by this draft's implementer. Converter/runtime
+paths match the original Task base `27c293226bb67d7efae2429610060a79c352f324`.
+That base still used the reserved Review Desk binding; the reported source and
+current checkout use the `pages.dev` binding. The generated manifest instead used
+empty allowed peers with a closed policy. This run does not verify CORS, consent,
+limits, private-context isolation, cycles or public HTTPS. Static snapshots/AW2 reports/AW4 CLI checks and
+the AW4 browser runs cannot replace missing AW5 observations or establish quality.
 
 Next work follows the ledger's
 [current acceptance summary and owners](demo-checklist.md#current-acceptance-summary-and-remaining-owners):
@@ -300,13 +399,14 @@ evidence locations as items are completed. Do not put credentials in this tracke
 | Done | Item | Owner / required input | Evidence or current state |
 | --- | --- | --- | --- |
 | [ ] | Finalize the four criterion responses against actual demonstration evidence | Entrant | Official Rules §6 quoted above; local runs and public input 61's successful bounded answer/wire observations summarized, input 59 failure retained; final claims review pending |
-| [ ] | Confirm public repository access and share the reusable tools with the community | Entrant / repository account | Public repository URL and access/sharing record pending |
+| [ ] | Confirm public repository access and share the reusable tools, including the converter CLI/web core, with the community | Entrant / repository account | Public repository URL and access/sharing record pending; repository implementation is not a sharing/adoption result |
 | [x] | Activate Site A GitHub Pages and record its public HTTPS URL | Repository account owner; HTTP measured by implementer | https://almightie0214.github.io/agentic-web/ — 2026-11-16 public 200; §4 records artifact correspondence to 298ce2b |
 | [x] | Deploy Site B to Cloudflare Pages on a separate origin and record its HTTPS URL | Cloudflare account owner; HTTP measured by implementer | https://spec-scout.pages.dev/ — public manifest/network 200 + ACAO `*`, missing paths 404, no redirects; §4 |
 | [x] | Publish public peer URL and paired allowed origin; align production tests and redeploy A | Maintainer | Commit 298ce2bee1001e7186e7f5325975c063729881d5 binds https://spec-scout.pages.dev/spec_scout and allows https://spec-scout.pages.dev; deployed A files byte-match source; production tests derive paired settings, one assertion pins public B |
 | [x] | Capture credential-free public artifact HTTPS/ACAO/404 responses | Implementer | §4: 2026-11-16T01:41:11.454Z–01:41:12.661Z, 02:31:27.844Z–02:31:28.965Z and latest 03:06:50.606Z–03:06:51.131Z probes, Node v24.16.0/Windows x64, revision 298ce2b, URLs/status/Content-Type/ACAO/redirects and hashes recorded |
 | [x] | Observe public consent→peer→caller-router flow and B request key isolation | User / delegated browser operator | Input 61, 2026-11-16 03:02–03:03Z, Edge 157/Windows 11 x64 fresh profile, CDP Network + ExtraInfo: consent before all three B GETs, manifest/definition 200 and links 404 with ACAO `*`, no B key/Cookie/Authorization/body/redirect; caller/peer/caller Otari POST 200; normal §3.2-cited answer. Pre-run A bytes match main 24395e4 (same three source files as 298ce2b). Allow event count zero remains a defect candidate; quotation fidelity and separate-request attribution unchecked. Input 59 failure remains historical, cause unknown; §4 |
 | [ ] | Complete missing real-browser observations and public-revision checks; resolve or explicitly retain blocked cases | Browser verifier + entrant for environment/accounts | Local run 1 and corrected run 2 observations are in the demo ledger; comprehensive provider/prompt/action/error inspection and unexercised limits remain unverified; public run 2 flow is observed, not full runtime acceptance; retain zero Allow event count and other §4 limits |
+| [x] | Observe a converted bundle's real-browser load/delegation and record the answer-quality diagnosis | User-authorized browser operator; user decision received 2026-11-16 | [AW5 dogfooding record](demo-checklist.md#aw5-converter-dogfooding): Theora sample load/delegation PASS in `s3`/`s300` (2 agent / 3 model-call spans each); model-output quality FAIL twice. Trace/history locate drafts and garbled text in model content, without converter/runtime corruption evidence. User withdrew the prompt/runtime fix request; no new paid run required. Quality resolution and public acceptance are not claimed |
 | [ ] | Capture and select English screenshots for submission | Entrant | Images pending; show actual UI and findings, remove keys/personal data |
 | [ ] | Record entrant's own English explanation, under two minutes, as a public YouTube video | Entrant / YouTube account | Public URL, duration and access check pending |
 | [ ] | Finalize all submission materials in English | Entrant | README and this draft are English; screenshots/video/final form still need review |

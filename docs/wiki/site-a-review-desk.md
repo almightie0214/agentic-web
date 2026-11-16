@@ -7,6 +7,7 @@ description: Site A(Agent Review Desk)의 페이지 구성, 키 없이 쓰는 �
 ## 구성
 
 - `site-a/index.html`: 헤더, 검사 패널(`#review-tools`: 샘플 버튼 4개, 붙여넣기 폼 `#validate-form`, URL 감사 폼 `#audit-form`과 프리셋), 규칙 리포트 `#rule-report`와 구성 그래프 `#review-graph`, 실행 그래프 섹션, 채팅 영역. 런타임이 채우는 슬롯 `data-ns-slot="header" | "settings" | "chat" | "agents"`를 가진 `section#agent-app`은 처음에 `hidden`이다. 모든 참조는 `./styles.css`, `./site.js`처럼 상대경로다. 콘텐츠는 영어.
+- `site-a/converter.html`·`site-a/converter.js`: 키 없이 쓰는 역할 변환 탭. `index.html` 헤더에서 링크하고 `styles.css`를 공유한다. [[converter-code-structure]].
 - `site-a/styles.css`: 사이트 스타일(`.site-shell`, `.desk-workspace`, `.desk-panel`, `.desk-check`의 `data-state`별 색, `.desk-graph`, `.desk-trust` 등).
 - `site-a/site.js`: 검사 UI와 부트 셸. 규칙은 [[validator-rules]], URL 감사는 [[url-audit]]에서 가져다 쓴다. 새 설정 UI나 키 저장 로직은 없다.
 
@@ -23,11 +24,15 @@ description: Site A(Agent Review Desk)의 페이지 구성, 키 없이 쓰는 �
 
 ## 채팅 연결
 
-실패/오류 행에는 "Explain in Review Desk"와 "Ask Spec Scout about the clause" 버튼이 붙는다(`draftExplanation`). 둘 다 채팅 입력창에 **초안만** 채우고(기존 초안은 `window.confirm` 확인 후 교체) 전송은 사용자가 한다. 초안에는 해당 발견과 공개 아티팩트가 "신뢰할 수 없는 데이터"로 담긴다. Spec Scout 버튼은 유효 링크에 `spec_scout`라는 이름의 실제 피어가 설정되어 있을 때만 활성이다. 현재 발행된 바인딩은 예약 주소(`.invalid`)라 placeholder로 취급되어 비활성이다([[peer-connection]]). 활성 상태에서도 초안은 피어 접촉을 허가하지 않고 런타임의 평소 동의 흐름을 우회하지 않는다. 채팅을 쓸 수 없으면 안내만 보이고 리포트는 유지된다.
+실패/오류 행에는 "Explain in Review Desk"와 "Ask Spec Scout about the clause" 버튼이 붙는다(`draftExplanation`). 둘 다 채팅 입력창에 **초안만** 채우고(기존 초안은 `window.confirm` 확인 후 교체) 전송은 사용자가 한다. 초안에는 해당 발견과 공개 아티팩트가 "신뢰할 수 없는 데이터"로 담긴다. Spec Scout 버튼은 유효 링크에 `spec_scout`라는 이름의 실제 피어가 설정되어 있을 때만 활성이다. `peerTargets`는 `test`·`invalid`·`example` 호스트 같은 placeholder를 걸러내는데, 현재 발행된 바인딩(`https://spec-scout.pages.dev/spec_scout`)은 걸러지지 않아 boot 뒤 활성 조건을 충족한다. 이는 설정 때문이며 공개 접근의 증거가 아니다([[peer-connection]]). 활성 상태에서도 초안은 피어 접촉을 허가하지 않고 런타임의 평소 동의 흐름을 우회하지 않는다. 채팅을 쓸 수 없으면 안내만 보이고 리포트는 유지된다.
 
 ## 실행 그래프와 신뢰 배지
 
 `#runtime-config`는 이 페이지의 채팅 런타임(검토 대상 네트워크가 아님)의 manifest와 유효 링크에서 만든 구성이며 "설정상 기대"로만 표시한다. `#trust-state`와 `#runtime-events`는 `runtime.trace`의 실제 이벤트(`observe`)를 최신 채팅 run(`latestRun`)의 span·부모 관계로 모은다. 에이전트·모델 호출(router host/model/mock 여부)·피어 fetch/call span과 consent·`composition_limit`·`composition_skip` 결정 이벤트를 센다. 채팅 전에는 "Not run"이다. 요청 요약이나 선언된 정책, 성공한 호출만으로 보안을 입증했다고 주장하지 않으며 동의 이벤트 없는 동의, CORS, 순환 중단, 상한 집행, 자격·비공개 맥락 격리는 미확인으로 둔다. 별도 Probe 토글·상시 sentinel·런타임 어댑터·감사 증거 JSON 다운로드는 만들지 않았다.
+
+## 변환 탭에서 온 입력 받기
+
+페이지 로드 때 `site.js`의 `receiveConvertedInput()`이 변환 탭이 `sessionStorage`에 둔 한 번용 payload(`agent-review-desk:converter`)를 읽는 즉시 지우고 구조를 검사해 입력란을 채운 뒤 같은 `validateNetwork` 리포트를 보인다. 잘못된 payload는 오류 문구만 보이고 아무것도 실행하지 않는다. 이 경로는 채팅 런타임에 변환 네트워크를 올리거나 피어 동의를 건너뛰지 않는다. 변환기 쪽 설명은 [[converter-code-structure]].
 
 ## 부팅 흐름
 

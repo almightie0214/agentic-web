@@ -23,6 +23,10 @@ description: tests/fixtures.mjs의 정상 1·불량 3 검사 입력과 site-a/sa
 
 픽스처를 고치면 샘플 JSON도 같이 고쳐야 한다. 둘이 어긋나면 테스트가 실패한다.
 
+## 변환기 픽스처와 샘플
+
+변환기는 별도 입력 세트를 쓴다. 테스트용 가상 Theora 프로젝트와 Markdown 역할, 기대 산출물 스냅샷은 `tests/converter/fixtures/`에 있고, 변환 탭의 두 공개 샘플은 `site-a/converter/samples/`에 있다. 내용과 검사는 [[converter-verification]]에서 다룬다. 위 검사 입력(`tests/fixtures.mjs`)과는 별개다.
+
 ## `site-a/samples/test-slydata.network.json`
 
 위 네 샘플과 달리 픽스처 짝도 페이지 버튼도 없다. 무해한 센티널(`private_sentinel`, `public_sentinel`)과 per-agent `allow` 선언을 가진 입력 봉투이며 [[conformance-cli]]가 정적 형식·정책만 검사한다. JSON의 `sly_data`는 실행 컨텍스트에 들어가지 않으므로 실제 주입은 브라우저에서 기존 `runTurn` 옵션으로 한다([[browser-evidence-ledger]]).

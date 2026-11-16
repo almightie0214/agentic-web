@@ -12,7 +12,7 @@ Site A는 두 파일로 네트워크를 발행한다. 런타임의 `Engine.loadT
 - `networks[0]`: `name: review_desk`, `front_man: review_coordinator`, `hocon: ./review_desk.network.json`(파일명은 hocon이지만 내용은 resolved JSON), `description`.
 - `llm_router`: `base_url`과 `byok_router` 모두 hosted Otari `https://api.otari.ai/api/v1`, `mock: false`. 따라서 실제 추론에는 visitor의 provider 키가 필요하고 내장 설정 패널에서 넣는다.
 - `actions`: `{ version: 1, module: './actions.js', agentTools: ['validate_network'] }`. 런타임이 모듈을 불러 action을 등록하고 에이전트에 `website_validate_network` 도구로 내놓는다. [[validator-action]]. `coded_tools`는 없다.
-- `allowed_peers: ["https://spec-scout.invalid"]`, `peer_policy.mode: closed`, `deployment.mode: static`. 닫힌 정책이므로 이 origin의 피어만 허용된다. 값은 `site-a/links.json`의 목적지와 짝이며 [[peer-connection]]에서 다룬다.
+- `allowed_peers: ["https://spec-scout.pages.dev"]`, `peer_policy.mode: closed`, `deployment.mode: static`. 닫힌 정책이므로 이 origin의 피어만 허용된다. 값은 `site-a/links.json`의 목적지와 짝이며 [[peer-connection]]에서 다룬다.
 
 라우터 선택은 `selectTopRouter`가 한다: 키나 모델을 직접 입력한 visitor가 라우터를 비워 두면 manifest의 `byok_router`가 쓰인다.
 
@@ -31,5 +31,7 @@ Site A는 두 파일로 네트워크를 발행한다. 런타임의 `Engine.loadT
 - 읽기 전용 action 하나: Review Desk는 visitor가 붙여 넣은 텍스트(또는 공개 JSON)만 검토하며 결정적 규칙([[validator-rules]])이 판정하고 에이전트는 설명만 한다.
 - 피어 참조를 URL이 아니라 이름으로 두는 이유: 실제 주소가 바뀌어도 네트워크 정의를 고치지 않고 `links.json`과 `allowed_peers`만 함께 갱신하면 된다.
 - 위임 구조(coordinator → reviewer)가 manifest의 `front_man ∈ tools` 조건을 만족해야 한다. `tests/smoke.test.mjs`가 단언한다([[testing-and-gate]]).
+
+변환기가 내보내는 `agent-manifest.json`은 이 파일과 같은 라우터·모델 기본값을 쓰지만 `allowed_peers: []`와 빈 links 스텁을 가진 별도 발행물이다([[converter-mapping-contract]]).
 
 모델 힌트와 라우터 기본값의 최종 선택은 visitor의 설정이 이긴다(탭 설정·프로필이 `routerOverride`/`modelOverride`로 전달되는 경로는 [[vendored-runtime]] 참고).
