@@ -2796,3 +2796,232 @@ tool payload, unexercised context/action/error subcases, arbitrary converted inp
 default judge inference access, screenshots/video and final submission. The last
 three are entrant-owned and outside this Goal; judge access is still an open item.
 Neither the new observations nor source changes erase the historical failures.
+
+## 7. Judge-facing public check
+
+### Revision, conditions and current verdict
+
+This section is a fresh implementer-run observation, not a reinterpretation of §6.
+The measured source is **`9e9be81b982f3f93d222fbf77b8947538cb45ad6`**
+(`sampling-temperature`, including its settings-test isolation correction).
+The working tree was clean before measurement. No runtime, network, converter,
+provider key file or operational router configuration was changed for these runs.
+
+**Eight fully captured runs completed, and the implementer read all 14 complete
+agent answers: no garbled sentences were observed in those answers.** This is a
+bounded readability observation, not proof of general answer accuracy, quotation
+fidelity, safety or provider reliability. **Public measurement: PASS for the eight
+runs below.** User input **83**, recorded as **D61**, explicitly approves these
+fresh-dialogue runs as the valid measurement set for `measured-limits`. The earlier
+collector crash and MIME preparation failure are retained as **incomplete attempts
+caused by measurement-tool defects, excluded from the measurement set**, with
+reasons below. They are not relabeled as successful product runs. The user required
+no additional live measurement or diagnosis. No deadline declarations are changed
+in this Task.
+
+- Public A: `https://almightie0214.github.io/agentic-web/`.
+- Public B: `https://spec-scout.pages.dev/`.
+- Node **v24.16.0**, Windows; Edge **157.0.4341.60** (CDP), Firefox **160.0**
+  (native WebDriver BiDi, `session.new` / `script.evaluate`). Browsers were already
+  installed; no software installation or ordinary-profile changes were made.
+- Every captured query started in a fresh disposable browser profile and page;
+  `before.history` is empty. The settings panel selected
+  `http://127.0.0.1:8640/api/v1`, fake key `otk_sentinel_dev`, and explicit model
+  `alibaba/qwen3.8-flash`. The already-running development router forwarded to
+  Otari using the user's private key file. Real keys were not read by the collector,
+  placed in the browser, or stored in these evidence files.
+- Edge used `--disable-features=LocalNetworkAccessChecks`; Firefox's disposable
+  `user.js` set `network.lna.skip-domains=127.0.0.1`. These development-router
+  conditions are not default judge configuration. The Firefox exception is
+  host-wide. All created browser profiles were removed afterward.
+- The CLI sample came from `site-a/converter/samples/theora/layout.json`, expanded
+  into exact virtual input paths and converted by
+  `tools/theora2hocon/theora2hocon.mjs`. Its three artifacts were served unchanged
+  on `http://127.0.0.1:8601/` with a copy of B's page, boot module and runtime.
+  No peer origin was added: the two sample runs exercised internal specialist
+  delegation, not cross-origin composition.
+
+### Public deployment comparison
+
+At **2026-11-16T12:55:17.354Z**, `node {tmp}/deployment.mjs` exited **0**.
+It compared the 12 site files changed between `574f09e` and the measured revision
+using credential-free GETs and SHA-256 plus byte equality. All returned **200**
+and matched their source bytes:
+
+- A: `converter/emit-network.mjs`, `review_desk.network.json`,
+  `runtime/README.md`, `runtime/kernel.js`, `runtime/llm.js`, `runtime/runner.js`,
+  `validator-rules.mjs`.
+- B: `runtime/README.md`, `runtime/kernel.js`, `runtime/llm.js`,
+  `runtime/runner.js`, `spec_scout.network.json`.
+
+`deployment.json` retains each URL, response body, status, source/deployed hash,
+comparison and target revision. This changed-file check is not a new exhaustive
+publication/CORS/security audit.
+
+### Fixed questions, requests and elapsed times
+
+The questions were submitted through the actual chat controls, with **Allow** on
+A's peer consent card. Each successful A trace contains exactly one
+`prompt_allow` consent event and a successful `remote_call`; its peer answer is
+also present in full in the caller's actual subsequent model-request tool message.
+The converter likewise returned the specialist answer through the coordinator's
+actual tool-result path.
+
+- **A:** “Ask Spec Scout what MVP Profile 0.2 §3.2 requires before and while a caller
+  loads a peer agent site.”
+- **B:** “What does MVP Profile 0.2 §3.2 require before and while a caller loads a peer
+  agent site?”
+- **Converted team:** “Help me plan a beginner repair workshop with a safety-focused
+  session outline.”
+
+All **20 actual run model requests** recorded **model `alibaba/qwen3.8-flash`,
+temperature `0.2`, stream `true`, HTTP 200**. These are the bodies passed to real
+browser fetch, not configuration-derived predictions. The transparent observation
+wrapper saved the body and response status without altering either; Edge's CDP
+POST bodies were independently matched to those records. Firefox BiDi recorded
+network request/completion metadata alongside its fetch-body records. Authorization
+and Cookie headers were deliberately not collected. This is browser-to-development-
+router request evidence, not a new capture of the router's upstream headers or
+provider-internal defaults. Settings probes are not counted as run requests.
+
+`durationMs` below is copied from the sole **top-level `kind:"run"`, `phase:"end"`,
+`parent:null` trace span**, not a sum of agent/model spans or wall-clock estimates.
+The table, `result.json` and `verification.json` retain the original values for
+the follow-up calculation; no duration is rounded before that calculation.
+
+| Case / relative evidence directory | Started–ended (UTC, includes setup) | Top-level durationMs | Run requests | Complete answers read (JS characters) | Captured execution / readability |
+| --- | --- | ---: | ---: | --- | --- |
+| `a-edge-1/` | 2026-11-16T12:59:01.210Z–13:00:23.254Z | 77390.19999998808 | 3 | spec_scout 4791; review_coordinator 3767 | completed / no garbling observed |
+| `a-edge-2/` | 2026-11-16T13:00:43.272Z–13:02:03.901Z | 78037.19999998808 | 3 | spec_scout 5659; review_coordinator 3096 | completed / no garbling observed |
+| `a-edge-3/` | 2026-11-16T13:02:11.782Z–13:03:06.346Z | 51780.09999999404 | 3 | spec_scout 6552; review_coordinator 2563 | completed / no garbling observed |
+| `a-firefox-1/` | 2026-11-16T13:03:14.827Z–13:04:29.742Z | 70328 | 3 | spec_scout 3844; review_coordinator 3893 | completed / no garbling observed |
+| `b-edge-1/` | 2026-11-16T13:04:38.165Z–13:05:28.312Z | 47318.19999998808 | 1 | spec_scout 3326 | completed / no garbling observed |
+| `b-edge-2/` | 2026-11-16T13:05:36.624Z–13:06:08.880Z | 29373.90000000596 | 1 | spec_scout 3309 | completed / no garbling observed |
+| `team-edge-1/` | 2026-11-16T13:07:43.043Z–13:08:25.656Z | 40203.30000001192 | 3 | specialist 2351; coordinator 3679 | completed / no garbling observed |
+| `team-edge-2/` | 2026-11-16T13:08:34.758Z–13:09:20.569Z | 43567.69999998808 | 3 | specialist 2970; coordinator 3860 | completed / no garbling observed |
+
+Each row was run as **`node {tmp}/live.mjs <case-id>`**, exit **0**, against the
+revision above. Its exact executable source is retained as described below. All
+captured run, agent and tool end spans have no error/limit outcome. No completed
+run was cut off by a deadline. The incomplete tool attempt below cannot be called
+a successful timing observation; its exclusion is authorized by user input 83,
+not inferred from the later successes.
+
+Reading notes: all four A peer answers and four A final answers are coherent
+English explanations of peer loading, with recognizable requirement quotations
+and evidence limits. B's two direct answers are also coherent. Both specialist
+outlines and both workshop final agendas are readable, with no broken token
+sequences or drafting monologue observed. This is not a full correctness review:
+for example, `team-edge-1/answers.txt` labels its final agenda “about 1 hour 30
+minutes” although its listed durations sum to 110 minutes. Some model headings
+paraphrase §3.2 rather than using its exact title. These ordinary content issues
+are not evidence of token corruption and are not hidden by the readability result.
+
+### Failed collection and serving attempts — retained, not PASS
+
+1. **Initial Edge collector crash:** `node {tmp}/live.mjs a-edge-1` exited **1**
+   before saving a normal result. The CDP callback attempted `JSON.parse` on
+   missing `Network.requestWillBeSent.request.postData`. Preflight/other requests
+   can lack that field. The collector's unhandled callback exception terminated
+   collection, and the browser did not survive the run. A rescue command
+   (`node {tmp}/rescue.mjs`, exit **13**, unsettled top-level await) could not
+   recover the session. **The exact question/run state and any answer/elapsed
+   time are unknown.** It is not legitimate to infer “no question submitted” from
+   the absent trace. The original collector, rescue script and explicit missing-
+   evidence record are retained under `live-v1-crash.mjs`, `rescue.mjs` and
+   `setup-edge-collector-crash/failure.json`. The disposable orphan profile was
+   removed after confirming no matching Edge process remained. The collection
+   cause was fixed by checking for postData before parsing; the subsequent eight
+   completed runs are labeled separately. Request **50** initially blocked overall
+   acceptance. **User input 83 then approved exclusion:** this is an incomplete
+   attempt caused by a measurement-tool defect, not an observed product failure or
+   deadline cutoff. It left no product answer or duration to enter in the timing
+   set. The user approved the subsequent eight fresh-dialogue runs as the valid
+   replacement set and required no additional paid attempts.
+2. **Converted-team serving setup:** the first `team-edge-1` command exited **1**
+   at boot observation timeout. The evidence server served generated `.mjs`
+   runtime modules as `text/plain`. Its requests stopped at module loading, with
+   no manifest fetch, model request or top-level run. The measurement server MIME
+   map was corrected to `text/javascript`, not the product. The failed setup's
+   complete request record, command error and profile cleanup remain in
+   `setup-team-mime-failure/{failure.json,cleanup.json,diagnosis.txt}`. The successful
+   team cases use the corrected collector. This is a pre-query setup failure, not
+   a deadline-censored successful duration. User input **83** likewise excludes
+   this measurement-tool preparation failure while requiring its evidence to remain.
+
+No model/provider retry rule, sampling exception or higher temporary execution
+limit was added. No failure was edited into a successful result.
+
+### Durable evidence handoff and checks
+
+Approved by reviewer input **82**, recorded as **D60**, the evidence is retained
+outside run tmp at:
+
+**`I:/project/agentic-web/.theora/judge-facing/9e9be81-public-check/`**
+
+This is a local, git-excluded review handoff, not a public download. The scripts
+were authored/executed in `{tmp}` only as an execution conduit; exact copies and
+outputs survive here. Start with **`manifest-final.json`** and
+**`verification-final.json`**. The initial `manifest.json` / `verification.json`
+are also retained unchanged: their pending-approval wording is historical, before
+user input 83. `measurement-decision.json` records that decision, not a recreated
+browser observation.
+
+| Relative path | What is actually preserved |
+| --- | --- |
+| `deployment.mjs`, `deployment.json` | Executed deployment comparison source and all 12 public response bodies, source hashes, revision, status/equality |
+| `live-v1-crash.mjs`, `rescue.mjs`, `setup-edge-collector-crash/failure.json` | Initial collection error source, rescue source and explicit losses; no fabricated trace or answer |
+| `live-v2-public.mjs` | Exact collector used for the six complete public cases and failed team serving setup |
+| `live.mjs`, `team-edge-{1,2}/collector.mjs` | Corrected MIME collector used for the two complete team cases |
+| `<case-id>/result.json` (each of eight case directories) | Browser version, fixed question, fresh history, conditions, actual request bodies/statuses, network metadata, entire trace, top run span, complete agent results, final history and rendered chat text |
+| `<case-id>/answers.txt` | Readable full peer/specialist/final text extracted exactly from that case's agent_result events; not a generated summary |
+| `<case-id>/cleanup.json` | Successful removal of that case's disposable profile |
+| `team-input/`, `team-bundle/` | Exact expanded layout input, CLI output artifacts and served page/runtime files; the CLI stdout is in each team result |
+| `setup-team-mime-failure/` | Failed pre-query serving setup, diagnosis and cleanup |
+| `verify-evidence.mjs`, `verification.json` | Original pre-approval consistency audit and original-precision case times; no automatic text-quality classifier |
+| `verify-evidence-final.mjs`, `verification-final.json` | Same consistency checks after user input 83, with the approved measurement-set scope; no new live/model run |
+| `measurement-decision.json` | User input 83 disposition of the incomplete collection/preparation attempts |
+| `diagnostic-provenance.md` | Exact copy of the operator's earlier small runtime-external diagnostic note; not rerun by this implementer |
+| `manifest.json`, `manifest-final.json` | Initial and final relative file paths, sizes and SHA-256 for retained evidence |
+
+`node {tmp}/verify-evidence.mjs` exited **0** at
+**2026-11-16T13:12:11.897Z** (verification start). Its checks directly re-read the
+stored records: 12 deployment matches; eight empty starting histories; eight
+successful sole top-level spans; 20 requests with the stated model/temperature/
+stream; answer extraction equality; final history equality; peer/specialist full
+caller tool-result equality; consent and delegation; Edge request-body agreement;
+profile cleanup and no remaining profile directories. The initial manifest lists
+**72 artifacts**. The implementer also opened and read every `answers.txt` using
+`read_file`, rather than inferring readability from exit status or previews.
+These local consistency checks do not recover the initial attempt. Its explicit
+exclusion is the user's decision above, not a technical claim of success.
+
+After input 83, the updated audit (`node {tmp}/verify-evidence.mjs`, exact executed
+copy `verify-evidence-final.mjs`) exited **0**, starting at
+**2026-11-16T13:15:34.685Z**, with the same eight durations and 20 requests. The
+final manifest contains **78 artifacts**. A subsequent direct SHA-256/size
+re-read of every manifest entry also exited **0**; it confirmed that the entire
+pre-existing ledger is an unchanged prefix and that local README/Devpost link
+targets exist. Final evidence hashes:
+
+- `manifest-final.json`:
+  `4f44d2618875ecba85f920e79d97fe7b6d60849c1ace7f7256e0d6005a48d100`
+- `verification-final.json`:
+  `a334f30e5505014d5a566806a1bf551e36fc06c56366ef2f40412978301525d1`
+
+The optional Otari feedback candidate in Devpost uses the operator's prior
+diagnostic note (`diagnostic-provenance.md`): two streaming/no-temperature requests
+had garbling; one streaming/0.2 request and four non-streaming requests (two without
+temperature, two at 0.2) were readable. This implementer did not repeat that
+experiment. The new eight browser runs are consistent with a bounded 0.2 mitigation
+observation, not proof of causation or a known provider default. The feedback has
+not been submitted.
+
+Required candidate checks **`node tools/browser-check.mjs`** and
+**`node tools/check-conformance.mjs`** are assigned to the engine before independent
+review; they were **not run by this implementer** and are not claimed PASS here.
+The project gate also remains engine-owned. A mock-router browser check does not
+replace the paid public observations above. The README and Devpost draft were
+rewritten for product use; historical diagnostics, revisions and failure details
+remain in this ledger rather than their introductory text. Wiki updates are left
+to the post-Goal librarian stage.
