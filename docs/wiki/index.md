@@ -1,10 +1,10 @@
 ---
-description: Agent Review Desk + Spec Scout 위키의 진입점. 프로젝트 지도, 두 사이트, 피어 연결, 벤더링 런타임, 네트워크 발행, 검사 기능, 테스트, 교훈 페이지로 안내한다.
+description: Agent Review Desk + Spec Scout 위키의 진입점. 프로젝트 지도, 두 사이트, 피어 연결, 벤더링 런타임, 네트워크 발행, 검사 기능, 적합성 CLI, 배포·브라우저 검증 원장, 테스트, 교훈 페이지로 안내한다.
 ---
 
 # 위키 목차
 
-Open Agentic Web Challenge 출품작(Agent Review Desk + Spec Scout)의 현재 코드 구조를 설명한다. 구현된 범위는 기반 골격·런타임·Site A 네트워크 발행과 검사 기능(규칙·action·URL 감사·UI), Site B의 Spec Scout 네트워크, 그리고 Site A에서 Site B로 가는 피어 배선까지다. 피어 대상 주소는 아직 예약 주소이며 라이브 상호운용은 확인되지 않았다.
+Open Agentic Web Challenge 출품작(Agent Review Desk + Spec Scout)의 현재 코드 구조를 설명한다. 구현된 범위는 기반 골격·런타임·Site A 네트워크 발행과 검사 기능(규칙·action·URL 감사·UI), Site B의 Spec Scout 네트워크, Site A에서 Site B로 가는 피어 배선, 저장소 정적 적합성 CLI, 배포 설정(Pages 워크플로·`_headers`)과 영문 README·제출 초안, 사용자가 실행한 로컬 브라우저 검증 원장이다. 피어 대상 주소는 아직 예약 주소이고 공개 배포·공개 HTTPS/CORS·심사 접근은 확인되지 않았다.
 
 ## 지도와 사이트
 
@@ -12,7 +12,7 @@ Open Agentic Web Challenge 출품작(Agent Review Desk + Spec Scout)의 현재 �
 - [[site-a-review-desk]] — Site A 페이지: 키 없는 검사·샘플·URL 감사 UI, 채팅 연결, 실행 그래프
 - [[site-b-spec-scout]] — Site B: 발췌 근거를 담은 1-agent 네트워크, 저작 원본과 배포본, boot 구조
 - [[peer-connection]] — Site A coordinator → Site B 피어: links.json·allowed_peers 한 쌍, 동의 후 로컬 실행, 예약 주소
-- [[vendored-runtime]] — 사이트별로 복사한 nsDeploy 런타임과 로컬 변경
+- [[vendored-runtime]] — 사이트별로 복사한 nsDeploy 런타임과 로컬 변경(호환 코드 제거, 중복 이름 거부, 쿠키 미러링 제거)
 - [[network-publication]] — manifest, resolved 네트워크 JSON, 라우터 기본값, action·링크 선언
 
 ## Review Desk 검사 기능
@@ -20,9 +20,15 @@ Open Agentic Web Challenge 출품작(Agent Review Desk + Spec Scout)의 현재 �
 - [[validator-rules]] — `validateNetwork`: 규칙 ID, `valid` 기준, 스키마·resolved·참조·합성 판정과 이유
 - [[validator-action]] — `validate_network` action과 리포트 근거 전용 reviewer 지시문
 - [[url-audit]] — `auditUrl`: base path 보존, 획득 오류와 규칙 위반 구분, readiness
-- [[fixtures-and-samples]] — 정상 1·불량 3 입력과 내장 샘플 4종
+- [[fixtures-and-samples]] — 정상 1·불량 3 입력, 내장 샘플 4종, `test-slydata` 샘플
+
+## 적합성·배포·검증 근거
+
+- [[conformance-cli]] — `tools/check-conformance.mjs`: 공유 규칙 재사용, `publication.*` 검사, private-context 선언·CORS 설정 감사
+- [[deployment-and-release]] — `pages.yml`(site-a만 배포), `site-b/_headers`, 실제 URL 확정 절차, README·devpost 인계, 공개 배포 미확인
+- [[browser-evidence-ledger]] — `docs/demo-checklist.md`: 실제 브라우저 검증 시나리오·증거 규칙·run 1 실패와 보정·run 2 재확인·미확인
 
 ## 검사와 교훈
 
-- [[testing-and-gate]] — `theora.gate.json`, `npm test`, 각 테스트 파일(`peer.test.mjs` 포함)의 검사 범위
+- [[testing-and-gate]] — `theora.gate.json`(테스트 + 적합성 CLI), `npm test`, 각 테스트 파일(`peer.test.mjs`·`conformance.test.mjs` 포함)의 검사 범위
 - [[no-compat-code-lessons]] — 호환 코드 금지 규칙과 리뷰에서 얻은 교훈
