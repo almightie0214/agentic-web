@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { createServer } from 'node:http';
 import { AgentNetwork, validateNetwork } from '../site-b/runtime/kernel.js';
 import { Engine, manifestAllowsPeer } from '../site-a/runtime/engine.js';
 import { buildToolTable, dispatchToolCall } from '../site-a/runtime/runner.js';
@@ -339,6 +340,169 @@ for (const site of ['site-a', 'site-b']) {
       assert.deepEqual(requests.map(body => body.stream), [true, true, true]);
       assert.match(requests[2].messages.find(message => message.role === 'tool').content, /Peer answer/);
     }
+  });
+
+  test(site + ': runtime binds nested relative peers to the immediate publisher', async t => {
+    const originalFetch = globalThis.fetch;
+    t.after(() => { globalThis.fetch = originalFetch; });
+    const topBase = base + '/desk/nested';
+    const publisher = peerBase + '/teams/published';
+    const { engine, llm } = fixture({ tools: [
+      { name: 'front', instructions: 'Caller.', tools: [publisher + '/branch'] },
+    ] });
+    engine.top.base = topBase;
+    const requests = [];
+    const documents = {
+      [publisher + '/agent-manifest.json']: {
+        networks: [{ name: 'branch', hocon: './branch.json' }, { name: 'leaf', hocon: './leaf.json' }],
+        allowed_peers: [peerBase],
+      },
+      [publisher + '/branch.json']: { tools: [{ name: 'branch', instructions: 'Branch.', tools: ['/leaf'] }] },
+      [publisher + '/leaf.json']: { tools: [{ name: 'leaf', instructions: 'Leaf.', tools: [] }] },
+      [publisher + '/links.json']: {},
+    };
+    globalThis.fetch = async url => {
+      url = new URL(url).href;
+      requests.push(url);
+      assert.ok(Object.hasOwn(documents, url), 'must only read the immediate publisher: ' + url);
+      return new Response(JSON.stringify(documents[url]));
+    };
+    const policyTargets = [];
+    const assertAllowed = engine._assertAllowedPeer.bind(engine);
+    engine._assertAllowedPeer = (target, manifest) => {
+      policyTargets.push(target);
+      return assertAllowed(target, manifest);
+    };
+    const consentTargets = [];
+    engine.onConsent = info => {
+      assert.deepEqual(requests, [], 'approval must precede all peer reads');
+      consentTargets.push(info.targetUrl);
+      assert.equal(info.peerOrigin, new URL(publisher).host);
+      return 'allow';
+    };
+    const call = name => ({ content: '', toolCalls: [{ id: name, function: { name, arguments: '{"request":"question"}' } }] });
+    llm.chat = async ({ messages, tools }) => {
+      assert.equal(tools.length, 1);
+      const result = messages.findLast(message => message.role === 'tool');
+      if (!result) return call(tools[0].function.name);
+      assert.match(result.content, /Branch got leaf answer/);
+      return { content: 'Caller got branch answer.', toolCalls: [] };
+    };
+    const contexts = new Map();
+    const makeCtx = engine._makeCtx.bind(engine);
+    engine._makeCtx = options => {
+      const ctx = makeCtx(options);
+      contexts.set(options.network.name, { ctx, chain: options.chain });
+      return ctx;
+    };
+    const resolved = [];
+    const sessions = new Map();
+    const resolve = engine.resolveRemote.bind(engine);
+    engine.resolveRemote = async (target, ...args) => {
+      resolved.push(target);
+      const session = await resolve(target, ...args);
+      sessions.set(session.network.name, session);
+      session.llm.chat = async ({ messages, tools }) => {
+        if (session.network.name === 'leaf') return { content: 'Leaf answer.', toolCalls: [] };
+        assert.equal(tools.length, 1);
+        const result = messages.findLast(message => message.role === 'tool');
+        if (!result) return call(tools[0].function.name);
+        assert.match(result.content, /Leaf answer/);
+        return { content: 'Branch got leaf answer.', toolCalls: [] };
+      };
+      return session;
+    };
+    assert.equal((await engine.runTurn('question')).text, 'Caller got branch answer.');
+    assert.deepEqual(resolved, [publisher + '/branch', publisher + '/leaf']);
+    assert.deepEqual(consentTargets, [publisher + '/branch'], 'same-origin sibling keeps the existing no-prompt behavior');
+    assert.deepEqual(policyTargets, [publisher + '/branch', publisher + '/branch', publisher + '/leaf']);
+    const { ctx: branchCtx, chain: branchChain } = contexts.get('branch');
+    assert.deepEqual([...branchCtx.composition.peerCalls], [[publisher + '::branch', 1], [publisher + '::leaf', 1]]);
+    assert.equal(engine.registry.get(publisher, 'branch'), sessions.get('branch'));
+    assert.equal(engine.registry.get(publisher, 'leaf'), sessions.get('leaf'));
+    const count = requests.length;
+    assert.equal(await resolve(publisher + '/leaf', [topBase + '::test'], null, engine.top.manifest), sessions.get('leaf'));
+    await assert.rejects(dispatch(branchCtx, { kind: 'remote', url: '/./leaf' }, {}, null, branchChain), /per-peer limit/);
+    await assert.rejects(dispatch(branchCtx, { kind: 'remote', url: '/./branch' }, {}, null, branchChain), error => error.code === 'COMPOSITION_CYCLE');
+    assert.equal(requests.length, count, 'cache, per-peer limit and cycle use the same canonical address');
+  });
+
+  test(site + ': runtime rejects foreign definition origins before contact', async t => {
+    const originalFetch = globalThis.fetch;
+    t.after(() => { globalThis.fetch = originalFetch; });
+    for (const hocon of ['https://other.invalid/peer.json', '//other.invalid/peer.json', 'https://peer.invalid.attacker.invalid/peer.json', 'http://peer.invalid/peer.json', 'https://peer.invalid:8443/peer.json']) {
+      const { engine, ctx, chain } = fixture();
+      const requests = [];
+      globalThis.fetch = async url => {
+        requests.push(String(url));
+        assert.equal(String(url), peerBase + '/agent-manifest.json', 'foreign definition must be rejected before fetch');
+        return new Response(JSON.stringify({ networks: [{ name: 'peer', hocon }] }));
+      };
+      const [result] = await executeToolCalls(ctx, [toolCall({ kind: 'remote', url: peerBase + '/peer' })], null, chain);
+      assert.equal(result.status, 'error', hocon);
+      assert.match(result.content, /must remain on/i);
+      assert.deepEqual(requests, [peerBase + '/agent-manifest.json']);
+      assert.equal(engine.registry.cache.size, 0);
+      // Top publication uses the identical definition-read boundary.
+      requests.length = 0;
+      await assert.rejects(engine._compile(base, { networks: [] }, { name: 'peer', hocon }, { isTop: true }), /must remain on/i);
+      assert.deepEqual(requests, []);
+    }
+  });
+
+  test(site + ': runtime rejects publication redirects without following HTTP locations', async t => {
+    const requests = [];
+    let redirectFile;
+    let redirectTarget;
+    const server = createServer((req, res) => {
+      requests.push(req.url);
+      if (req.url === '/pub/' + redirectFile) {
+        res.writeHead(302, { Location: redirectTarget });
+        res.end();
+        return;
+      }
+      const documents = {
+        '/pub/agent-manifest.json': { networks: [{ name: 'peer', hocon: './peer.json' }] },
+        '/pub/peer.json': { tools: [{ name: 'peer', instructions: 'Peer.', tools: [] }] },
+      };
+      res.writeHead(Object.hasOwn(documents, req.url) ? 200 : 404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(documents[req.url] || {}));
+    });
+    const foreignRequests = [];
+    const foreign = createServer((req, res) => { foreignRequests.push(req.url); res.end('{}'); });
+    for (const instance of [server, foreign]) {
+      await new Promise(resolve => instance.listen(0, '127.0.0.1', resolve));
+      t.after(() => new Promise((resolve, reject) => {
+        instance.close(error => error ? reject(error) : resolve());
+        instance.closeAllConnections();
+      }));
+    }
+    const publisher = `http://127.0.0.1:${server.address().port}/pub`;
+    const other = `http://127.0.0.1:${foreign.address().port}`;
+    for (const file of ['agent-manifest.json', 'peer.json', 'links.json']) {
+      for (const location of [publisher + '/redirect-target', other + '/redirect-target']) {
+        redirectFile = file;
+        redirectTarget = location;
+        requests.length = 0;
+        const { engine, ctx, chain } = fixture({}, { allowed_peers: [publisher] });
+        const [result] = await executeToolCalls(ctx, [toolCall({ kind: 'remote', url: publisher + '/peer' })], null, chain);
+        assert.equal(result.status, 'error', file + ' -> ' + location);
+        assert.match(result.content, /fetch|redirect/i);
+        const expected = ['/pub/agent-manifest.json', '/pub/peer.json', '/pub/links.json'];
+        assert.deepEqual(requests, expected.slice(0, expected.indexOf('/pub/' + file) + 1));
+        assert.deepEqual(foreignRequests, [], 'a redirect cannot contact its Location');
+        assert.equal(engine.registry.cache.size, 0);
+        assert.equal(engine.trace.events.filter(event => event.kind === 'remote_fetch' && event.phase === 'end').at(-1).status, 'error');
+      }
+    }
+    // A non-redirecting publication and an absent optional links.json still load.
+    redirectFile = null;
+    requests.length = 0;
+    const { engine, ctx, chain } = fixture({}, { allowed_peers: [publisher] });
+    const session = await ctx.resolveRemote(publisher + '/peer', chain, null);
+    assert.equal(session.base, publisher);
+    assert.deepEqual(requests, ['/pub/agent-manifest.json', '/pub/peer.json', '/pub/links.json']);
+    assert.equal(engine.registry.cache.size, 1);
   });
 
   test(site + ': runtime compiles only valid temperature declarations', async t => {

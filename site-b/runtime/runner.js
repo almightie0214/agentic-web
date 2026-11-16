@@ -289,14 +289,15 @@ async function dispatchActiveToolCall(ctx, entry, args, parentSpan, chain, execu
 
   if (entry.kind === "remote") {
     const requestText = argsToText(args);
-    const host = hostOfUrl(entry.url);
     const parsed = parseExternalAgent(entry.url, ctx.baseOrigin);
+    const targetUrl = parsed.url;
+    const host = hostOfUrl(targetUrl);
     if (chain?.includes(`${parsed.origin}::${parsed.agentName}`)) {
-      const error = new Error(`Composition cycle: ${entry.url} is already in this request's call chain.`);
+      const error = new Error(`Composition cycle: ${targetUrl} is already in this request's call chain.`);
       error.code = "COMPOSITION_CYCLE";
       throw error;
     }
-    if (requiresThirdPartyApproval(entry.url, ctx.baseOrigin)) {
+    if (requiresThirdPartyApproval(targetUrl, ctx.baseOrigin)) {
       // The third-party peer has not been fetched yet, so consent genuinely
       // precedes contact. A network published by this same site stays local.
       const est = {
@@ -304,7 +305,7 @@ async function dispatchActiveToolCall(ctx, entry, args, parentSpan, chain, execu
         costText: ctx.mock ? "$0.00 (mock)" : null,
       };
       const decision = await ctx.requestConsent?.({
-        kind: "network", targetUrl: entry.url, parentSpan, peerLabel: entry.label || host, peerOrigin: host, requestText, est,
+        kind: "network", targetUrl, parentSpan, peerLabel: entry.label || host, peerOrigin: host, requestText, est,
       });
       assertActive(ctx.signal);
       if (decision === "decline") {
@@ -314,13 +315,13 @@ async function dispatchActiveToolCall(ctx, entry, args, parentSpan, chain, execu
     const budgetReason = consumeRemoteBudget(ctx.composition, `${parsed.origin}::${parsed.agentName}`);
     if (budgetReason) {
       ctx.trace.note("composition_limit", {
-        parent: parentSpan, origin: ctx.displayOrigin, target: entry.url,
+        parent: parentSpan, origin: ctx.displayOrigin, target: targetUrl,
         reason: budgetReason, remoteCalls: ctx.composition?.remoteCalls,
       });
       throw new Error(`Cannot call ${entry.label || host}: ${budgetReason}.`);
     }
     // Approved — only now fetch-and-run the peer network.
-    const session = await ctx.resolveRemote(entry.url, chain, parentSpan);
+    const session = await ctx.resolveRemote(targetUrl, chain, parentSpan);
     assertActive(ctx.signal);
     const downstreamSly = filterSlyData(ctx.slyData, allowedDownstreamSly(ctx.network.getAgentSpec(ctx.frontMan)) || []);
     const request = {

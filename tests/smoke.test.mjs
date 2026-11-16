@@ -119,7 +119,7 @@ test('smoke: Site A runtime loads artifacts under a site subpath and rejects fai
         if (url === `${base}/agent-manifest.json`) {
           return new Response(JSON.stringify(manifest), { status: scenario === 'missing manifest' ? 404 : 200 });
         }
-        if (url === `${base}/./review_desk.network.json`) {
+        if (url === `${base}/review_desk.network.json`) {
           const data = structuredClone(config);
           if (scenario === 'invalid graph') data.tools[0].tools = ['missing_reviewer'];
           return new Response(scenario === 'invalid JSON' ? '{' : JSON.stringify(data), {
@@ -142,7 +142,7 @@ test('smoke: Site A runtime loads artifacts under a site subpath and rejects fai
         assert.equal(action.availability, 'local-only');
         assert.deepEqual(engine.actions.discoveryIssues, []);
         await checkReviewWiring(engine);
-        assert.deepEqual(requests, [`${base}/agent-manifest.json`, `${base}/./review_desk.network.json`, `${base}/links.json`]);
+        assert.deepEqual(requests, [`${base}/agent-manifest.json`, `${base}/review_desk.network.json`, `${base}/links.json`]);
       } else {
         const error = {
           'missing manifest': /manifest fetch 404/,
@@ -941,7 +941,7 @@ test('smoke: Site B boot loads the published network unchanged and reports failu
           await loaded.promise;
           return new Response(JSON.stringify(manifest), { status: scenario === 'missing manifest' ? 404 : 200 });
         }
-        if (url === `${base}/./spec_scout.network.json`) {
+        if (url === `${base}/spec_scout.network.json`) {
           const data = structuredClone(config);
           if (scenario === 'invalid graph') data.tools[0].tools = ['missing_agent'];
           if (scenario === 'duplicate names') data.tools.push(structuredClone(data.tools[0]));
@@ -1017,7 +1017,7 @@ test('smoke: Site B boot loads the published network unchanged and reports failu
       assert.deepEqual(requests, [
         `${base}/agent-manifest.json`,
         ...(scenario === 'empty' ? [] : [`${new URL(expected.router).origin}/agent-manifest.json`]),
-        `${base}/./spec_scout.network.json`, `${base}/links.json`,
+        `${base}/spec_scout.network.json`, `${base}/links.json`,
       ], 'boot only retrieves runtime metadata, never authoring data or model responses');
       assert.equal(app.hidden, false);
       assert.equal(app.dataset.nsLayout, 'composed');

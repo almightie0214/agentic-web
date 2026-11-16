@@ -80,14 +80,24 @@ export function isMcpTool(ref) {
   }
 }
 
-// Parse "https://host:port/agents/name" or "/name" into its parts.
+// A leading slash means a neighboring network below the caller's publication
+// base, not the host root. Resolve once, then share this identity across the hop.
 export function parseExternalAgent(ref, baseOrigin) {
-  if (ref.startsWith("/")) {
-    const origin = baseOrigin || (typeof location !== "undefined" ? location.origin : "");
-    return { origin, agentName: ref.replace(/^\//, ""), url: origin + ref };
-  }
-  const u = new URL(ref);
-  return { origin: u.origin, agentName: u.pathname.replace(/^\//, ""), url: ref };
+  if (typeof ref !== "string") throw new Error("Invalid peer reference.");
+  const relative = ref.startsWith("/");
+  if (relative && !baseOrigin) throw new Error("Relative peer reference requires a publication base.");
+  const u = relative
+    ? new URL(ref.replace(/^\/+/, ""), baseOrigin.replace(/\/+$/, "") + "/")
+    : new URL(ref);
+  if (!["http:", "https:"].includes(u.protocol)) throw new Error("Peer reference must use HTTP(S).");
+  u.search = "";
+  u.hash = "";
+  u.pathname = u.pathname.replace(/\/+$/, "");
+  const slash = u.pathname.lastIndexOf("/");
+  const agentName = u.pathname.slice(slash + 1);
+  if (!agentName) throw new Error("Peer reference must name a network.");
+  const origin = u.origin + u.pathname.slice(0, slash);
+  return { origin, agentName, url: u.href };
 }
 
 // --- config filter chain (mirrors the *ConfigFilter classes) -----------------

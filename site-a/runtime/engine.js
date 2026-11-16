@@ -5,10 +5,10 @@
 // fetch-and-run-locally bridge that turns a peer URL into a runnable Session.
 
 import { parseHocon } from "./hocon.js";
-import { AgentNetwork, validateNetwork, redactSlyData, ChatMessageType } from "./kernel.js";
+import { AgentNetwork, validateNetwork, redactSlyData, ChatMessageType, parseExternalAgent } from "./kernel.js";
 import { LlmClient } from "./llm.js";
 import { TraceBus } from "./trace.js";
-import { fetchManifest, fetchText, resolveUrl, RemoteRegistry } from "./remote.js";
+import { fetchManifest, fetchText, fetchPublished, resolveUrl, RemoteRegistry } from "./remote.js";
 import { runAgent } from "./runner.js";
 import { fallbackModel, normalizeModelName } from "./model.js";
 import { interactionMessage } from "./cruse.js";
@@ -40,7 +40,7 @@ function sameRouter(left, right) {
 export async function isPublishedMockRouter(router, fetchImpl = fetch) {
   try {
     const url = new URL(router);
-    const response = await fetchImpl(`${url.origin}/agent-manifest.json`, { cache: "no-store" });
+    const response = await fetchPublished(`${url.origin}/agent-manifest.json`, { base: url.origin, cache: "no-store", fetchImpl });
     if (!response.ok) return false;
     const manifest = await response.json();
     const declared = manifest?.llm_router || {};
@@ -185,7 +185,7 @@ export class Engine {
 
   async _compile(base, manifest, entry, { isTop = false, signal } = {}) {
     const hoconUrl = resolveUrl(base, entry.hocon);
-    const text = await scoped(signal, () => fetchText(hoconUrl, { signal }));
+    const text = await scoped(signal, () => fetchText(hoconUrl, { base, signal }));
     assertActive(signal);
     const config = parseHocon(text);
     const publishedLinks = await this._loadPublishedLinks(base, entry.name || entry.hocon, { signal });
@@ -247,13 +247,16 @@ export class Engine {
 
   async _loadPublishedLinks(base, networkName, { signal } = {}) {
     try {
-      const resp = await scoped(signal, () => fetch(resolveUrl(base, "/links.json"), { cache: "no-store", signal }));
+      const resp = await fetchPublished(resolveUrl(base, "/links.json"), { base, cache: "no-store", signal });
       if (!resp.ok) return {};
       const doc = await scoped(signal, () => resp.json());
       assertActive(signal);
       return doc?.networks?.[networkName] || {};
     } catch (error) {
       assertActive(signal);
+      // Missing links are optional; a failed protected read is not permission to
+      // continue with an incomplete or redirected publication.
+      if (error.code?.startsWith("PUBLISHED_")) throw error;
       return {};
     }
   }
@@ -418,10 +421,10 @@ export class Engine {
   // fetch-and-run-locally: turn a peer URL into a runnable Session.
   async resolveRemote(ref, chain, parentSpan, sourceManifest, { signal } = {}) {
     assertActive(signal);
-    const target = new URL(ref, `${this.top.base}/`);
-    const origin = new URL("./", target).href.replace(/\/$/, "");
-    this._assertAllowedPeer(origin, sourceManifest); // per-hop publish-time policy gate
-    const lastSeg = target.pathname.split("/").filter(Boolean).pop();
+    // The caller already resolved this reference. Never reinterpret it relative
+    // to the top site's base (which may belong to a different publisher).
+    const { origin, agentName: lastSeg, url: targetUrl } = parseExternalAgent(ref);
+    this._assertAllowedPeer(targetUrl, sourceManifest); // per-hop publish-time policy gate
     this.registry.checkCycle(chain, origin, lastSeg);
 
     const cached = this.registry.get(origin, lastSeg);
@@ -431,7 +434,7 @@ export class Engine {
       parent: parentSpan,
       origin: hostOf(this.top.base),
       peerOrigin: hostOf(origin),
-      url: ref,
+      url: targetUrl,
     });
     let session;
     try {

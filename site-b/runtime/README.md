@@ -60,6 +60,16 @@ present, preserving zero. Caller router/key and model-override policies are
 unchanged; choosing a model in settings does not replace temperature. Compilation
 checks both network and agent declarations for finite numbers in [0, 2], even
 when an agent overrides the network value.
+
+Peer references now resolve once against the immediate caller's publication base,
+including its path prefix. Policy, consent, cycle detection, cache, budget and reads
+share that canonical network target. Relative peers have no implicit page-location
+fallback. Published manifests, definitions and links are fetched only from that
+publication's origin, with redirects forbidden (including same-origin redirects).
+Cross-origin definition URLs are rejected before any request; optional links do not
+swallow publication-policy or redirect failures. Existing same-origin relative
+artifact paths and peer policy modes are unchanged.
+
 These are local corrections to the copied reference runtime, not a replacement runtime. The license and upstream documentation below are
 preserved; runtime claims there do not replace the local browser evidence ledger.
 
