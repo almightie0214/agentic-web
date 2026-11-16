@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Convert public Markdown roles into resolved Agentic Web JSON without a key.">
+  <title>Role Converter · Agent Review Desk</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./converter.js"></script>
+</head>
+<body>
+  <main class="site-shell">
+    <header class="site-heading">
+      <p class="site-eyebrow">Agent Review Desk · Site A</p>
+      <h1>Role Converter</h1>
+      <p>Deterministic Markdown to resolved Agentic Web JSON. No inference key, uploads, or source execution.</p>
+      <nav class="desk-actions" aria-label="Site tools">
+        <a href="./index.html">Review Desk</a>
+        <a href="./converter.html" aria-current="page">Role Converter</a>
+      </nav>
+    </header>
+    <section class="desk-panel" aria-labelledby="convert-heading">
+      <h2 id="convert-heading">Choose public role instructions</h2>
+      <p>Choose a project directory containing Theora roles or Claude agents, or select immediate Markdown files from one agents directory. For Theora, select the project root, not the roles directory. Your browser must include hidden directories such as .theora or .claude; if it omits them, conversion cannot discover those roles.</p>
+      <p>Files stay in this tab. Do not select private projects or credentials. Pattern removal is not a complete secret detector: inspect every artifact before sharing. Shell, git, gates, permissions, source tools, and other harness capabilities are not converted. Only role text and a default front-to-specialist conversation graph are exported.</p>
+      <div class="desk-actions" aria-label="Converter samples">
+        <button type="button" data-converter-sample="claude">Claude agents team</button>
+        <button type="button" data-converter-sample="theora">Theora role team</button>
+      </div>
+      <form id="convert-form">
+        <label>Project directory<input id="project-files" type="file" webkitdirectory multiple></label>
+        <label>Or Markdown role files<input id="markdown-files" type="file" accept=".md" multiple></label>
+        <p id="source-status" role="status">No input selected.</p>
+        <label>Input layout<select id="convert-layout">
+          <option value="">Auto-detect</option>
+          <option value="theora">Theora</option>
+          <option value="markdown">Markdown / Claude agents</option>
+        </select></label>
+        <label>Front role (optional, exact name)<input id="convert-front" type="text" autocomplete="off" placeholder="Use config, then first sorted role"></label>
+        <p>Front precedence: explicit name, then Theora config front_man, then first sorted role. Unrecognized names fail; source tool lists do not define the wiring.</p>
+        <button id="convert-submit" type="submit" disabled>Convert and check</button>
+      </form>
+      <p id="convert-status" class="site-status" role="status" aria-live="polite">Choose files or load a two-role sample.</p>
+      <noscript><p>JavaScript is required for local conversion.</p></noscript>
+    </section>
+    <section class="desk-panel" aria-labelledby="converter-report-heading">
+      <h2 id="converter-report-heading">AW2 static rule report</h2>
+      <p>Static checks are not certification or evidence of runtime delegation, consent, or limit enforcement.</p>
+      <div id="converter-report"></div>
+    </section>
+    <section id="converter-output" class="desk-panel" aria-labelledby="output-heading" hidden>
+      <h2 id="output-heading">Inspect and download</h2>
+      <p>These three data files are not a hosted application. Serve them separately with the reference browser runtime and its existing settings. Opening Review Desk only reviews data; it never runs this network or approves peer contact.</p>
+      <div id="converter-downloads" class="desk-actions"></div>
+      <button id="open-review" type="button" disabled>Open artifacts in Review Desk</button>
+      <label>converted_team.network.json<textarea id="converted-network" rows="16" readonly spellcheck="false"></textarea></label>
+      <label>agent-manifest.json<textarea id="converted-manifest" rows="12" readonly spellcheck="false"></textarea></label>
+      <label>links.json<textarea id="converted-links" rows="5" readonly spellcheck="false"></textarea></label>
+    </section>
+  </main>
+</body>
+</html>

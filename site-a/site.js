@@ -299,4 +299,30 @@ async function mountDesk() {
   }
 }
 
+function receiveConvertedInput() {
+  const key = 'agent-review-desk:converter';
+  let source;
+  try { source = window.sessionStorage.getItem(key); }
+  catch { return; }
+  if (source === null) return;
+  try {
+    window.sessionStorage.removeItem(key);
+    const input = JSON.parse(source);
+    const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+    if (!object(input) || Object.keys(input).length !== 3
+      || !['manifest', 'network', 'links'].every(name => Object.hasOwn(input, name) && object(input[name]))
+      || !Array.isArray(input.manifest.networks) || !Array.isArray(input.network.tools)
+      || !object(input.links.networks)) throw new Error('Invalid converter transfer');
+    fillInput(input);
+    const report = validateNetwork(input);
+    showReport(input, report);
+    reviewStatus(report.valid
+      ? 'Converted artifacts received. Static checks passed; warnings may remain. Runtime behavior is unverified.'
+      : 'Converted artifacts received. Static review is not ready; inspect the findings. Runtime behavior is unverified.', report.valid ? '' : 'error');
+  } catch {
+    reviewStatus('Converted artifacts could not be received safely. Return to the converter and try again. No converted network was executed.', 'error');
+  }
+}
+
+receiveConvertedInput();
 await mountDesk();
