@@ -2,17 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmod, copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const cli = fileURLToPath(new URL('../../tools/theora2hocon/theora2hocon.mjs', import.meta.url));
 const fixtures = new URL('./fixtures/', import.meta.url);
+const workspaceRoot = fileURLToPath(new URL('../../.theora/tmp/converter-e2e', import.meta.url));
 const artifacts = ['agent-manifest.json', 'converted_team.network.json', 'links.json'];
 const bytes = (value) => JSON.stringify(value, null, 2) + '\n';
 
 async function workspace(t) {
-  const root = await mkdtemp(join(tmpdir(), 'converter-private-path-'));
+  await mkdir(workspaceRoot, { recursive: true });
+  const root = await mkdtemp(join(workspaceRoot, 'converter-private-path-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const input = join(root, 'input-private-name');
   const output = join(root, 'output-private-name');
@@ -29,7 +30,7 @@ async function put(input, path, content) {
 async function assemble(input, layout) {
   if (layout === 'theora') {
     const records = JSON.parse(await readFile(new URL('mini-theora/layout.json', fixtures), 'utf8'));
-    // The real .theora layout exists only in the disposable OS temp directory.
+    // The input .theora layout exists only inside this test's unique workspace.
     for (const { path, content } of records) await put(input, path, content);
   } else {
     for (const name of await readdir(new URL('sample-agents/', fixtures))) {
@@ -81,6 +82,25 @@ async function frontAndWiring(output, front, other) {
     { name: front, tools: [other] }, { name: other, tools: [] },
   ]);
 }
+
+test('CVT-TEST-001: workspaces are unique, isolated under repository scratch space, and cleaned after use', async (t) => {
+  const roots = [];
+  await t.test('create disposable workspaces', async (t) => {
+    for (let i = 0; i < 2; i++) {
+      const ws = await workspace(t);
+      roots.push(ws.root);
+      assert.equal(dirname(ws.root), workspaceRoot);
+      assert.equal(dirname(ws.input), ws.root);
+      assert.equal(dirname(ws.output), ws.root);
+      await assemble(ws.input, 'theora');
+      assert.ok((await lstat(join(ws.input, '.theora', 'roles', 'coordinator', 'agent.md'))).isFile());
+    }
+    assert.notEqual(roots[0], roots[1]);
+  });
+  for (const root of roots) {
+    await assert.rejects(lstat(root), { code: 'ENOENT' });
+  }
+});
 
 for (const layout of ['theora', 'markdown']) {
   for (const explicit of [false, true]) {
@@ -135,6 +155,54 @@ test('CVT-IN-002/004: auto prefers exact Theora roles; explicit Markdown reads o
   await put(ws.input, '.theora/config/theora.json', 'PRIVATE_CONFIG_NOT_JSON');
   success(invoke([ws.input, ws.output, '--layout', 'markdown']));
   await snapshots(ws.output, 'markdown');
+});
+
+test('CVT-IN-001/002: case variants of fixed Theora role paths are never selected', async (t) => {
+  const records = JSON.parse(await readFile(new URL('mini-theora/layout.json', fixtures), 'utf8'));
+  for (const [exact, variant] of [['.theora/', '.Theora/'], ['/roles/', '/Roles/'], ['/agent.md', '/Agent.md']]) {
+    await t.test(variant, async (t) => {
+      const ws = await workspace(t);
+      await assemble(ws.input, 'markdown');
+      for (const { path, content } of records.filter(({ path }) => path.includes('/roles/'))) {
+        await put(ws.input, path.replace(exact, variant), content);
+      }
+      success(invoke([ws.input, ws.output]));
+      await snapshots(ws.output, 'markdown');
+      success(invoke([ws.input, ws.output, '--layout', 'markdown']));
+      await snapshots(ws.output, 'markdown');
+      await rm(ws.output, { recursive: true });
+      await failure(invoke([ws.input, ws.output, '--layout', 'theora']), ws);
+    });
+  }
+});
+
+test('CVT-IN-001/003: case variants of fixed config paths are ignored with exact Theora roles', async (t) => {
+  for (const path of ['.theora/Config/theora.json', '.theora/config/Theora.json']) {
+    await t.test(path, async (t) => {
+      const ws = await workspace(t);
+      await assemble(ws.input, 'theora');
+      await rm(join(ws.input, '.theora', 'config'), { recursive: true });
+      await put(ws.input, path, 'PRIVATE_CONFIG_NOT_JSON');
+      success(invoke([ws.input, ws.output]));
+      await snapshots(ws.output, 'theora');
+      success(invoke([ws.input, ws.output, '--layout', 'theora']));
+      await snapshots(ws.output, 'theora');
+    });
+  }
+});
+
+test('CVT-IN-001/004: case variants of fixed Claude directories do not override root Markdown', async (t) => {
+  for (const path of ['.Claude/agents/ignored.md', '.claude/Agents/ignored.md']) {
+    await t.test(path, async (t) => {
+      const ws = await workspace(t);
+      await assemble(ws.input, 'markdown');
+      await put(ws.input, path, Buffer.from([0, 255, 0]));
+      success(invoke([ws.input, ws.output]));
+      await snapshots(ws.output, 'markdown');
+      success(invoke([ws.input, ws.output, '--layout', 'markdown']));
+      await snapshots(ws.output, 'markdown');
+    });
+  }
 });
 
 test('CVT-IN-004: .claude/agents immediate Markdown takes precedence over root and excludes unrelated files', async (t) => {

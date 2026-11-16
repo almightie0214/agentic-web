@@ -41,14 +41,16 @@ async function inputRoot(input) {
   return input;
 }
 
+// Compare actual entry names, not filesystem lookup aliases: virtual paths are
+// case-sensitive even on hosts whose filesystem is not. Dirent types exclude links.
 async function directory(parent, name) {
-  const path = join(parent, name);
-  try {
-    return (await lstat(path)).isDirectory() ? path : undefined;
-  } catch (error) {
-    if (error.code === 'ENOENT') return undefined;
-    throw error;
-  }
+  const entry = (await filesIn(parent)).find(entry => entry.name === name && entry.isDirectory());
+  return entry ? join(parent, entry.name) : undefined;
+}
+
+async function file(parent, name) {
+  const entry = (await filesIn(parent)).find(entry => entry.name === name && entry.isFile());
+  return entry ? join(parent, entry.name) : undefined;
 }
 
 async function filesIn(path) {
@@ -70,25 +72,15 @@ async function acquire(input, requestedLayout) {
   const roleFiles = [];
   for (const entry of await filesIn(rolesDir)) {
     if (!entry.isDirectory()) continue;
-    const path = join(rolesDir, entry.name, 'agent.md');
-    try {
-      if ((await lstat(path)).isFile()) roleFiles.push({ path, name: entry.name });
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw error;
-    }
+    const path = await file(join(rolesDir, entry.name), 'agent.md');
+    if (path) roleFiles.push({ path, name: entry.name });
   }
   const layout = requestedLayout ?? (roleFiles.length ? 'theora' : 'markdown');
   if (layout === 'theora') {
     for (const { path, name } of roleFiles) await read(path, `.theora/roles/${name}/agent.md`);
     const configDir = theora && await directory(theora, 'config');
-    if (configDir) {
-      const config = join(configDir, 'theora.json');
-      try {
-        if ((await lstat(config)).isFile()) await read(config, '.theora/config/theora.json');
-      } catch (error) {
-        if (error.code !== 'ENOENT') throw error;
-      }
-    }
+    const config = await file(configDir, 'theora.json');
+    if (config) await read(config, '.theora/config/theora.json');
   } else {
     const claude = await directory(root, '.claude');
     const agents = claude && await directory(claude, 'agents');
