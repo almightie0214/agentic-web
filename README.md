@@ -20,18 +20,32 @@ uses an external LLM router; static inspection requires no provider key.
   matching reserved origin under a closed peer policy. This is not a public
   deployment. The linked-peer audit preset and Spec Scout explanation draft stay
   disabled while that placeholder is configured.
-- **Unverified:** real-browser delegation/action execution, consent and exact-name
-  peer loading, denied origins, invalid networks and duplicate names, key
-  non-disclosure, caller-router retention, private-context filtering, composition
-  cycle interruption, and execution-limit enforcement. Node tests or static CLI
-  exit 0 do not complete these observations.
+- **Observed locally:** user-supplied real-browser records in the
+  [demo checklist and evidence ledger](docs/demo-checklist.md) cover delegation and
+  the site action, panel model switching, consent approval/decline, exact-name peer
+  loading and wrong-name refusal, denied origins, invalid networks, sentinel field
+  filtering, a synthetic composition cycle, and the 24-agent invocation cap.
+  These are local disposable-fixture observations, not a public deployment test or
+  a fresh browser run by this document's implementer.
+- **Failures corrected and rechecked:** run 1 accepted duplicate agent names and
+  disclosed the key to A's static server through a loopback cookie. Both runtime
+  copies were corrected. Run 2 records A/B normalized-duplicate top-loader refusal,
+  duplicate-peer refusal before peer inference, panel persistence/model switching,
+  and key absence on observed A/B static requests with caller-router retention on
+  both models. Run 1 failures remain in the ledger; unrelated cases were not all
+  rerun on the corrected runtime. The user subsequently confirmed old-key revocation.
+- **Still unverified:** direct provider request headers/bodies, complete definition
+  response-body inspection, missing sentinel-header checks, unexercised execution
+  limits (including in-flight deadline behavior), and other unrecorded subcases.
+  See the ledger's [current acceptance summary](docs/demo-checklist.md#current-acceptance-summary-and-remaining-owners)
+  for scope and owners. Node tests or static CLI exit 0 do not fill these gaps.
 - **Public release pending:** hosting activation, real HTTPS URLs, measured public
-  CORS responses, browser evidence, and judge access are not established here.
-  Do not describe the entry as submission-ready until these are confirmed.
+  CORS responses, public-revision browser checks, and judge access are not established
+  here. Do not describe the entry as submission-ready until these are confirmed.
 
 See [the English submission draft and handoff tracker](docs/devpost.md) for open
-release items. The separate demo-kit task owns real-browser procedures and evidence
-in `docs/demo-checklist.md`; that file is not yet present at this revision. A
+release items. The demo checklist contains procedures, sanitized observations and
+revision/runtime-hash provenance for run 1 and the corrected run 2 rechecks. A
 checklist alone is not an execution result.
 
 ## Architecture
@@ -72,9 +86,11 @@ Hosted Otari (`https://api.otari.ai/api/v1`) is the default router, with
 `alibaba/qwen3.8-flash` as the model hint. Inference requires a visitor's provider
 key. The existing runtime is intended to keep the caller's active router/model
 policy when loading peers and send the key only to that router, not Site B.
-Those security properties still require real-browser observation. BYOK does not
-isolate a key from other JavaScript on the caller origin; do not host untrusted
-scripts or combine Site B's files with Site A's publication root.
+The local B07/run 2 records support caller-router retention and observed A/B
+static-request key isolation, not universal non-disclosure: direct provider
+headers/bodies remain unobserved. BYOK does not isolate a key from other JavaScript
+on the caller origin; do not host untrusted scripts or combine Site B's files with
+Site A's publication root.
 
 ## Local setup and use
 
@@ -120,11 +136,14 @@ replace the reserved peer binding with a working local destination.
 ### Chat and runtime observations
 
 Use the built-in **AI model settings** panel to select the router/model and enter
-a key; use this same panel for model switching. Profiles and tab settings follow
-the vendored runtime's browser storage behavior. Do not put keys in URLs or public
-artifacts. Initial boot loads metadata but does not make a model request. If
-runtime/artifact loading fails, chat stays hidden with error feedback; Site A's
-key-free checks remain usable independently.
+a key; use this same panel for model switching. Saved profiles use origin-local
+localStorage; applied tab settings use sessionStorage and take priority. Cookie
+mirroring has been removed. Before serving corrected code on a previously used test
+host, follow the ledger's safety hold to remove old test cookies privately and
+revoke exposed keys; there is no automatic cookie cleanup or migration. Do not put
+keys in URLs or public artifacts. Initial boot loads metadata but does not make a
+model request. If runtime/artifact loading fails, chat stays hidden with error
+feedback; Site A's key-free checks remain usable independently.
 
 A failed check or input/acquisition error can prepare a chat explanation draft.
 Review the public artifacts included in it and send it yourself. Replacing an
@@ -158,14 +177,14 @@ URLs, execute the vendor loader, emulate DOM/storage, or invoke models. JSON
 The mapping below is an implementation/check guide, not a full conformance claim.
 Section references are to the [pinned MVP Profile 0.2 specification](docs/worldwide_agentic_web_mvp_spec.md).
 
-| Spec requirement | Implementation and static checks | Remaining behavioral evidence |
+| Spec requirement | Implementation and static checks | Local browser evidence / remaining checks |
 | --- | --- | --- |
-| §§2.1–2.2: portable resolved data, unique agents, front agent, schemas, references | Both manifests and `*.network.json`; shared `manifest.*`, `network.*`, `agent.*`, `tool.*` reports | Real-browser invalid-network and duplicate-agent refusal before model calls; static schema checks do not validate instances/provider compatibility |
-| §§3.1, 6: two-agent delegation and grounded capability | A coordinator → reviewer → registered read-only `validate_network` action; scripted wiring tests | Actual browser delegation, action receipt, and report-backed explanation |
-| §§3.2–3.4: exact peer resolution and public artifacts | A `links.json` + `allowed_peers`, B manifest name, CLI `publication.*`, `tests/peer.test.mjs`, B `_headers` | Public HTTPS/CORS responses; consent before contact, refusal/denial paths, wrong explicit peer-name refusal before model calls |
-| §4: pluggable inference and router-only key disclosure | Built-in settings, default Otari metadata, reference runtime; scripted router inheritance tests | Default and user-selected router/model paths, key absent from definition-fetch URL/headers/body, peer cannot override caller router |
-| §§2.1, 5, 6: private context by named exception | CLI `publication.private_context` audits per-agent allow declarations | Harmless sentinel injection via existing runtime invocation options; filtered `TraceBus` `remote_call` `requestPayload` fields and return behavior |
-| §§3.1–3.2, 5–6: cycles, finite execution and fail closed | Shared `peer.composition` diagnoses known active-chain re-entry with supplied context; `execution.limit` declaration checks/warnings | Synthetic composition cycle and exceeded execution limits must visibly stop in a real browser; internal recursion alone is not a composition cycle |
+| §§2.1–2.2: portable resolved data, unique agents, front agent, schemas, references | Both manifests and `*.network.json`; shared `manifest.*`, `network.*`, `agent.*`, `tool.*` reports | B05/run 2 record invalid-network refusal and normalized-duplicate top/peer loader refusal before inference, within the ledger's variants; replacement_values and top B malformed/empty/missing-reference cases remain unverified. Static schema checks do not validate instances/provider compatibility |
+| §§3.1, 6: two-agent delegation and grounded capability | A coordinator → reviewer → registered read-only `validate_network` action; scripted wiring tests | B01 run 1 records delegation, a succeeded action receipt and report-backed explanation, with instruction deviations retained; not a full run 2 rerun |
+| §§3.2–3.4: exact peer resolution and public artifacts | A `links.json` + `allowed_peers`, B manifest name, CLI `publication.*`, `tests/peer.test.mjs`, B `_headers` | B02–B04/B06 record approval before contact, decline/denied-origin zero-contact paths and wrong-name refusal before peer inference; public HTTPS/CORS and public-revision checks remain unverified |
+| §4: pluggable inference and router-only key disclosure | Built-in settings, default Otari metadata, reference runtime; scripted router inheritance tests | B07/run 2 record both panel-selected models, caller-router retention despite conflicting peer metadata, and key absence on observed A/B static requests after cookie removal; direct provider headers/bodies and comprehensive prompt/action/error inspection remain unverified |
+| §§2.1, 5, 6: private context by named exception | CLI `publication.private_context` audits per-agent allow declarations | B08 records actual invocation-option injection and post-filter `remote_call.requestPayload.sly_data` field sets (public_sentinel only vs {}), with peer execution; exact delivered values, upstream/general scoping and missing sentinel-header checks remain unverified |
+| §§3.1–3.2, 5–6: cycles, finite execution and fail closed | Shared `peer.composition` diagnoses known active-chain re-entry with supplied context; `execution.limit` declaration checks/warnings | B09 records synthetic ancestor re-entry skipped with no forbidden invocation; B10 records visible rejection beyond the 24-agent cap. Other limits, including in-flight deadline behavior, remain unverified |
 
 For the automated test suite:
 
@@ -178,15 +197,18 @@ command and `node tools/check-conformance.mjs` with a five-minute timeout. Tests
 cover publication/boot, shared validator reports, action wiring, URL acquisition,
 UI stale-result handling, peer-policy/consent dispatch with substituted fetch and
 model calls, CORS configuration, and CLI failure cases. Runtime smoke tests also
-guard the local compatibility-code removals listed below. DOM/storage/fetch
-substitutes and scripted model calls are not actual browser or provider evidence.
+guard the local compatibility-code removals and duplicate-name/cookie corrections
+listed below. DOM/storage/fetch substitutes and scripted model calls are not actual
+browser or provider evidence.
 
-Real-browser verification belongs to demo-kit. Record environment, tested revision,
-steps, observations, verdicts and sanitized trace/log or screen evidence, including
-all unverified cases listed above. Observe definition fetches as well as post-filter
-remote-call fields without retaining real keys. No forced vendor-loader execution
-in Node or separate evidence JSON download is required. Environment/account-blocked
-cases remain **unverified**, with the required user input recorded.
+Real-browser procedures and supplied run 1/run 2 observations are in
+[docs/demo-checklist.md](docs/demo-checklist.md), including environment, tested
+revision/runtime hashes, steps, verdicts and sanitized excerpts. Its current
+acceptance summary distinguishes historical failures, corrected rechecks and
+missing observations. Follow-up capture must observe definition fetches as well as
+post-filter remote-call fields without retaining real keys. No forced vendor-loader
+execution in Node or separate evidence JSON download is required. Cases blocked by
+environment/accounts remain **unverified**, with the required user input recorded.
 
 ## Deployment configuration and release handoff
 
@@ -229,6 +251,8 @@ These account-owned actions remain open; no credentials should be committed.
 - `.github/workflows/pages.yml`: Site A-only Pages deployment.
 - `docs/worldwide_agentic_web_mvp_spec.md`: attributed reference specification.
 - `docs/devpost.md`: English submission draft and release handoff tracker.
+- `docs/demo-checklist.md`: browser procedures, local evidence ledger and remaining
+  acceptance owners.
 - `LICENSE`, `package.json`: Apache-2.0 license and dependency-free check command.
 
 ## Reference and license
@@ -238,11 +262,16 @@ The specification is copied from
 at commit `63a956cf4653f610b1c238c70946f4d7647d17a8`, file
 `docs/worldwide_agentic_web_mvp_spec.md` (MVP Profile 0.2). Its original text is
 preserved below an added provenance note in the local copy. Both runtimes are
-copied from `skills/agentify-website/runtime/` at the same pinned commit, with
-only the obsolete runner alias, legacy mock-router inference, legacy confirm-text
-inference, retired activity-slot handling, and obsolete standalone-key slot
-compatibility in `byok.js` removed. Both sites use only current tab settings and
-saved profiles for BYOK. Each copy preserves the original `LICENSE.txt` and
+copied from `skills/agentify-website/runtime/` at the same pinned commit. Local
+compatibility removals cover the obsolete runner alias, legacy mock-router and
+confirm-text inference, retired activity-slot handling, and obsolete standalone-key
+slot in `byok.js`. AW4 browser findings also led to two corrections in both copies:
+`kernel.js` rejects duplicate agent names after configuration replacement/trimming,
+before map overwrite; `byok.js` no longer reads/writes key-bearing profile cookies,
+and `ui.js` no longer advertises cookie sharing. Profiles remain origin-local with
+tab settings taking priority; existing test cookies require manual user cleanup,
+not a compatibility reader or migration. The ledger preserves the failures and
+scoped browser rechecks. Each copy preserves the original `LICENSE.txt` and
 upstream documentation; the source runtime contains no NOTICE file. Local changes
 are noted in [site-a/runtime/README.md](site-a/runtime/README.md) and
 [site-b/runtime/README.md](site-b/runtime/README.md).

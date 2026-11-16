@@ -1,9 +1,11 @@
 # Devpost submission draft — Agent Review Desk + Spec Scout
 
-**Status: English draft, not a submitted or release-ready entry.** Public URLs,
-real-browser evidence, screenshots, video, Otari correspondence, final submission,
-and judge access still need confirmation. Replace open fields with verified facts
-before publishing; do not turn planned behavior into a completed result.
+**Status: English draft, not a submitted or release-ready entry.** The
+[demo evidence ledger](demo-checklist.md) records user-supplied local browser runs,
+including failures and corrected rechecks. Missing runtime observations, public
+URLs/HTTPS/CORS, screenshots, video, Otari correspondence, final submission and
+judge access remain open. Replace open fields with verified facts before
+publishing; do not turn scoped local observations into full release acceptance.
 
 ## Project name and short description
 
@@ -53,6 +55,11 @@ review aid, not a security certificate or an automated deployment repair service
 - Separately vendored nsDeploy reference browser runtimes from
   `cognizant-ai-labs/agentic-web`, pinned at
   `63a956cf4653f610b1c238c70946f4d7647d17a8`. We did not build a replacement runtime.
+  In addition to compatibility-code removals, local browser findings led to
+  normalized duplicate-agent rejection in both `kernel.js` copies and removal of
+  key-bearing cookie profile storage in both `byok.js` copies and its `ui.js` hint.
+  Origin-local saved profiles and per-tab priority remain. The ledger preserves
+  the original failures, manual old-cookie cleanup procedure and scoped rechecks.
 - A shared deterministic rule module, `site-a/validator-rules.mjs`, reused by the
   UI, site action, URL audit and `tools/check-conformance.mjs`. The CLI adds file,
   local link, private-context declaration and CORS-configuration audits without
@@ -92,9 +99,12 @@ rather than inventing a protocol or duplicating rules. A two-agent graph, a
 registered read-only site action, resolved public definitions, symbolic peer links,
 and separate publication roots map directly to the MVP Profile 0.2. Relative paths
 support subpath deployment. The CLI audits actual files and Site B's CORS
-configuration, while preserving uncertainty about consent, exact-name loader
-refusal, key/router isolation and runtime limits. Those behaviors and deployed
-HTTPS/CORS still need real-browser evidence.
+configuration without treating it as runtime proof. Local browser records now
+support consent/refusal paths, exact-name loading, corrected duplicate rejection,
+caller-router retention, observed static-request key isolation, sentinel field
+filtering, cycle interruption and the 24-agent cap. These are bounded observations:
+provider request headers/bodies, unexercised limits and public HTTPS/CORS remain
+unverified; see the ledger for missing subcases and tested snapshot provenance.
 
 ### 2. Design
 
@@ -105,8 +115,10 @@ reviewed chat explanation drafts, and specification help in one review workflow.
 The UI separates expected configuration from observed execution, keeps static checks
 usable when chat fails, and uses the reference runtime's model settings rather
 than a second configuration UI. The planned demonstration will follow one problem
-through correction, delegation, consent, peer use and evidence. A complete deployed
-experience and actual browser usability are not yet demonstrated here.
+through correction, delegation, consent, peer use and evidence. B01 records the
+local correction/delegation/action path with instruction deviations retained; run 2
+rechecks panel persistence, tab priority and model switching. This is not a broad
+usability study, a completed video or a demonstrated public deployment.
 
 ### 3. Potential Impact
 
@@ -153,30 +165,62 @@ workflow uploads only `site-a/`, and Site B must be deployed independently.
 The repository contains both site bundles, shared artifact checks, report-backed
 agent instructions, peer wiring, tests and deployment configuration. See the
 [README spec mapping](../README.md#checks-and-spec-mapping) for the implemented
-checks and their limits. This draft does not claim a live demo or completed
-browser validation.
+checks and their limits. This draft does not claim a public live demo or complete
+runtime acceptance.
 
-Next, the demo-kit task must record actual browser runs at an identified revision:
+The [demo checklist and execution ledger](demo-checklist.md) now contain actual
+user-supplied local browser observations, not just planned procedures. Run 1 used
+Chrome on Windows with separate loopback origins and disposable JSON fixtures;
+run 2 identifies corrected served runtimes by SHA-256. The ledger records dates,
+revision/hash correspondence, steps, sanitized trace/request observations and
+limits. These are supplied reports, not a fresh browser session run by this
+draft's implementer:
 
-- Two-agent delegation and the local site action; default inference and a
-  user-selected router/model using the built-in model settings panel.
-- Approval before peer contact, refusal with no contact, the exact peer network,
-  and a denied origin with visible errors.
-- Malformed networks, duplicate agent names and wrong explicit peer names rejected
-  before any model call; synthetic composition cycles and exceeded limits stopped.
-- Keys absent from definition-fetch URLs, headers and bodies; peer router metadata
-  unable to replace the caller's active router.
-- Harmless sentinels passed through existing runtime invocation options, with
-  post-filter `TraceBus` `remote_call` `requestPayload` fields inspected for denied
-  and explicitly allowed private context, including return behavior. JSON properties
-  alone do not inject runtime context.
+- **Run 1 observations:** B01 records correction, coordinator/reviewer delegation,
+  a succeeded site action and built-in-panel model switching, with instruction
+  deviations retained. B02–B04/B06 record approval before peer contact, decline and
+  denied-origin zero-contact paths, exact-name execution and wrong explicit-name
+  refusal before peer inference. B05's invalid JSON, empty graph and missing local
+  reference were refused before inference. B08 records actual invocation-option
+  sentinel injection and filtered `remote_call.requestPayload.sly_data` field sets (public
+  field only vs {}), not exact delivered values or general upstream scoping.
+  B09 records synthetic cycle interruption without forbidden re-entry; B10 records
+  rejection beyond the **24-agent cap only**.
+- **Failures and corrections:** B05 originally accepted duplicate names and began
+  inference. B07 retained the caller router and isolated the peer, but broader
+  non-disclosure failed because a loopback cookie sent the key to A's static
+  server. Both runtime copies were corrected at these causes. Run 1 FAIL records
+  remain; neither passing spans nor later cleanup erase them.
+- **Run 2 rechecks:** A/B top loaders refuse exact, trimmed and replacement_strings
+  duplicate names before model calls; the duplicate peer is refused before peer
+  execution. Panel save/select/delete/reload, tab priority and two live models pass.
+  Observed A/B static requests contain no key; the profile cookie is not regenerated.
+  Peer calls retain A's selected router/model despite conflicting B metadata on
+  both models. The user subsequently confirmed old-key revocation, not an
+  independently verified account timestamp. Unrelated run 1 cases were not all
+  rerun on the corrected runtime.
 
-Record browser/environment, revision, steps, observed results, verdicts and sanitized
-trace/log or screen evidence in demo-kit's `docs/demo-checklist.md` (not yet present
-at this revision). Never retain real keys in evidence. Node exit 0 or a written
-checklist does not complete these cases. Environment/account-blocked cases stay
-unverified and identify the user input needed. No separate evidence JSON download
-or forced Node execution of the browser vendor loader is required.
+Next work follows the ledger's
+[current acceptance summary and owners](demo-checklist.md#current-acceptance-summary-and-remaining-owners):
+
+- Direct provider request headers/bodies, complete definition-response-body
+  inspection, missing sentinel-header checks and comprehensive prompt/action/error
+  inspection remain unverified. Authenticated success and negative trace checks
+  cannot substitute for those boundary observations.
+- Other execution limits, including in-flight deadline behavior, remain unverified.
+  Browser replacement_values duplicate handling and top B malformed, empty-graph
+  and missing-reference variants were not separately recorded. Node coverage is
+  not browser evidence for those subcases.
+- Activate separate public hosts, bind the real peer URL and allowed origin
+  together, measure public HTTPS/CORS, recheck the relevant public-revision browser
+  paths, and confirm independent judging access. Local CORS usability does not
+  establish public Cloudflare response headers.
+
+Append follow-up environment/revision, steps, observations, verdicts and sanitized
+evidence to the ledger; never retain real keys. Node exit 0 or a written checklist
+does not complete missing cases. Environment/account-blocked cases stay unverified
+with the required user input identified. No separate evidence JSON download or
+forced Node execution of the browser vendor loader is required.
 
 ## Demonstration video plan
 
@@ -195,13 +239,13 @@ evidence locations as items are completed. Do not put credentials in this tracke
 
 | Done | Item | Owner / required input | Evidence or current state |
 | --- | --- | --- | --- |
-| [ ] | Finalize the four criterion responses against actual demonstration evidence | Entrant | Official Rules §6 names/definitions are quoted above; completed demo evidence still pending |
+| [ ] | Finalize the four criterion responses against actual demonstration evidence | Entrant | Official Rules §6 quoted above; local run 1/run 2 evidence summarized here, public demonstration and final claims review pending |
 | [ ] | Confirm public repository access and share the reusable tools with the community | Entrant / repository account | Public repository URL and access/sharing record pending |
 | [ ] | Activate Site A GitHub Pages and record its public HTTPS URL | Repository account owner | URL pending; workflow exists, activation unverified |
 | [ ] | Deploy Site B to Cloudflare Pages on a separate origin and record its HTTPS URL | Cloudflare account owner | URL pending; `_headers` exists, public response unverified |
 | [ ] | Replace reserved peer URL and paired allowed origin; update deployment-address test expectations and redeploy A | Maintainer, after actual B base is confirmed | Update `site-a/links.json` and `site-a/agent-manifest.json` together; `tests/peer.test.mjs` checks consistency and currently pins the placeholder |
 | [ ] | Capture public artifact HTTPS/CORS responses and verify cross-origin browser retrieval | Deployer + browser verifier | Measured URL/status/headers/date/revision pending; local configuration is insufficient |
-| [ ] | Complete real-browser cases with sanitized evidence and resolve or explicitly retain blocked cases | Demo-kit verifier + entrant for environment/accounts | No completed browser observations claimed here |
+| [ ] | Complete missing real-browser observations and public-revision checks; resolve or explicitly retain blocked cases | Browser verifier + entrant for environment/accounts | Local run 1 and corrected run 2 observations are in the demo ledger; provider headers/bodies, unexercised limits and public acceptance remain unverified |
 | [ ] | Capture and select English screenshots for submission | Entrant | Images pending; show actual UI and findings, remove keys/personal data |
 | [ ] | Record entrant's own English explanation, under two minutes, as a public YouTube video | Entrant / YouTube account | Public URL, duration and access check pending |
 | [ ] | Finalize all submission materials in English | Entrant | README and this draft are English; screenshots/video/final form still need review |

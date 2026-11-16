@@ -39,6 +39,12 @@ test('peer: Site B configures public artifact CORS for Cloudflare Pages (not liv
   assert.doesNotMatch(headers, /Access-Control-Allow-Credentials:[ \t]*true/i);
 });
 
+test('peer: Site A Pages artifact preserves separate publication roots (not activation evidence)', async () => {
+  const workflow = await readFile(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
+  // Missing workflow or uploading the repository root would break the two-host handoff.
+  assert.match(workflow, /uses: actions\/upload-pages-artifact@[^\r\n]+\r?\n[ \t]+with:\r?\n[ \t]+path: site-a[ \t]*(?:\r?\n|$)/);
+});
+
 test('peer: Site A closed policy permits only the declared Spec Scout origin', async () => {
   const manifest = await readJSON(new URL('agent-manifest.json', siteA));
   for (const [target, allowed] of [
