@@ -296,6 +296,8 @@ test('desk UI: editor displays complete structured runtime answers and display e
   assert.equal(requests.length, cases.length);
   assert.equal(trace.events.filter(event => event.kind === 'agent_result').length, cases.length,
     'each screen result must come through the real runner and response parser');
+  assert.match($('#runtime-events').textContent, /run \[editor\]/);
+  assert.match($('#runtime-events').textContent, /agent \[editor\] review_entry/);
 });
 
 test('desk UI: downloads preserve checked editor bytes and release stale artifacts', async t => {
@@ -464,16 +466,17 @@ test('desk UI: runtime graph uses current-run spans, actual decisions and effect
   assert.match($('#trust-state').textContent, /Not run/);
   trace.start('compile', { network: 'unrelated' });
   assert.equal($('#runtime-events').children.length, 0);
-  const run = trace.start('run', { input: 'not displayed' });
-  const agent = trace.start('agent', { parent: run, agent: 'review_entry' });
+  const run = trace.start('run', { origin: 'desk.localhost', input: 'not displayed' });
+  const agent = trace.start('agent', { parent: run, origin: 'desk.localhost', agent: 'review_entry' });
   const model = trace.start('model_call', { parent: agent, routerHost: 'router.localhost', model: 'scripted-model', mock: true });
   trace.end(model);
-  const peer = trace.start('remote_fetch', { parent: agent, peerOrigin: 'scout.localhost' });
+  const peer = trace.start('remote_fetch', { parent: agent, origin: 'desk.localhost', peerOrigin: 'scout.localhost' });
   trace.end(peer, { network: 'spec_scout' });
-  trace.note('consent', { parent: agent, peerOrigin: 'denied.localhost', decision: 'decline', source: 'decline', requestPayload: 'not displayed' });
+  trace.note('consent', { parent: agent, origin: 'desk.localhost', peerOrigin: 'denied.localhost', decision: 'decline', source: 'decline', requestPayload: 'not displayed' });
   trace.end(run);
-  assert.match($('#runtime-events').textContent, new RegExp(`${run} → ${agent}: agent review_entry`));
-  assert.match($('#runtime-events').textContent, /consent denied.localhost — decline/);
+  assert.ok($('#runtime-events').textContent.includes(`${run} → ${agent}: agent [desk.localhost] review_entry`));
+  assert.match($('#runtime-events').textContent, /remote_fetch \[desk\.localhost → scout\.localhost\]/);
+  assert.match($('#runtime-events').textContent, /consent \[desk\.localhost → denied\.localhost\] denied.localhost — decline/);
   assert.doesNotMatch($('#runtime-events').textContent, /not displayed/);
   assert.match($('#runtime-events').textContent, /router.localhost \/ scripted-model \/ mock/);
   assert.match($('#trust-state').textContent, /1 peer-fetch spans, 0 peer-call spans, 1 explicit consent-decision events/);
@@ -487,9 +490,14 @@ test('desk UI: runtime graph uses current-run spans, actual decisions and effect
     assert.ok(trust.includes(label + ': 1'), label);
   }
   assert.doesNotMatch(trust, /Consent without an event/);
-  trace.start('run');
+  const editorRun = trace.start('run', { origin: 'editor' });
   assert.doesNotMatch($('#runtime-events').textContent, /review_entry|denied.localhost/);
   assert.match($('#trust-state').textContent, /0 peer-fetch spans/);
+  const editorCall = trace.start('remote_call', { parent: editorRun, origin: 'desk.localhost', peerOrigin: 'editor', network: 'review_desk' });
+  trace.start('agent', { parent: editorCall, origin: 'editor', agent: 'same_name_as_a_published_agent' });
+  assert.match($('#runtime-events').textContent, /run \[editor\]/);
+  assert.match($('#runtime-events').textContent, /remote_call \[desk\.localhost → editor\] review_desk/);
+  assert.match($('#runtime-events').textContent, /agent \[editor\] same_name_as_a_published_agent/);
   runtime.engine.top.network.setLink('spec_scout', 'relative/spec_scout');
   trace.note('link', { reference: 'spec_scout', target: 'relative/spec_scout' });
   assert.equal($('#audit-peer').disabled, true, 'relative named bindings are not executable runtime targets');

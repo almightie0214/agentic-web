@@ -498,7 +498,10 @@ async function main() {
       assert.ok(modelCalls.flatMap(call => call.messages).some(message => message.role === 'tool'
         && message.name === tool && JSON.parse(message.content).text === editorText), `${tool}: 답의 tool 결과 반환 없음`);
     }
-    assert.ok((await editor.evaluate(`document.querySelector('#runtime-events').textContent`)).includes('researcher'));
+    const editorGraph = await editor.evaluate(`document.querySelector('#runtime-events').textContent`);
+    assert.match(editorGraph, /run \[editor\]/, '화면 run 행에 editor 출처 표지가 없습니다.');
+    assert.match(editorGraph, /remote_call \[[^\]]+ → editor\]/, '화면 피어 행에 editor 목적지 표지가 없습니다.');
+    assert.match(editorGraph, /agent \[editor\] researcher/, '화면 에이전트 행에 editor 출처 표지가 없습니다.');
     editor.page.flows.push('ADK conversion → same-tab Review Desk handoff without execution',
       'explicit test run, coordinator → specialist → researcher success, full answer and graph render');
     await editor.probe();

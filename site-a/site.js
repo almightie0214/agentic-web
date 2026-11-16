@@ -366,7 +366,8 @@ function observe(event) {
     const identity = span.kind === 'model_call'
       ? `${span.routerHost ?? '(router not reported)'} / ${span.model ?? '(model not reported)'} / ${span.mock ? 'mock' : 'non-mock request'}`
       : span.agent ?? span.tool ?? span.network ?? span.peerOrigin ?? '';
-    const label = `${span.parent ? `${span.parent} → ` : ''}${span.id ?? span.kind}: ${span.kind} ${identity} — ${span.decision ?? span.status ?? 'observed'}`;
+    const source = [...new Set([span.origin, span.peerOrigin].filter(Boolean))].join(' → ');
+    const label = `${span.parent ? `${span.parent} → ` : ''}${span.id ?? span.kind}: ${span.kind}${source ? ` [${source}]` : ''} ${identity} — ${span.decision ?? span.status ?? 'observed'}`;
     list.append(node('li', label));
   }
   const counts = kind => [...spans.values()].filter(span => span.kind === kind).length;
