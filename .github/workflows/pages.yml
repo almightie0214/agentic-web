@@ -3,6 +3,10 @@ name: Deploy Site A to GitHub Pages
 on:
   push:
     branches: [main]
+    # Deploy only when the published Site A artifact or this workflow changes.
+    paths:
+      - "site-a/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:

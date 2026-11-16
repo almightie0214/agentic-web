@@ -213,7 +213,8 @@ environment/accounts remain **unverified**, with the required user input recorde
 ## Deployment configuration and release handoff
 
 1. **Site A / GitHub Pages:** `.github/workflows/pages.yml` deploys on `main` pushes
-   or manual dispatch. It uploads **only `site-a`**, never the repository root.
+   that change `site-a/` or the workflow, or on manual dispatch. It uploads
+   **only `site-a`**, never the repository root.
    Enable GitHub Pages with GitHub Actions and confirm the deployed URL and workflow
    result in the repository account. Workflow presence does not prove activation.
 2. **Site B / Cloudflare Pages:** deploy `site-b/` as the independent static publish
