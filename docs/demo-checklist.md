@@ -3125,3 +3125,193 @@ use a mocked clock, not elapsed-time sleeps, and exercise undeclared 90-second
 queries, below/equal/above-cap declarations, and standalone agent clamping in
 both runtime copies. The three Task checks and full project gate remain assigned
 to the engine; this implementer did not run or claim those full checks.
+
+## 9. Convert → test run 공개 실측
+
+### 측정 판본과 보존 위치
+
+이번 절은 `convert-test-run/public-check` 구현자가 직접 실행한 새 관찰이다.
+기준은 착륙한 **`fcc8c0410b268b0e69ecf3a199efa4cc5e6ec47c`**이며,
+측정 전 `HEAD`, `main`, `origin/main`이 모두 그 판본이고 작업 트리가 깨끗했다.
+이전 절의 성공·실패 기록을 대체하거나 재해석하지 않는다.
+
+검토자 입력 **85** / 결정 **D66**으로 확인한 영속 보존 루트:
+
+**`I:/project/agentic-web/.theora/convert-test-run/fcc8c04-public-check/`**
+
+이는 git에서 제외된 로컬 독립 검토 인계 자료이며 공개 다운로드가 아니다.
+`{tmp}`는 실행용으로만 쓴다. 실제 실행 수집기는 각 시도의 `collector.mjs`로
+복사하고 공개 응답과 실행별 원자료는 위 보존 루트에 남긴다. 실제 키 파일은
+읽거나 출력하지 않고, 이미 실행 중인 개발 router와 가짜 sentinel만 사용한다.
+
+### 공개 배포 선행 대조
+
+`node {tmp}/deployment.mjs {tmp}/preflight`는 **exit 0**이었다.
+`deployment.json`의 실제 UTC 범위는
+**2026-11-16T17:06:18.819Z–17:06:24.770Z**다.
+`git diff --name-only 23f3941 fcc8c0410b268b0e69ecf3a199efa4cc5e6ec47c -- site-a site-b`
+목록의 변경 파일 **23개(A 18개, B 5개)**를 자격 없는 GET으로 읽었고,
+모두 **HTTP 200, redirect 없음, 원본 바이트와 동일**이었다.
+`credentials:'omit'`, `redirect:'manual'`로 요청했으며 응답 본문과 source/public
+SHA-256, URL·상태·Content-Type·ACAO·Location을 파일별로 보존했다.
+대상은 변환기·새 ADK 샘플·시험 실행 화면/다운로드·두 runtime의 변경 파일이다.
+이는 변경 파일 대조이지 사이트 전체 보안·CORS 감사가 아니다.
+
+### 미완료 시도 — 성공으로 대체하지 않음
+
+- **`adk-edge-1/`**, `node {tmp}/live.mjs adk-edge-1`, **exit 1**.
+  Edge **157.0.4341.60**, 실제 UTC
+  **2026-11-16T17:08:35.048Z–17:09:24.629Z**.
+  `observation timeout: sample conversion`으로 종료했다.
+  보존된 `failure.json`에는 샘플 YAML 요청, 모델 요청, run span, 답이 모두 없다.
+  `cleanup.json`은 버리는 프로필 삭제 완료를 기록한다.
+  수집기가 버튼 DOM 존재만 기다리고 클릭한 뒤 converter 모듈과 그 의존 모듈의
+  응답이 도착했다. 당시 readyState와 변환기 상태 문구는 수집하지 못했다.
+  실패 뒤 추가 브라우저/모델 실행을 멈추고 검토자 요청 **52**로 진단과 재개 판단을
+  보냈다. **사람 입력 86 / D67**은 정적 HTML의 버튼이 모듈 핸들러 등록 전에
+  존재하는 **수집기 준비 경쟁**을 원인으로 확인하고, 실패 원본을 보존한 별도
+  재개를 승인했다. 제품 실패나 성공한 시험 실행으로 바꾸지 않는다.
+  보정한 수집기는 `document.readyState === 'complete'`까지 기다리고 한 번만
+  클릭한다. Open in Review Desk는 실제 변환 완료 뒤, 시험 실행은 인계 검사·
+  runtime 부팅·버튼 활성 확인 뒤 누른다. 재클릭·제품 수정·질문 변경·추가 성공
+  횟수·임시 한도 상향은 없다. 새 시도는 **`adk-edge-1-r2/`**이며 아래에 나란히
+  기록했다. 원래 미완료 시도는 PASS 집합에 넣지 않는다.
+- 실행 전 보존 디렉터리 준비 명령 두 개도 각각 **exit 1**이었다(`ENOENT`,
+  `ERR_FS_CP_EEXIST`). 부모 생성 뒤 파일별 배타 복사로 바로잡았으며 모델 실행은
+  없었다. `preparation-failures.json`에 별도 보존했다. 이어 기존 개발 router의
+  `/api/v1/models` 확인은 **HTTP 200**, 지정 모델 존재였다
+  (`router-availability.json`; 추론 실행이 아님).
+
+### 실행 조건과 고정 질문
+
+- 공개 Review Desk: `https://almightie0214.github.io/agentic-web/`.
+  공개 변환기: 같은 base의 `converter.html`.
+  공개 피어: `https://spec-scout.pages.dev/spec_scout`.
+  로컬 복제 페이지나 모의 router가 아니라 **공개 페이지와 실제 모델**을 썼다.
+- Windows x64, Node **v24.16.0**, 설치된 Edge **157.0.4341.60**(CDP),
+  Firefox **160.0**(WebDriver BiDi). 각각 새 버리는 프로필·빈 history로 시작했고
+  여섯 시도의 프로필을 모두 삭제했다. 일반 사용자 프로필은 바꾸지 않았다.
+- 내장 설정 패널에서 가짜 키 `otk_sentinel_dev`, 모델
+  **`alibaba/qwen3.8-flash`**, router **`http://127.0.0.1:8640/api/v1`**를
+  선택하고 Save and start로 재부팅했다. 기존 개발 router가 실제 Otari로 전달했다.
+  실제 키는 브라우저나 수집기에 넣지 않았고 키 파일·운영 router 설정은 바꾸지
+  않았다. 설정의 `/models` 조회는 아래 실행 모델 요청 수에서 제외한다.
+- Edge는 `--disable-features=LocalNetworkAccessChecks`, Firefox는 버리는
+  프로필의 `network.lna.skip-domains=127.0.0.1`을 썼다. Firefox 예외는 host
+  전체에 적용된다. 기본 심사자 환경에서의 성공 증거가 아니다.
+- 변환 네 건은 실제 샘플 버튼 → 정적 검사 통과 → Open in Review Desk → 같은
+  탭의 Test run 메시지·Run 순서다. 인계 직후 run이 없음을 캡처한 뒤 Run을
+  눌렀다. 입력이나 Publication base URL을 편집하지 않았고 별도 최상위 팀으로
+  로드하지 않았다. 네 실행 모두 `editor` 표지로 실행 그래프에 표시됐고 채팅
+  history는 비어 있었다. Spec Scout는 기존 채팅 Send → 동의 카드 **Allow**를
+  한 번 누르는 흐름이다.
+
+고정 질문은 수집기와 각 `result.json`에 그대로 있다:
+
+- **ADK(세 성공 실행과 원래 미완료 시도 동일):** “For the fictional Cedar Museum,
+  ask your specialist to obtain the calm route from the researcher. What is the
+  route, its exact route code, and its duration?” 뿌리는 specialist를 부르고 중간은
+  researcher를 불러야 잎에만 있는 경로 코드·시간을 얻는다.
+- **Claude:** “Ask your specialist to suggest a calm, accessible 45-minute museum
+  visit with rest breaks for a visitor who tires easily. Clearly distinguish
+  assumptions from supplied facts and do not claim live venue information.”
+- **Spec Scout:** “Ask Spec Scout what MVP Profile 0.2 §3.2 requires before and while
+  a caller loads a peer agent site.”
+
+### 결과 — 필수 다섯 실행의 범위 PASS
+
+다섯 실행은 각각 **`node {tmp}/live.mjs <case-id>`**, **exit 0**이었다.
+전문 **13개**를 구현자가 `read_file`로 모두 읽었으며 깨진 문장은 관찰되지 않았다.
+모든 run·agent·tool·model 종료 span은 **`ok`**였고, 도구 오류 뒤 최종 답만 나온
+실행은 없다. 아래 시간은 유일한 최상위 `kind:'run'`, `phase:'end'`,
+`parent:null`, `id:'s3'`의 원래 **durationMs**다. setup을 포함한 UTC 범위나
+중첩 span의 합과 혼동하지 않는다.
+
+| Case / 보존 폴더 | 시작–종료 UTC(setup 포함) | durationMs | 모델 요청 | 읽은 답 전문(JS 문자 수) | 위임·최종 답 / 가독성 |
+| --- | --- | ---: | ---: | --- | --- |
+| `adk-edge-1-r2/` | 2026-11-16T17:14:17.096Z–17:14:39.350Z | 15867.800000011921 | 5 | researcher 150; specialist 153; coordinator 115 | 성공 / 깨짐 관찰 없음 |
+| `adk-edge-2/` | 2026-11-16T17:14:52.264Z–17:15:08.648Z | 13002.100000023842 | 5 | researcher 175; specialist 143; coordinator 110 | 성공 / 깨짐 관찰 없음 |
+| `claude-edge-1/` | 2026-11-16T17:15:20.790Z–17:15:52.731Z | 28713.100000023842 | 3 | specialist 1549; coordinator 1938 | 성공 / 깨짐 관찰 없음 |
+| `adk-firefox-1/` | 2026-11-16T17:16:07.129Z–17:16:26.636Z | 13064 | 5 | researcher 175; specialist 138; coordinator 110 | 성공 / 깨짐 관찰 없음 |
+| `scout-edge-1/` | 2026-11-16T17:16:38.225Z–17:18:02.618Z | 81756.5 | 3 | spec_scout 6342; review_coordinator 3874 | 성공 / 깨짐 관찰 없음 |
+
+실제 모델 요청 **21건 모두** router host **`127.0.0.1:8640`**, model
+**`alibaba/qwen3.8-flash`**, temperature **`0.2`**, stream **`true`**,
+**HTTP 200**이다. 구성에서 추정한 값이 아니라 브라우저의 실제 `fetch`에 전달한
+본문과 반환 상태를 바꾸지 않는 관찰 wrapper로 기록했다. Edge CDP의 실제 POST
+본문과도 바이트 직렬화 전 객체가 일치함을 대조했고, Firefox는 BiDi의 요청·응답
+메타데이터를 함께 남겼다. 이는 브라우저 → 개발 router 구간의 관찰이며 upstream
+provider 헤더·본문을 새로 수집했다는 뜻은 아니다. Authorization·Cookie 헤더는
+수집하지 않았다.
+
+위임 증거는 결과 배지만이 아니라 parent span과 실제 caller tool 결과다:
+
+- **ADK 세 건:** `s5 coordinator` → `s8 tool specialist` → `s9 specialist` →
+  `s12 tool researcher` → `s13 researcher`. 두 tool 종료가 모두 `ok`이고,
+  잎의 전문은 중간의 다음 모델 요청 `role:'tool', name:'researcher'`의 `text`와
+  정확히 같으며, 중간의 전문도 뿌리의 다음 `name:'specialist'` 결과와 정확히 같다.
+  세 답 모두 경로 Courtyard → Cedar Gallery → Window Bench, `CEDAR-27`,
+  25 minutes를 읽을 수 있었다. 최종 답 전문과 시험 실행 화면 텍스트도 같다.
+  화면에는 `Not converted for specialist: tools, model.` 알림이 있었다.
+- **Claude:** `s5 coordinator` → `s8 tool specialist` → `s9 specialist`, 모두
+  `ok`. specialist 전문이 뿌리의 다음 모델 요청 tool 결과와 같고 최종 답이 화면과
+  같다. 45분 일반 경로·휴식·미확인 접근성 필요를 읽을 수 있었다. specialist는
+  `Recommendation to coordinator:`로 시작한다. 문장이 깨진 것은 아니지만 모든
+  출력 규칙이 완벽하게 지켜졌다고 주장하지 않는다. 원문을 그대로 보존했다.
+- **Spec Scout:** `s4 review_coordinator` → `s7 tool spec_scout` →
+  `s12 remote_call` → `s13 spec_scout`, 모두 `ok`. Allow 전 B 요청은 **0건**,
+  `targetUrl:'https://spec-scout.pages.dev/spec_scout'`의 `prompt_allow` 동의 이벤트
+  **1개**였다. 이후 B의 manifest·정의는 **200**, links는 **404**였다.
+  피어 답 전문이 coordinator의 후속 모델 요청 tool 결과와 같고 최종 답은 채팅
+  history와 같다. §3.2 발췌의 명세 설명을 읽을 수 있었다. 답의 redirect 설명은
+  인용한 명세의 설명이며 이번 runtime이 redirect를 허용한다는 실측 주장은 아니다.
+
+설정 재부팅 뒤·변환기·최종 Review Desk의 캡처된 CSP 이벤트 배열은 모두 비었다.
+환경의 `lc.getunicorn.org` 요청은 그대로 보존했다(변환 실행마다 8건, Scout 4건).
+사람 입력 86과 기존 §6의 로컬 HTTPS 필터 환경 요인 설명을 따르되, 이번 Task가
+그 필터 자체를 새로 검사하거나 사이트 코드의 요청으로 판정한 것은 아니다.
+
+### 독립 검토 인계와 원자료 재대조
+
+보존 루트의 **`manifest-final.json`**, **`verification-final.json`**부터 읽는다.
+
+| 상대 경로 | 보존한 자료 |
+| --- | --- |
+| `deployment.mjs`, `deployment.json` | 실행한 배포 비교 소스와 23개 공개 응답 본문·파일별 해시·상태·대상 판본 |
+| `adk-edge-1/{collector.mjs,failure.json,cleanup.json}` | 최초 수집기 소스·미완료 관찰·프로필 삭제; 성공으로 수정하지 않음 |
+| 성공 폴더별 `collector.mjs`, `result.json`, `answers.txt`, `cleanup.json` | 실제 실행 수집기 사본·조건·브라우저 판본·질문·인계한 산출물·실제 요청 본문/상태·network 메타데이터·전체 trace·모든 답 전문·최종 화면·실행 그래프·시간·프로필 삭제 |
+| `preparation-failures.json`, `router-availability.json` | 브라우저 실행 전 디렉터리 준비 오류 두 건과 기존 router 모델 목록 확인 |
+| `measurement-decision.json` | 사람 입력 86과 지정 보존 루트 승인 입력 85의 출처·처리; 브라우저 관찰과 구분 |
+| `verify-evidence.mjs`, `verification.json`, `manifest.json` | 최초 원자료 정합성 감사와 파일 해시 목록; 원본 그대로 보존 |
+| `verify-evidence-final.mjs`, `verification-final.json`, `manifest-final.json` | 최종 감사와 이전 감사까지 포함한 **33개 artifact**의 크기·SHA-256 목록 |
+
+`node {tmp}/verify-evidence.mjs`는 **17:19:46.720Z–17:19:47.337Z**, **exit 0**으로
+저장 자료를 직접 다시 읽었다. 같은 명령의 최종 감사 사본은
+`verify-evidence-final.mjs`이며 **17:20:34.483Z–17:20:35.170Z**, **exit 0**이었다.
+최종 감사는 Firefox 환경 요청 집계에서 responseCompleted도 요청으로 센 보조
+필드만 바로잡았다(최초 `getunicornRequests:16`은 요청·응답 이벤트 16개, 실제
+요청은 8개). 브라우저·모델을 다시 실행하거나 성공/실패 원자료를 고치지 않았다.
+감사는 23개 공개 본문과 immutable Git 판본의 재대조, 빈 시작 history, 인계만으로
+run 없음, 모든 종료 상태, 위임 parent 관계, 하위 전문과 실제 caller tool 결과의
+일치, 요청 값·Edge POST 본문, 화면 전문, 동의·B 접촉 순서, 원래 실패와 프로필
+삭제를 검사했다. 가독성은 자동 분류기가 아니라 위의 직접 읽기 관찰이다.
+이후 `node -e` 인라인 인계 감사도 **exit 0**으로 최종 manifest의 **33개** 항목을
+다시 읽어 크기·해시 일치, 두 최종 파일의 아래 해시 일치, 기존 원장이 바뀌지 않은
+prefix임과 남은 프로필 0개를 확인했다. 검토에 tmp 파일은 필요하지 않다.
+최종 제출 전 **17:26:45.482Z–17:26:46.070Z**의
+`node --input-type=module -e <read-only evidence audit>`도 **exit 0**이었다.
+보존된 최종 감사 소스의 쓰기 부분을 제외해 실행했으며, 33개 항목의 크기·해시와
+23개 공개 본문·다섯 실행의 위임/실제 요청/화면 정합성을 다시 확인했다.
+이 검사는 브라우저·모델을 호출하거나 기존 보존 파일을 덮어쓰지 않았다.
+
+- `manifest-final.json` SHA-256:
+  `6f9c37c636c237c7e996e67a7cf688e6abb9b85f5c7af6cae938963b1d56b7be`
+- `verification-final.json` SHA-256:
+  `33e4d071dbe3258724842f65eedc787e0b2eb2f73c4e47835069aa848a15b162`
+
+이 결과는 명시한 다섯 실행의 위임 성공·답 가독성에 한정한 **공개 실측 PASS**다.
+임의 입력, 정확성·인용 충실도·일반적인 모델 안정성, 기본 심사자 추론 접근,
+상한 만료·Stop·동시 실행 거부의 공개 운동, 모든 네트워크 요청의 키 격리 보증은
+주장하지 않는다. 독립 리뷰·전체 gate·제출 준비 완료의 판정도 아니다.
+Task checks인 `node tools/browser-check.mjs`, `node tools/check-conformance.mjs`와
+전체 gate는 엔진 소유이며 이 구현자가 실행하거나 PASS로 기록하지 않는다.
