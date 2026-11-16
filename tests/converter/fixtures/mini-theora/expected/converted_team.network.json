@@ -1,0 +1,56 @@
+{
+  "metadata": {
+    "description": "Converted Markdown role conversation network."
+  },
+  "llm_config": {
+    "model_name": "alibaba/qwen3.8-flash"
+  },
+  "max_steps": 12,
+  "max_execution_seconds": 90,
+  "tools": [
+    {
+      "name": "coordinator",
+      "function": {
+        "description": "Team coordinator",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "inquiry": {
+              "type": "string",
+              "description": "The request to handle."
+            }
+          },
+          "required": [
+            "inquiry"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "instructions": "# Team coordinator\n\nHelp the visitor review a short piece of text. Ask specialist to examine the supplied text, then summarize its findings and distinguish evidence from suggestions. If no text is provided, ask for it before requesting a review.",
+      "tools": [
+        "specialist"
+      ]
+    },
+    {
+      "name": "specialist",
+      "function": {
+        "description": "Text review specialist",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "inquiry": {
+              "type": "string",
+              "description": "The request to handle."
+            }
+          },
+          "required": [
+            "inquiry"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "instructions": "# Text review specialist\n\nReview the supplied text for ambiguous wording and unsupported claims. Return a short list of findings with quoted evidence and suggested revisions. Do not claim to have inspected files or run external tools.",
+      "tools": []
+    }
+  ]
+}

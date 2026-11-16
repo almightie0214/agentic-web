@@ -1,0 +1,56 @@
+{
+  "metadata": {
+    "description": "Converted Markdown role conversation network."
+  },
+  "llm_config": {
+    "model_name": "alibaba/qwen3.8-flash"
+  },
+  "max_steps": 12,
+  "max_execution_seconds": 90,
+  "tools": [
+    {
+      "name": "coordinator",
+      "function": {
+        "description": "Coordinate concise text reviews.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "inquiry": {
+              "type": "string",
+              "description": "The request to handle."
+            }
+          },
+          "required": [
+            "inquiry"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "instructions": "# Review coordinator\n\nHelp the visitor improve a short piece of writing. Ask specialist to review the supplied text, then present its findings with a concise summary. Ask for the text when it is missing. Do not claim that a review includes filesystem access or command execution.",
+      "tools": [
+        "specialist"
+      ]
+    },
+    {
+      "name": "specialist",
+      "function": {
+        "description": "Writing specialist",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "inquiry": {
+              "type": "string",
+              "description": "The request to handle."
+            }
+          },
+          "required": [
+            "inquiry"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "instructions": "# Writing specialist\n\nReview only the text provided in the inquiry. Identify ambiguous wording and unsupported claims, quote the relevant passages, and propose concise revisions. Distinguish observations from advice; do not invent external evidence.",
+      "tools": []
+    }
+  ]
+}
