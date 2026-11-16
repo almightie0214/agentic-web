@@ -1,6 +1,28 @@
 # Demo checklist and browser evidence ledger
 
-## Status: public HTTP and browser peer flow measured; run 2 answer and B request isolation pass, scoped
+## Status: post-deployment observations recorded; quality limits retained
+
+The [§6 release check](#6-judge-ready-fixes-release-check) now includes the
+post-`deadline-config` integration revision `225890d241a9f4ef15956c9c3a69c5ece004d771`
+(`origin/main`, not the divergent local `main`). The implementer verified public
+changed-file bytes, reran landed-tree Edge/mock-router and local loader/redaction
+checks, completed public Edge/CDP and Firefox/BiDi peer execution, and ran one
+CLI-generated Theora team on loopback. Each public browser recorded one Allow
+consent event/trust count and zero A/converter/B CSP events under the documented
+development-router/temporary-profile LNA conditions. **Execution completion is not
+answer-quality PASS:** both public peer answers contained partial token corruption.
+The Theora final answer had no observed draft/meta sentences, but its specialist
+still had meta/awkward text. Independent review and the engine gate are not claimed
+complete here; judge access remains entrant-owned and open.
+
+The earlier `ff3c493` public Edge 90-second timeout remains a failure record, not
+PASS. Input 62 makes browser execution implementer-owned; no human browser-evidence
+handoff is pending. No actual provider key is used in the browser: the existing
+local development router holds credentials and the panel receives only
+`otk_sentinel_dev` and `http://127.0.0.1:8640/api/v1`. Historical results below remain
+unchanged; the new execution update explicitly supersedes earlier pending status.
+
+### Historical status — before judge-ready fixes (2026-11-16)
 
 The user supplied run 1 browser records on 2026-11-16. The implementer read the
 sanitized Markdown records, not a live browser session or screenshots. Local
@@ -73,7 +95,26 @@ revision correspondence and diagnostic limits; the AW4 records remain separate.
   environment, revision, models, origins and sanitized trace/request observations
   are recorded in §3. No video or screenshot was reviewed by the implementer.
 
-### Confirmed execution handoff — user decision, 2026-11-16
+### Browser execution — user decision, 2026-11-16 (supersedes the handoff below)
+
+- The **implementer executes the browser scenarios itself** and records the
+  evidence. Do not ask the user or an operator to run a browser, capture Network
+  traffic or supply browser evidence; the advisor answers such questions instead
+  of escalating them.
+- Tools already on this machine: installed Microsoft Edge (headless, CDP, as in
+  `tools/browser-check.mjs`) and Firefox (WebDriver BiDi), each with a fresh
+  temporary profile deleted after the run. No software installation is needed.
+- Keyed runs use the dev router `.theora/tools/aw-dev-router.mjs`
+  (`http://127.0.0.1:8640/api/v1`). Start it if the port is not listening. It reads
+  the user's keys from `%USERPROFILE%\.theora\keys\otari.key`; the browser panel
+  gets only the router URL and the sentinel key `otk_sentinel_dev`. Never read,
+  print or copy the key file's contents. Otari-side per-key limits cap spending on
+  competition credits.
+- The user remains responsible only for what an agent cannot do: issuing,
+  placing or revoking Otari keys, account and credit state, video, screenshots for
+  submission, and the final Devpost submission. Escalate only those.
+
+### Confirmed execution handoff — user decision, 2026-11-16 (superseded above)
 
 - The **user executes the browser scenarios** and supplies sanitized screenshots,
   trace excerpts and Network observations. No implementation-side browser session
@@ -1106,6 +1147,12 @@ Definition-fetch observations (operator report):
 
 ### Current acceptance summary and remaining owners
 
+**Historical AW4 snapshot:** these verdicts and open items describe the runs
+recorded in §3–§4, before judge-ready fixes. For the current revision and required
+release checks use [§6](#6-judge-ready-fixes-release-check). In particular, the
+failure/tool-status and consent-policy behavior below has since been changed in
+source; the old observations are retained, not asserted as current behavior.
+
 - B01–B04, B06, B08–B09 retain the run 1 observations and limitations, not a new
   run 2 PASS on every case. B05's actual top/peer duplicate defects and B07's
   observed A-static cookie disclosure are corrected and rechecked above. Run 1
@@ -1606,6 +1653,13 @@ conformance verdict.
 
 ## AW5 converter dogfooding
 
+This section is the **historical pre-fix AW5 record**. References to “current”
+source/hashes below mean the snapshot examined for that original task, not main
+`ff3c493a569b22bd7037f3265ca215cc03d85fdb`. The later Goal supersedes input 60's
+no-fix/no-paid-recheck disposition with converter output rules and a required new
+live-router Theora observation; see [§6](#6-judge-ready-fixes-release-check).
+Neither the old quality FAIL nor its old source correspondence is erased.
+
 ### Current verdict and provenance
 
 **Load/delegation PASS; model-output presentation FAIL; no prompt/runtime fix
@@ -1939,3 +1993,731 @@ Run 1 failures remain visible; run 2's supported corrections and the subsequent
 user confirmation of old-key revocation do not resolve unobserved fields/limits
 or public acceptance. No separate evidence JSON download or Node vendor-loader
 run is needed.
+
+## 6. Judge-ready fixes release check
+
+### Revision, scope and acceptance boundary
+
+- Initial R01/R02/R06 measurement snapshot (before main's documentation-only
+  ownership change): `ff3c493a569b22bd7037f3265ca215cc03d85fdb`.
+  At that measurement, `git rev-parse HEAD` and `git rev-parse main` each returned
+  that value, exit 0.
+  `git status --short` was empty before measurements. After the browser check,
+  `git diff --exit-code main -- site-a site-b tools/browser-check.mjs tools/theora2hocon`
+  returned exit 0 with empty output. Only documentation is being changed here.
+- Integrated dependencies: converter output rules `495d04a6d5f488be9887900d36a2a80ef3ba1638`,
+  page CSP `b29ed15d5d57981df2be3e9b9f98b5707f297ace`, runtime fail-closed/deadlines/
+  consent/boot diagnostics `ff3c493a569b22bd7037f3265ca215cc03d85fdb`.
+- The current source has one runner; retired LangChain, MCP, toolbox/REST, coded
+  tools and cross-origin action discovery/bridge are not supported. Local
+  `website_validate_network`, action review and receipts remain. Agent/dispatch
+  failures throw; `executeToolCalls` is the error-to-tool-result boundary, while
+  visitor decline stays a normal refusal. Absolute call scopes inherit the earliest
+  parent/composition/self deadline. Consent is policy-first and recorded for each
+  decision. These are source contracts, not claims that old browser runs retested them.
+- The converter now appends front/specialist output rules and describes the selected
+  Theora or Markdown layout in metadata. Output rules instruct the model; they do
+  not guarantee clean output. The three script-bearing pages declare restrictive
+  CSP; browser enforcement results are separated below from source inspection.
+
+### R01 — public bytes and repository visibility
+
+Operator: implementer, Windows x64, Node.js `v24.16.0`, **2026-11-16 UTC**.
+No key, Cookie, Authorization, inference request or browser session was used.
+Every fetch used `credentials: 'omit'`, manual redirects, a 30-second timeout and
+`Cache-Control: no-cache`. The initial tree comparison also sent
+`Origin: https://almightie0214.github.io`. These are HTTP observations, not browser
+CORS or credential-isolation evidence.
+
+The initial command `node {tmp}/release-public.mjs` exited **1**, from
+**05:51:18.612Z–05:51:30.516Z**. It enumerated changed site paths with
+`git diff --name-status 24395e4238994a5f76f5cd630d1aa17de4412896 HEAD -- site-a site-b`
+and added A links/manifest/network and B manifest/network. It read every complete
+response body, compared extant files using `Buffer.equals`, and printed source and
+response SHA-256. Deleted files were required to return 404. Of **67 paths**,
+**50 returned 200 with equal bytes**, **16 retired modules returned 404**, and
+**B `/index.html` returned 308, Location `/`**, which failed that strict first probe.
+No different HTML body or deployment lag was found; the first probe did not follow
+redirects and is not reported as exit 0.
+
+A separate canonical-root probe (`node --input-type=module -e`, using `readFile`,
+`fetch` and Node crypto) then exited **0**. Its complete selected output is:
+
+```json
+{"utc":"2026-11-16T05:51:40.921Z","url":"https://almightie0214.github.io/agentic-web/","file":"site-a/index.html","status":200,"location":null,"acao":"*","bytes":6705,"sha256":"9f8882c660049b841ad86ec50e549d69aa057e66b6282fa8486081490e689f9b","byteEqual":true}
+{"utc":"2026-11-16T05:51:41.372Z","url":"https://spec-scout.pages.dev/","file":"site-b/index.html","status":200,"location":null,"acao":"*","bytes":3243,"sha256":"6b3b08856b7dabc34368be588139e048599dcfe6dcb4752a8c64ff36d2a978a2","byteEqual":true}
+{"utc":"2026-11-16T05:51:41.649Z","repository":"https://github.com/almightie0214/agentic-web","status":200,"visibility":"public","private":false,"license":"Apache-2.0"}
+```
+
+The third row is a credential-free `GET https://api.github.com/repos/almightie0214/agentic-web`
+with `Accept: application/vnd.github+json`. It verifies **PUBLIC, Apache-2.0**,
+not community sharing activity, adoption or independent judge inference access.
+Sharing activity remains unrecorded.
+
+**Public correspondence verdict: PASS for the changed extant files at their
+canonical URLs**, plus 404 for all 16 removed modules; retain the `/index.html`
+canonical redirect as observed, not a byte comparison at that redirect URL.
+Every initial response had ACAO `*`; no other redirect/Location was observed.
+A base is `https://almightie0214.github.io/agentic-web/`, B base is
+`https://spec-scout.pages.dev/`. The following complete-body hashes identify the
+changed assets (all extant entries byte-equal main):
+
+| Path | SHA-256 / HTTP result |
+| --- | --- |
+| A index.html (also canonical `/`) | `9f8882c660049b841ad86ec50e549d69aa057e66b6282fa8486081490e689f9b` |
+| B canonical `/` (index.html source) | `6b3b08856b7dabc34368be588139e048599dcfe6dcb4752a8c64ff36d2a978a2` |
+| A converter.html | `2031f88828560103675c9f368bf72cfaab4b02f345b6c345c7f8e992d1de15c5` |
+| A converter.js | `b0f8f0efe97725a54d1fddf619d25ae64d4992369283de972d608ba8b07bde17` |
+| A converter/describe-layout.mjs | `f0b6641b89051fe017206edd340dff373c96270352c88c666cd16ba2d73e2282` |
+| A converter/emit-manifest.mjs | `74be04023e9ec218f3ce2ae36817112d3954cb7705538c064765280e1ee9552f` |
+| A converter/emit-network.mjs | `89d9bb74c8370334cb17303faa09e4b9cea0f3c68f26112a779717e285c50a62` |
+| A converter/parse-roles.mjs | `f650f4cd0b6e2e65973bd4e65d59c96da5e35a1a0f96fe490f82730dd8e2f98b` |
+| A site.js | `ffad51e13144d52cf856b288c4936ec8ccde7e2d879f19db42e0797a83cca0e9` |
+| B site.js | `0be534d11199275dab0c9bd3f3a36b64e2d66820d589bba8bf21313e622cc302` |
+| A links.json | `d9f554715787e5c7609030bbfdc8cc983a66737a52dd4ab6ebc800300a9666b2` |
+| A agent-manifest.json | `24b112630e241f0e77ac6f3865242729e53a815eb0786c5bda6c28642b51eaad` |
+| A review_desk.network.json | `258a9e2d2dea8d32ca08186283b7959cb81c6905782ed15aa8f217a36e009955` |
+| B agent-manifest.json | `f2d71b66aa93aaba098fc651bc396bec4f33e09691da2617d1e2e4c62012df54` |
+| B spec_scout.network.json | `06b974991ec895bcf14fe42b724092d030fdcce65899b0140d498b9ffc59d91f` |
+
+For every runtime path below, **both A and B** were fetched and byte-compared;
+matching the two copies locally alone was not used as deployment evidence:
+
+| Path under each runtime/ | SHA-256 (both public responses = both source files) |
+| --- | --- |
+| README.md | `5eb25801dc524b125f6847d2cd7ffeddfd06ef1cafa821f0b4b4191571b104b7` |
+| action-transport.js | `4bf447619b74168611532638432694dfc2091cc3aea4c95283db4dc4bf5d0589` |
+| actions.js | `e201f895d8b7b41c8118d4415d406b4344dfe2c811844400ddc2bf4bfba32939` |
+| byok.js | `ee3af6ed411cd1fb637fd6e0061acee29875533726476b5e46135a5f30348524` |
+| cruse.js | `c65564845d11bca4e235e2ea120250ee3467a7b4d99b6ab1ff5cdcde9a8643f3` |
+| engine.js | `26861c9c9477d737c6410bef03cdba319af8eed7585f1f881c0333d3e57d1091` |
+| index.js | `cf60377c49326cf78e635e47818728c29fa16035f1cc13db35bc55448fb53350` |
+| kernel.js | `085c6eebc5089f45c35bbee0ec762bab96612df2e67a0dc7318a1da1e3350649` |
+| llm.js | `f39dc779bba3a2b6b828463b72d9d9ff25253a05f7df3eaed3fc22e10b3f7655` |
+| model.js | `f6be155d3f98c8dba8cb16938ca297b6cec40daffc3a8282e1d15e7071f36a57` |
+| remote.js | `dda1491ea0572654dc6f9f63a55b5fe130b0b851a093dbb4c2aa786c68f2626d` |
+| runner.js | `34fa05c39103d7a71b13c83fa007187188bece4b2a616f315a91b1051d16a833` |
+| scope.js | `42544b2be74d15e4176584e545b73671d7f43e17cb981bea1b0af8d60a9d425b` |
+| trace.js | `005d7afe0e24ac1eb2bc19da2aa5c319480eaea644d196c76eaf8c49cd19b983` |
+| turn-control.js | `71097d9ef1b4918e0bbd5df338e488563a68932056f13b6d06da5e9b187f4e9e` |
+| turn-status.js | `f29d1698540ecd201e81746ce5e22f59bfca0cca1355cd2d8ef72a5002f0699a` |
+| ui.js | `d715c5a0c62bde75c87e41a0c9800bc37cc17f9757dcb4e083fc7a7578944428` |
+| web-crypto.js | `d3dedc6a1c2de44cdc03feffa8dc06ae1e2e26426146023f87f5cfed7d35717b` |
+
+Removed modules returned **404 on both hosts**: `action-bridge.js`,
+`discovered-actions.js`, `form-actions.js`, `generated/agent-runner.bundle.js`,
+`langchain-runner.mjs`, `mcp.js`, `sandbox-worker.js`, `sandbox.js`, all relative to
+`runtime/`. A returned a 9379-byte GitHub 404 body; B returned its 286-byte 404 body.
+This is a point-in-time check, not a continuing availability guarantee.
+
+### R02 — main-tree headless Edge browser check: PASS (mock router only)
+
+Actual command: `node tools/browser-check.mjs` → **exit 0** on the unchanged main
+site/tool tree above, Windows x64 / Node.js `v24.16.0`, Edge
+`157.0.4341.60`, CDP protocol `1.3`, fresh temporary profile. The report calls the
+revision `working-tree`; the before/after Git evidence above binds it to main.
+Tool SHA-256: `0deb6edfd1c067d0879d382cfa558b04af5c311ce3f31f897e507ef4df049b16`.
+The report has no overall start/end timestamp; its three probe Log timestamps
+correspond to **2026-11-16T05:51:51.302Z**, **05:51:51.982Z**, and **05:51:52.187Z**
+(milliseconds rounded down), not the full run interval.
+
+Served A `http://127.0.0.1:57267/` and B `http://127.0.0.1:57260/` with the
+candidate's real runtime/UI. Only served manifest router/allowed origins and A
+links were localized; no source file was edited. A loopback OpenAI-compatible
+**mock router**, not Otari or the credential-holding development router, produced
+deterministic replies; no real key, paid inference or external network was used.
+The script removed its temporary profile/download workspace after execution.
+
+Essential report output (the per-file digests agree with R01 where shared):
+
+```text
+status: PASS
+browser.product: Edg/157.0.4341.60
+Site A flows: boot/render; key-free sample validation; self URL audit;
+  BYOK apply/reload; local website action receipt;
+  Allow before peer manifest/definition fetch; peer reply and final chat render
+Site A converter flows:
+  claude: conversion/static validation, 3 completed byte-identical downloads
+  theora: conversion/static validation, 3 completed byte-identical downloads
+Site B flows: boot/render
+modelRequests: 6
+peerFetches: /agent-manifest.json, /spec_scout.network.json, /links.json
+blockedExternal: []
+protocolErrors: []
+unexpectedViolations: 0
+```
+
+Each of A, converter and B recorded **2 expected enforced CSP violations** only:
+`script-src-elem` / blocked `inline`, and `script-src` / blocked `eval`, sourced
+from that origin's `/__csp-probe.js`. Inline execution did not run; eval threw
+`EvalError`. CDP Audits recorded `kInlineViolation` and `kEvalViolation`, Log
+recorded the inline block, and each page had `exceptions: []`. Six expected probe
+violations total are **not** normal-flow violations. A's validation action returned
+a succeeded receipt; peer fetch followed Allow, and a real peer Session consumed
+the mock-router reply. This does not verify public HTTPS, Firefox, live model
+quality, the new consent/trust counts or the broken-manifest diagnostic screen.
+`node tools/check-conformance.mjs` is an engine-owned Task check, not claimed run
+by this implementer here; the full gate is also engine-owned.
+
+### R06 — broken-network boot diagnostics in a real browser: PASS
+
+Actual command: `node {tmp}/boot-browser-check.mjs` → **exit 0**, Node.js
+`v24.16.0`, Windows x64, fresh headless Edge `157.0.4341.60` / CDP `1.3`.
+Recorded flow interval: **2026-11-16T05:55:21.247Z–05:55:21.940Z** (after browser
+startup). A served at `http://127.0.0.1:64898/`, B at
+`http://127.0.0.1:64897/`. Main source assets were not edited.
+
+This one-off browser script reused the main `tools/browser-check.mjs` static
+servers/CDP setup, with `root = process.cwd()`, and replaced the normal flow with
+four boot-failure cases. In served network responses only, it kept the original
+front agent, replaced its tools with `[name]`, and set the tools array to:
+
+```js
+const worker = { name, instructions: 'Return a short answer.', tools: [] };
+config.tools = [front, worker, structuredClone(worker)];
+```
+
+For the first pair of pages `name = 'worker'`; for the second pair
+`name = 'url_secret_probe'` and navigation used `/?key=url_secret_probe`.
+This is a **dummy URL-secret marker**, not a credential. Both pages used their
+unchanged manifest and actual loader; duplicate definitions reached compilation.
+No runtime, boot function, error function, fetch API or model was stubbed.
+The script waited for `#site-status.dataset.state === 'error'`, inspected rendered
+`textContent`, `role`, `#agent-app.hidden`, location and CSP events, and asserted:
+
+```text
+A duplicate: Review Desk chat could not be loaded. Serve this site over HTTP or HTTPS,
+  check that its runtime, agent-manifest.json, and network definition are available
+  and valid, and reload. Key-free checks and URL audits remain available above.
+  Loader error: Duplicate agent name 'worker'.
+B duplicate: Spec Scout could not be loaded. Serve this site over HTTP or HTTPS,
+  check that its runtime, agent-manifest.json, and network definition are available
+  and valid, and reload. Loader error: Duplicate agent name 'worker'.
+A/B dummy URL-secret cases: same site-specific fixed guidance;
+  Loader error: Duplicate agent name '[redacted]'.
+All four: role=alert; agent-app.hidden=true; CSP violations=[]
+Dummy URL-secret cases: marker absent from status text and current location
+modelRequests=0; peerFetches=[]; blockedExternal=[]; protocolErrors=[]; status=PASS
+```
+
+The report's `candidateFiles['tools/browser-check.mjs']` is actually the **temporary
+script** digest `8dbf29b46ffacd98e4f4f058bcedf1dfe5db12b04ab1b95e68f73bcc7222f045`,
+not the original tool hash in R02. Its network-file digests likewise identify the
+served invalid fixtures, not main network bytes. Site HTML/JS and runtime digests
+match R01/R02. Temporary scripts/profile/download workspace were removed after use.
+This verifies duplicate-loader diagnostics and URL-secret redaction on both pages
+in Edge, not every malformed-manifest variant or a Firefox diagnostic check.
+
+### R03–R05 — initial pending protocol (superseded by execution updates below)
+
+This was the initial request for operator-supplied evidence. Input 62 withdrew
+that ownership requirement: the implementer now executes the remaining rows.
+Input 63 further blocks final acceptance on `deadline-config` landing/deployment.
+The mandatory R03–R05 rows cannot be completed from historical
+observations, source inspection, mock replies, R01, R02 or R06. The local R06
+result is listed separately to avoid confusing it with the pending public runs:
+
+| Case | Required observation | Current verdict / owner |
+| --- | --- | --- |
+| R03 Edge public A/B | Fresh temporary profile + CDP; A boot, key-free sample check and conversion; A/B normal-flow CSP violation counts; Spec Scout question → consent → Allow → consent event and trust count ≥1 → B definition fetch → normal peer reply; all B requests free of sentinel/Cookie/Authorization; lc.getunicorn.org reproduction and CDP initiator | FAIL / blocked — pre-deadline-config flow timed out; partial observations below; implementer reruns after deployment |
+| R04 Firefox public A/B | Current Firefox, fresh profile + WebDriver BiDi; same public flows, CSP counts, consent/trust counts, B request inspection; lc.getunicorn.org reproduction and available BiDi attribution | UNVERIFIED live flow — implementer observed key-free subset below; final run waits for deadline-config deployment |
+| R05 Theora loopback | CLI-convert Theora sample and execute once with real development router at 127.0.0.1:8601 (A), :8602 (B); record final answer, whether draft/meta sentences remain, selected model, trace and generated/served hashes | UNVERIFIED — implementer runs after deadline-config landing |
+| R06 broken manifest/network | Real local browser: duplicate-network loader failure plus dummy URL-secret variant on both pages | PASS — implementer-run Edge check above; no live inference |
+
+For R03–R05 the implementer reuses the existing `.theora/tools/aw-dev-router.mjs`
+listener, or starts it if port 8640 is free. Do not open or copy the user's private
+key file into evidence.
+The browser settings receive **only** `http://127.0.0.1:8640/api/v1` and dummy
+`otk_sentinel_dev`. The real keys stay outside the browser. The router handles
+Otari limit/authentication failover; this is development verification, not a product
+backend. Do not publish keys, cookies, raw HAR, storage or Authorization values.
+Use competition credits only; stop on unavailable access rather than changing
+accounts or enabling billing. Record exact browser/OS versions, UTC times,
+revision and file hashes, steps, final text, trace IDs/parents/seq, request order
+and sanitized presence/absence booleans. Unknown request attribution may stay
+UNVERIFIED, but the capture/reproduction attempt itself must be recorded.
+
+**Open acceptance:** current-source fixes do not erase the historical WebFetch,
+zero-consent-event or draft/meta-output failures. Their public/live-model
+revalidation remains pending above; no measured resolution is asserted yet.
+Independent judge inference access remains an entrant-owned open item; video,
+screenshots and final Devpost submission are outside this Goal. Required empty
+rows block release-check PASS; they are not deferred to post-landing observation.
+
+### Historical execution update — inputs 62/63, pre-deadline-config (not release PASS)
+
+Input 62 replaces the old operator-evidence requirement: the implementer performs
+Edge/CDP and Firefox/BiDi checks itself, using installed browsers and disposable
+profiles. Main `d42c15757383c39add72aed3cb829ffd82e43b91` records the same user decision.
+Input 63 then reports a live normal-flow timeout and directs final acceptance to
+wait for the new `deadline-config` Task to land and deploy. These observations are
+**failure/environment records**, not acceptance evidence for that future revision.
+No runtime/policy/timeout values were changed in this documentation Task.
+
+#### Supplied Edge live record — timeout, consent event present
+
+Source: user input 63 and sanitized operator-session files, read by the implementer:
+
+| Local source (not a public download) | SHA-256 |
+| --- | --- |
+| `.theora/judge-ready/edge-public.json` | `548e05d9c892b6bca4546ecf2966410586ce389d1c0c4e0e1056e6a1350b9c23` |
+| `.theora/judge-ready/edge-public-r2.json` | `bd9dcd0e21573bd19c7f00e7f20d76d70412281717c3fb1b3ec65b4c4708557d` |
+
+Deployment/source: `ff3c493`; Windows; Edge `157.0.4341.60`, CDP `1.3`, fresh profile,
+cache disabled. The first record's log spans **06:19:46.723Z–06:25:17.599Z** on
+2026-11-16 (not an overall process interval). Loopback Local Network Access checks
+blocked the panel's model-list request; no consent card or inference ran. The log
+says “Allow clicked” despite `consentShown:false`, so that line is **not** evidence
+of an actual decision. A/B boot and valid sample were observed separately.
+
+The second record uses **`--disable-extensions --disable-features=LocalNetworkAccessChecks`**.
+Disabling that check is a disposable-profile **development loopback-router measure**,
+not ordinary judge configuration, a site fix or a CSP relaxation. Its log records:
+
+```text
+2026-11-16T06:26:14.275Z A boot true, keyless sample true, csp []
+2026-11-16T06:26:15.836Z question sent
+2026-11-16T06:26:22.459Z Allow clicked; B requests before Allow: 0
+2026-11-16T06:27:46.895Z turn ended true; run s3: error
+Visible answer: ⚠️ Agent execution deadline exceeded (2026-11-16T06:27:46.379Z).
+consentEvents: [{decision: "allow", source: "prompt_allow", peerOrigin: "spec-scout.pages.dev"}]
+trust: 1 explicit consent-decision events (Allow once: 1; other sources: 0)
+A before/after chat, converter, B CSP arrays: []
+router chat POSTs: 3, HTTP 200, sentinel only in browser Authorization
+```
+
+The three A→B fetch rows are manifest **200** (`06:26:22.458Z`), definition **200**
+(`06:26:22.527Z`), and links **404** (`06:26:22.578Z`, also `net::ERR_ABORTED`). All
+record ACAO `*`, no redirects, no body, no Cookie/Authorization/sentinel. The first
+request's timestamp precedes the script's post-click log by 1 ms; do not infer that
+it preceded the actual click. The explicit before-Allow count is zero. The later
+direct B visit and its static requests are separate from these peer fetches.
+
+Input 63 reports the peer model took about 71 seconds (`06:26:24Z–06:27:35Z`), then
+the coordinator's final model call was aborted at the composition deadline. Those
+model timings are **user-reported**, not fields in these two JSON files. The fixed
+90-second query deadline is enforced, but this live flow did not deliver its normal
+answer. **R03 normal-answer requirement: FAIL; final acceptance blocked on
+`deadline-config` and a new deployment/run.** HTTP 200 on a streamed model request
+is not proof of a completed agent or a successful answer.
+
+#### Implementer-run local main checks
+
+All commands below ran on Windows x64 / Node `v24.16.0`, with main site/tool bytes
+unchanged from `ff3c493` (the only new main commit `d42c157` changes documents).
+`git diff main -- site-a site-b tools` returned empty output, exit 0 before checks.
+
+- `node I:/project/agentic-web/tools/browser-check.mjs` → **exit 0**, Edge
+  `157.0.4341.60` / CDP `1.3`. Actual main tool, A `127.0.0.1:62230`, B `:62229`;
+  mock router only. Tool SHA-256 remains
+  `0deb6edfd1c067d0879d382cfa558b04af5c311ce3f31f897e507ef4df049b16`.
+  Raw output: `status:PASS`, `modelRequests:6`, `peerFetches:[/agent-manifest.json,
+  /spec_scout.network.json,/links.json]`, `blockedExternal:[]`, `protocolErrors:[]`,
+  `unexpectedViolations:0`. All three pages blocked inline and eval probes (two
+  expected enforced violations each), no page exceptions. Both converter formats
+  produced three completed byte-identical downloads. Probe Log times are
+  **06:27:19.764Z, 06:27:20.512Z, 06:27:20.698Z** on 2026-11-16 (not full run times).
+- `node {tmp}/boot-main.mjs` → **exit 0**, Edge same version. This one-off derivative
+  of the main browser tool served actual main HTML/JS/runtime, replacing network
+  responses only with duplicate workers (same fixture construction as R06).
+  Flow interval **2026-11-16T06:34:22.212Z–06:34:22.910Z**; A `:58174`, B `:58173`.
+  Both pages rendered fixed guidance plus `Loader error: Duplicate agent name
+  'worker'.`; dummy `?key=url_secret_probe` variants rendered `'[redacted]'` and
+  removed the marker from location. All four hid chat, had zero CSP violations;
+  `modelRequests:0`, `peerFetches:[]`, `blockedExternal:[]`, `protocolErrors:[]`.
+  No source files were mutated. Fresh profiles/workspaces were removed.
+
+These checks do not replace live public or Theora acceptance. The static
+conformance Task check and whole project gate remain engine-owned, not newly
+claimed executions here.
+
+#### Implementer-run public browser subset, no inference
+
+Temporary script `live-check.mjs` launched each installed browser headless with a
+new temporary profile and drove page controls through CDP or BiDi. It waited for
+`document.readyState === 'complete'`, actual mounted chat and visible static status.
+`KEYFREE=1` skipped settings/key entry/chat entirely. Both corrected invocations
+used a Node launcher with `env:{...process.env,KEYFREE:'1'}` and
+`spawnSync(process.execPath,[process.env.TEMP+'/live-check.mjs',browser],{stdio:'inherit',env})`.
+Both exited **0**; profiles were deleted. Scripts did not replace public responses.
+
+| Browser / interval (UTC, 2026-11-16) | Observed subset |
+| --- | --- |
+| Firefox **160.0**, build `20261104181552`, BiDi, `06:33:51.644Z–06:33:54.881Z` | Public A boot/render, valid sample passed; converter Claude **first click** passed, then Theora passed, each exposing all three download links; public B boot/render; CSP event arrays A/converter/B all empty |
+| Edge **157.0.4341.60**, CDP `1.3`, `06:35:04.761Z–06:35:06.954Z` | Same subset; Claude first click passed, Theora passed, three links each; A/converter/B CSP arrays all empty; extension loading disabled |
+
+The actual status on both converters was `Static checks passed; warnings may
+remain. Inspect all artifacts. Runtime behavior is unverified.` The supplied
+Claude first-click timeout **did not reproduce** after complete load; no cause is
+established and no product fix is claimed. These public subset runs inspected
+links, not downloaded file contents. Main-tree R02's download byte check is separate.
+
+Sanitized raw reports are local verification assets under the run's temporary
+directory, not product files or judge downloads:
+`report-firefox-1794810835212.json` SHA-256
+`28132263f79a355f713496b7ec1f08a523ccefb69b9b4483e3243ef8de7cfaf9` and
+`report-edge-1794810907007.json` SHA-256
+`494c99c630197b6a8afcc0d474b7f00c4ecbfd13af3c443e2b47c52af6879111`.
+Required observations are transcribed here so access to temporary assets is not
+needed to interpret the result. No live peer/sentinel isolation conclusion follows
+from key-free B boot requests.
+
+Earlier implementer attempts are not suppressed: `node {tmp}/live-check.mjs edge`
+exited **1** twice (`06:28:40.667Z–06:30:21.672Z`,
+`06:30:45.943Z–06:32:26.875Z`): A boot/sample succeeded, then loopback access was
+blocked and consent timed out. The second attempt's disposable CDP
+`local-network-access` permission did not remove the block; no security flag was
+used in those attempts. An initial Firefox key-free attempt exited **1**
+(`06:33:32.825Z–06:33:34.685Z`) due to the check script's top-level `await` expression,
+not the page. Moving evaluation into an async function produced the successful
+BiDi subset above. These three failures do not establish product regressions.
+
+#### `lc.getunicorn.org` attribution and environment boundary
+
+Both implementer subset runs reproduced one `?type=base-script&request-id=…` GET
+and `/l` POST per public page (A, converter, B), with zero CSP event counts. Edge
+CDP attributes the GET to the document parser (A/converter zero-based line 8,
+B line 54); the POST stack starts in `V` in that injected base script. Firefox BiDi
+reports `initiator.type:other`, without an initiating stack in this capture.
+
+Input 63 identifies the local source: **Unicorn Pro** (`C:\Program Files\Unicorn
+Soft\Unicorn Pro`, `UnicornProService`, local ad-blocking/HTTPS filtering) inserts
+scripts into browser responses even with Edge extensions disabled. The user also
+reports zero such references in curl-fetched deployed HTML with a browser UA.
+The implementer's CDP/BiDi captures establish reproduction/available initiators;
+the installed-service identification and curl comparison are **user-supplied**,
+not newly performed system inspection. Record this as **local environment
+injection, not site source**. A zero CSP count here is not proof that a local HTTPS
+filter cannot alter executable HTML/policy before the browser applies it. No
+service, user profile, system setting, CSP or public site configuration was changed.
+
+**Still open at that update:** after `deadline-config` lands/deploys, repeat byte
+correspondence, landed-tree browser-check, full public Edge/Firefox peer flow and
+the CLI-generated live Theora run on 8601/8602. The following update supplies these
+observations; it does not promote the earlier timeout or partial runs to PASS.
+
+### Post-deadline-config execution update — 2026-11-16, integration 225890d
+
+#### Revision and deployment (R01 recheck)
+
+Input 70 identified the integration ref as **`origin/main`**, with deadline-config
+landed at `225890d241a9f4ef15956c9c3a69c5ece004d771`. Local `main` remains `d42c157`
+because of a divergent, unpushed operator documentation commit; it is not the
+integration ref. Earlier waiting on that ref did not establish a deployment delay.
+No branch was reset, merged or pushed. Direct `git fetch origin` was denied by the
+harness (not executed); `git log origin/main -5 --oneline` and `git show --stat
+origin/main` both exited 0 and identified the landed commit already available.
+A credential-free GitHub API GET of `/repos/almightie0214/agentic-web/commits/main`
+returned **200**, SHA `225890d241a9f4ef15956c9c3a69c5ece004d771`, independently matching
+that ref. No endless waiting command was restarted after input 70.
+
+All new checks used Windows x64, Node **v24.16.0**. The implementer materialized
+86 tracked `site-a/`, `site-b/`, `tools/` and `package.json` files using `git show
+<revision>:<path>` into this isolated verification tree, without changing the old
+runtime in the release-check worktree:
+
+`I:/project/agentic-web/.theora/tmp/run-514-implementer/landed`
+
+`node {tmp}/prepare-release.mjs` exited **0**. HTTP measurement interval:
+**09:38:21.214Z–09:38:30.255Z**. It enumerated changed site paths from `24395e4` to
+`225890d`, added the A/B manifests, A links and both networks, used credential-free
+GETs, `Cache-Control: no-cache`, manual redirects and a 30-second request timeout,
+read complete response bodies and compared bytes to the isolated revision.
+**67 paths: 51 extant files returned 200 with identical bytes; 16 removed modules
+returned 404.** A/B index sources were compared at canonical `/` URLs (B's earlier
+`/index.html` redirect remains recorded under R01). All 67 responses had ACAO `*`;
+none of these canonical requests redirected. HTTP measurements alone are not
+browser CORS or key-isolation evidence.
+
+Changed deadline assets' SHA-256 (both public responses and isolated source):
+
+| Path | SHA-256 |
+| --- | --- |
+| A and B runtime/engine.js | `35344ac1f959ead4f9e0e4bb3cd2a47076a7fb26230ac04535ebc9166291da60` |
+| A and B runtime/kernel.js | `9bfa04602ac0bd3d190e8da277ac959ca5c8f5f4005fb50a674ada2eb88e7795` |
+| A and B runtime/scope.js | `897457495ab9ccab7227da28f9eb807f83d3b55ff2c1792057d90806d9ea187b` |
+| A and B runtime/README.md | `a1339a9991c9f29af653f12006ffa8fd47c2158736939331fafcbaa5140eb949` |
+| A review_desk.network.json | `0cc29d25f3765cc7727d72c09183fb2159ae8656de4c16f98be161dac719431c` |
+| B spec_scout.network.json | `d3fd82eeeee8f70db9e069aae425b2ca3f1781af2764dea0de7324387a3dd68c` |
+| A converter/emit-network.mjs | `fa8c8209ac806082b5a9b79c6538f8fd55541f9aac0c8a5db946ff77071cb1d1` |
+
+Other measured extant hashes equal the R01 table. Both copies of every removed
+module listed in R01 still returned 404. After all browser runs, an independent
+Node/`git show` byte comparison of all **86 snapshot files** exited **0** at
+**09:51:07.125Z**; `origin/main` was still the same full SHA. No snapshot source was
+mutated. Generated Theora artifacts and boot-invalid responses were separate test
+inputs, not edits to that tree.
+
+The new source contract is top-network query time = declared `max_execution_seconds`,
+with a runtime ceiling of 300 seconds and a 90-second default only when absent.
+Review Desk declares **240**, Spec Scout **180**, converted teams **240**. Peers
+cannot extend the caller's query deadline. Runtime compilation rejects invalid
+network/agent time declarations and invalid `max_steps`. This update measures
+normal live completion; the deterministic deadline/invalid-input tests belong to
+the preceding Task and engine checks, not new live claims here.
+
+#### Landed-tree browser and boot checks (R02/R06 rechecks)
+
+- `node {tmp}/landed/tools/browser-check.mjs` → **exit 0**. This is the actual,
+  unmodified `225890d` tool (SHA-256
+  `0deb6edfd1c067d0879d382cfa558b04af5c311ce3f31f897e507ef4df049b16`), not the old
+  worktree runtime or a replacement runner. Edge **157.0.4341.60**, CDP **1.3**,
+  fresh headless profile. A `127.0.0.1:63830`, B `:63829`, local mock router.
+  Output: `status:PASS`, `modelRequests:6`, peer fetches manifest/definition/links,
+  `blockedExternal:[]`, `protocolErrors:[]`, `unexpectedViolations:0`. Boot/render,
+  valid sample, self URL audit, settings/reload, local website-action receipt,
+  Allow-before-fetch, peer reply/final render, both converter formats and three
+  byte-identical completed downloads per format passed. All three pages recorded
+  only their expected inline/eval enforced violations (two each). Inline did not
+  run; eval threw `EvalError`. Probe Log timestamps: **09:38:38.850Z,
+  09:38:39.549Z, 09:38:39.778Z** (rounded down), not a complete run interval.
+- `node {tmp}/prepare-boot.mjs` → **exit 0**, then
+  `node {tmp}/boot-landed.mjs` → **exit 0**, Edge same version. The one-off tool
+  derivative served `225890d` assets and replaced only network responses with the
+  duplicate-worker fixtures described in R06. Flow interval **09:50:28.365Z–
+  09:50:29.075Z**, A `:49538`, B `:49537`. Both pages showed their fixed guidance
+  plus `Loader error: Duplicate agent name 'worker'.`; dummy URL-secret variants
+  showed `Duplicate agent name '[redacted]'.` and removed the dummy marker from
+  location. All four had `role=alert`, hidden chat and zero CSP events.
+  `modelRequests:0`, `peerFetches:[]`, `blockedExternal:[]`, `protocolErrors:[]`.
+  Derivative-script SHA-256:
+  `d2cee51f70d8696eafa92f865364b5bf0ab115210e96cc604e9e1cfbaa1e0e7a` (not the original
+  browser tool's hash). The original site/runtime bytes were not patched.
+
+These checks removed their disposable profiles/workspaces. They use no real key
+or live model. Task check `node tools/check-conformance.mjs` and the full gate are
+engine-owned, not newly claimed executions by this implementer.
+
+#### Public Edge and Firefox live observations (R03/R04)
+
+Commands used the temporary Node script `live.mjs` through built-in CDP/BiDi,
+installed browsers and a fresh profile for each attempt; no package installation,
+public response substitution, runtime/prompt modification or operational profile
+change was used. It waited for `document.readyState === 'complete'` and rendered
+chat before clicking. Settings were changed only using the actual ⚙ controls:
+router **`http://127.0.0.1:8640/api/v1`**, key **`otk_sentinel_dev`**, model
+**`alibaba/qwen3.8-flash`**. The already-running development router was reused;
+its private key file was never read or printed by the implementer. Browser-side
+router requests carried only the sentinel, not an actual provider credential.
+
+**Development loopback access conditions, not product/CSP changes:** Edge used
+`--disable-extensions --disable-features=LocalNetworkAccessChecks` in its disposable
+process, as in input 63. After correction of the script wrapper, Firefox reached
+boot/sample but did not finish the loopback models GET/OPTIONS or settings apply;
+its **45-second settings wait timed out**, with zero B requests/inference. That
+symptom alone does not prove the precise cause. The successful Firefox run used a
+disposable-profile preference `network.lna.skip-domains = "127.0.0.1"` (D58), leaving
+site CSP unchanged. This exception applies to the **host**, not only port 8640;
+only the named dev router was used for inference. Completion under the changed
+condition is the observed comparison, not a definitive LNA diagnosis.
+The source definition for that preference was checked in Mozilla's
+`modules/libpref/init/StaticPrefList.yaml` via credential-free HTTPS (200).
+Neither result claims default-profile judge access or recommends disabling checks
+for ordinary use. All attempt profiles were removed.
+
+| Attempt / UTC interval | Exit / result |
+| --- | --- |
+| `node {tmp}/live.mjs edge`, **09:40:19.041Z–09:43:05.648Z** | **0**, Edge 157.0.4341.60 / CDP 1.3; required public flow completed under dev-router LNA condition |
+| First Firefox script invocation, **09:43:24.608Z–09:43:26.426Z** | **1**, BiDi rejected the script's top-level `await` (`ReferenceError: await is not defined`); no inference/B request; wrapper corrected to await inside an async function |
+| Firefox default-LNA invocation, **09:43:45.773Z–09:44:32.865Z** | **1**, boot/sample passed, `timeout settings`; no inference/B request; no successful default-profile claim |
+| Corrected Firefox invocation, **09:45:52.221Z–09:47:31.365Z** | **0**, Firefox **160.0**, build **20261104181552**, WebDriver BiDi; required public flow completed with temporary loopback-domain exception |
+
+The successful Firefox command was a Node launcher: rename the failed JSON to
+`live-firefox-default-failure.json`, then `spawnSync(process.execPath,
+[tmp + '/live.mjs', 'firefox'], {stdio:'inherit'})`. The prior failure had likewise
+been preserved as `live-firefox-script-failure.json`. No paid retry was performed
+to replace either browser's imperfect peer answer with a better one.
+
+Both successful runs observed:
+
+- Public A boot/render, `max_execution_seconds:240` from the actual loaded network,
+  valid sample static PASS (runtime behavior still unverified in the static report).
+- Exact question: **“Ask Spec Scout what MVP Profile 0.2 §3.2 requires for peer discovery.”**
+- **Zero B requests before Allow.** Edge question **09:40:23.581Z**, consent visible
+  **09:40:27.258Z**, post-click log **09:40:27.268Z**; Firefox question
+  **09:45:55.420Z**, consent visible **09:45:59.278Z**, click log **09:45:59.281Z**.
+- Exactly one `consent` note per run: `decision:allow`, `source:prompt_allow`,
+  `parent:s7`, `seq:9`, target `https://spec-scout.pages.dev/spec_scout`.
+  Event wall times: Edge **09:40:27.260Z**, Firefox **09:45:59.281Z**.
+  Trust on each completed run `s3`: **2 agent spans, 3 model-call spans,
+  1 peer-fetch span, 1 peer-call span, 1 explicit consent-decision event;
+  Allow once:1; all other decision-source counts:0**.
+- A→B GET manifest **200**, definition **200**, links **404**, each ACAO `*`.
+  Edge request starts **09:40:27.267Z / .333Z / .353Z**; Firefox
+  **09:45:59.282Z / .521Z / .560Z**. Edge's first request is 1 ms before the
+  post-click log, not before the actual click/consent event.
+- Every captured B request had **no Authorization, Cookie, sentinel or request
+  body**: **32 per browser** = these 3 peer fetches plus 29 subsequent direct-B
+  navigation/static boot requests. Edge used `requestWillBeSentExtraInfo` wire
+  headers for all 32; Firefox used BiDi `network.beforeRequestSent` headers/body
+  metadata. This is bounded to captured requests, not universal non-disclosure.
+  Router chat POSTs were **three per browser**, all HTTP **200**; successful
+  streamed inference is additionally established by completed trace/answers below.
+- Converter **Claude first click** and then Theora both produced static-PASS status
+  and three download links after complete load. The earlier during-load first-click
+  report is not diagnosed or declared fixed. Public runs inspected links, not
+  downloaded bytes; the separate mock-router check did compare download contents.
+- Direct public B boot/render completed. Observed normal-flow CSP event arrays
+  on **A after settings reload/chat, converter, B were [] in each browser**.
+  Edge enabled Security/Log/Audits and captured no security Log messages; Firefox
+  captured no CSP log messages. No public probes were injected; inline/eval probe
+  enforcement is the separate landed-tree check above. Pre-reload A's event array
+  was replaced on settings reload; the protocol log capture spans that reload.
+
+**Actual peer → caller tool → final answer comparison (not just run status):**
+
+| Browser | Actual peer result and successful caller result | Completion |
+| --- | --- | --- |
+| Edge | peer `agent_result` parent `s12`, seq **107**, **1574 chars**, starts “Short answer: **the excerpt embedded here does not actually contain the normative World Wide Agentic Web ‘Peer Discovery’ text for §3.2**” (quote punctuation normalized in this table). Caller `tool_result spec_scout`, parent `s4`, seq **111**, `status:ok`, type **103**, preview starts `{"cruse":1,"text":"Short answer: **the excerpt embedded here does not actually contain` | `remote_call s12` parent `s7`, seq **109**, ok at **09:42:56.735Z**; final `agent_result` seq **195**, **1184 chars**, `run s3` seq **197**, ok at **09:43:03.782Z**, duration **159834 ms** |
+| Firefox | peer `agent_result` parent `s12`, seq **199**, **2732 chars**, starts “Direct specification guidance—quoted faithfully from the embedded excerpts—lays out the §3.2 peer-discovery flow as a URL-based, manifest-selected, declarative fetch.” Caller `tool_result spec_scout`, parent `s4`, seq **203**, `status:ok`, type **103**, matching `{"cruse":1,"text":"Direct specification guidance…` prefix | `remote_call s12` parent `s7`, seq **201**, ok at **09:47:10.301Z**; final `agent_result` seq **411**, **3058 chars**, `run s3` seq **413**, ok at **09:47:29.994Z**, duration **94192 ms** |
+
+The actual full peer texts were inspected. Neither is empty, function-call-only
+markup or a runtime-error/timeout string. Both contain substantial prose; no failed
+peer result was converted into a success answer. The caller result is the successful
+CRUSE text wrapper, and its trace preview agrees with the actual peer prefix.
+**The full caller tool payload was not captured**: this is not a byte-equality claim
+for that full payload. Each final `agent_result.text` equals the saved assistant
+history content. Model calls were non-mock on `127.0.0.1:8640` with the selected
+model. Peer model spans `s14` finished `stop`, durations **149336 ms** (Edge) and
+**70693 ms** (Firefox); caller final spans `s112`/`s204` finished `stop`.
+
+**Execution flow: completed under the Goal's accepted-answer contract and specified
+dev-router conditions. Answer quality: partial model-token corruption remains;
+not quality PASS.** “Normal peer answer” here means an actual accepted peer return
+rather than the retired failure-as-success cases, not a clean or factually verified
+specification explanation (the scope distinction was confirmed in input 72).
+
+Observed quality defects, not verified specification facts:
+
+- Edge's peer claims its embedded source lacks normative §3.2 text, then degenerates
+  into fragments such as `runtime HogwartsAPMap(); @peer.require(...)` and mixed
+  tokens. Caller final begins “I asked Spec Scout about Worldwide Agentic Web MVP
+  Profile 0.2 §3.2 and its peer-discovery requirements.” It preserves the peer's
+  limitation claim, explicitly says **“The response was partially garbled”**, lists
+  source metadata, and ends “This is an informational peer answer, not a conformance
+  report or validation result.” The source-absence assertion is **model output**,
+  not this ledger's finding about the supplied specification.
+- Firefox's peer provides three labeled excerpts (`peer-url`,
+  `exact-network-resolution`, `definition-fetch`), then degenerates into e.g.
+  `Slotsels on a now. Austauschгл也跟季.` Caller final begins “I asked Spec Scout
+  for the MVP Profile 0.2 §3.2 peer-discovery requirement.” It summarizes those three
+  excerpts and explicitly says **“Spec Scout's response became garbled/corrupted
+  after the [definition-fetch] excerpt”**, ending “This is Spec Scout's specification
+  excerpt summary, not a `validate_network` conformance report.” Exact quotations
+  and factual completeness were not verified.
+
+These defects are already present in captured peer `agent_result` text; no provider
+response-body capture or outside-runtime comparison was made, so their deeper
+cause is not established. No quality repair or universal model compliance is claimed.
+
+#### Local-environment request attribution recheck
+
+Both public runs reproduced **8** `lc.getunicorn.org` requests each (GET base script
+and POST `/l` on initial A, settings-reloaded A, converter and B), with no captured
+CSP event/log messages. Edge attributes GETs to document parser locations (zero-based
+line **8** on A/converter, **54** on B); the POST stack starts at function **V** in
+that base script. Firefox's available BiDi initiators are **`type:other`**, with no
+stack in this capture. This independently reproduces the requests; input 63's
+Unicorn Pro/service and curl diagnosis remains user-supplied environment evidence,
+not a newly performed service inspection. The R01 recheck's canonical public HTML
+bytes matched the site source. Treat this as local HTTPS-filter injection, not
+site code or a reason to relax CSP. The later loopback Theora run observed no such
+requests. No local service or operational browser setting was changed.
+
+#### CLI-generated Theora bundle live run (R05)
+
+`node {tmp}/theora-run.mjs` → **exit 0**. The orchestration reconstructed only the
+three sample records from the landed
+`site-a/converter/samples/theora/layout.json` under `{tmp}/theora-input`, then ran:
+
+```text
+node {tmp}/landed/tools/theora2hocon/theora2hocon.mjs {tmp}/theora-input {tmp}/theora-output --layout theora
+```
+
+CLI exit **0**, output: `Wrote converted_team.network.json, agent-manifest.json,
+and links.json. Review all artifacts before publication; deployment and browser
+behavior are not verified.` The orchestrator served these three output files
+unchanged over the landed A HTML/JS/runtime at **127.0.0.1:8601**, and the landed B
+at **127.0.0.1:8602**. It changed no runtime, network instruction or generated
+manifest route; the actual panel selected the development router/sentinel/model.
+Generated and served hashes matched:
+
+| File | Bytes | SHA-256 |
+| --- | --- | --- |
+| agent-manifest.json | 501 | `fa781ba1441505160a6ad6f4b064ce0c4e06709d9f5b367c789f5bf120715209` |
+| converted_team.network.json | 2166 | `2c454ed6d11ea7ceac0e32155290bf79b57ecb129dd2eb3cdcd34f8632c186cf` |
+| links.json | 65 | `1615f9e8c559c80bf8c767aea061ffe57024cac0f33686fa5cafdb75b172604d` |
+
+Orchestration interval **09:48:25.481Z–09:49:57.287Z**; browser observation interval
+**09:48:25.575Z–09:49:52.270Z**. A boot **09:48:26.147Z** loaded limit **240**;
+question sent **09:48:27.640Z**:
+
+> Help me plan a beginner repair workshop with a safety-focused session outline.
+
+One fresh headless Edge/CDP profile, same version/model as above, **one live turn**:
+coordinator model `s5` → specialist tool/agent `s8` → specialist model `s9` → final
+coordinator model `s189`; all end states ok, model finish reasons tool_calls/stop/stop.
+Specialist `agent_result` seq **185**, **2750 chars**, caller `tool_result` seq **188**,
+status ok/type 103, matching “To Coordinator:” CRUSE prefix. Final `agent_result`
+seq **775**, **7909 chars**, equals saved assistant history; `run s3` seq **777**
+ended ok at **09:49:52.113Z**, **84138 ms**. Two agent spans, three model spans;
+**zero remote/consent events** (empty generated peer map). The subsequent direct B
+boot is not a peer invocation. A/B CSP arrays and security Logs were empty.
+Servers were closed and the profile removed; the existing router was left running.
+
+**Final answer inspected in full:** begins “Below is a practical, beginner-friendly
+workshop agenda you can adapt to your venue, group size, and available materials.”
+It presents a “Safety-Focused 2-Hour Agenda”, seven sessions, staffing/materials,
+alternative durations, and tailoring questions; ends “How many volunteers or tools
+will be available?” No visible draft/planning/process monologue or address to another
+role was observed in this **final** answer. This is a one-run final-surface
+observation, not a guarantee of prompt compliance, safety advice or arbitrary inputs.
+The seven labeled durations actually total **115 minutes**, so the “2-Hour” heading
+is an approximate model agenda, not a checked schedule claim by this ledger.
+
+**Internal specialist quality is not PASS:** its text starts “To Coordinator:” and
+ends **“Okay that seems coherent and safe. Need verify no verbose. It includes claim
+phrasuke. The format mention timeframe arbitrary, unsure. Talks safe no dangerous
+repair instructions. Fine.”** Other awkward fragments include “Artisanure?” and
+“a did multi briefing”. Thus the output rule did not eliminate internal meta text
+or token degeneration. Those fragments did not appear as draft/meta monologue in
+the visitor's final answer. The old AW5 two quality failures remain unchanged; no
+further paid run, prompt adjustment or output stripping was used to hide results.
+
+#### Evidence locations, cleanup and remaining boundaries
+
+Sanitized JSON observations remain local verification assets, **not credentials,
+public downloads or product files**, under
+`I:/project/agentic-web/.theora/tmp/run-514-implementer/`. Essential observations and
+limits are transcribed above; the following hashes bind the full captured text and
+trace to that revision/run for independent inspection:
+
+| JSON file | SHA-256 |
+| --- | --- |
+| deployment.json | `ffed0eb8750b6b862b4ee4da57d77bfc351e7cdb21e40b0e9e34ea86b861c96d` |
+| live-edge.json | `335e9774b34cbdcf41a25cd9b9aa03748bac98ac314835c4501127a576ee38d7` |
+| live-firefox-script-failure.json | `12fb3781ef18637250947532b1cf878355855317fc221db51f49a1a869ca6302` |
+| live-firefox-default-failure.json | `b4ea12899a7a593a4f605b35a137728e78c7f592e7582f4ccefaf029fb1f8919` |
+| live-firefox.json | `0135d587d90bdf80752a4b960b4d8e8e83732dc5e84239e5bc108019460d3cd1` |
+| live-edge-theora.json | `4ffa7c7993c73e46b6ef213131d9bd92e9a27853166be9c04922200c7e1eea01` |
+| theora-serve.json | `671c47786acb9992f44d700d5e61e233f03b9eddcb984c6cb0642345251f6f56` |
+
+UTF-8 SHA-256 of final assistant text only: Edge
+`2e728cde64745427f667bd327bfb52416baab3cc0dba10868d8b21bc3dfd72f8`, Firefox
+`c6f2972305f7ac44b5de026ff6e4375ebbebeb35f12de6c8ece562fac40f8f25`, Theora
+`734503004f26032cc745b443171700cd8dec8b9f7985ef28fbf8344e23bc18a1`.
+All newly created profile directories were gone at the **09:51:07.125Z** cleanup
+check. Temporary executable scripts are removed after use; generated artifacts,
+source snapshot and sanitized JSON are retained as verification evidence only.
+No account, billing, credential file or operational browser configuration changed.
+
+**Required observation rows now have results:** public byte correspondence,
+landed-tree browser-check, local loader-error/redaction, public Edge/Firefox actual
+peer-return/consent/trust/wire/CSP and the one live Theora final-answer check.
+Independent review and engine Task checks/gate remain separate; this ledger is
+not their PASS verdict. Remaining limits include residual peer/internal-specialist
+model quality, exact quotation fidelity, full provider response bodies and caller
+tool payload, unexercised context/action/error subcases, arbitrary converted inputs,
+default judge inference access, screenshots/video and final submission. The last
+three are entrant-owned and outside this Goal; judge access is still an open item.
+Neither the new observations nor source changes erase the historical failures.

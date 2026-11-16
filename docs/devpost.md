@@ -1,423 +1,427 @@
 # Devpost submission draft — Agent Review Desk + Spec Scout
 
-**Status: English draft, not a submitted or release-ready entry.** The
-[demo evidence ledger](demo-checklist.md) records user-supplied local browser runs,
-including failures and corrected rechecks, and 2026-11-16 public HTTPS/ACAO/404
-measurements against revision `298ce2bee1001e7186e7f5325975c063729881d5`.
-Site A and Site B are publicly hosted and the public binding is deployed. The
-user-operated public run 2 (input 61) observed consent UI→Allow→B artifact reads→
-local peer execution on the caller's Otari router→a normal §3.2-cited answer, with
-wire-level key/Cookie/Authorization absence on the three B GETs. Pre-run A links,
-manifest and review_desk bytes matched main `24395e4238994a5f76f5cd630d1aa17de4412896`
-(the same three files as binding revision 298ce2b). Input 59's failed answer remains
-historical; its WebFetch-markup failure did not recur and its cause is unknown.
-The zero Allow event count remains a defect candidate; quotation fidelity and
-attribution of a separate `lc.getunicorn.org` request are unchecked. Other missing
-runtime observations, screenshots, video, final submission and independent judge
-access remain open.
-Otari account creation/feedback is optional under Official Rules §4, not a release
-requirement. Replace open fields with verified facts before publishing; do not turn
-scoped observations into full release acceptance.
+**Status: English draft, not submitted or submission-ready.** Runtime, converter,
+CSP and configurable-deadline fixes are integrated through `origin/main`
+`225890d241a9f4ef15956c9c3a69c5ece004d771`. Changed public A/B files byte-matched that
+revision; 16 retired modules returned 404. The landed-tree Edge/mock-router and
+local loader-error/redaction checks passed. Fresh public Edge/CDP and Firefox/BiDi
+runs completed Allow → actual peer answer → caller final prose, with consent/trust
+counts of 1, scoped B credential absence and zero observed A/converter/B CSP events.
+These used the development router with disposable-profile LNA exceptions, not
+default judge configuration. **Peer model text was partially garbled in both runs;
+answer quality is not PASS.** One CLI-generated Theora loopback run produced a
+final answer without observed draft/meta sentences, but its internal specialist
+answer retained meta/awkward text. The earlier 90-second timeout and earlier
+quality failures remain recorded, not erased. `lc.getunicorn.org` reproduced in
+both browsers; user-supplied environment diagnosis attributes it to local Unicorn
+Pro HTTPS filtering, not site source. Independent review/gate and entrant-owned
+judge access remain separate from this bounded observation record.
+Current results and gaps belong in the
+[judge-ready release ledger](demo-checklist.md#6-judge-ready-fixes-release-check).
+Earlier local/public runs, failures and corrected rechecks remain in the ledger;
+they are not fresh executions of this revision.
 
-Separately, user-approved AW5
-loopback runs in Claude desktop's built-in browser loaded a converted Theora team
-and completed coordinator → specialist → coordinator twice (`s3`, `s300`), but
-answer quality failed twice with leaked draft/meta text and garbled lines.
-Same-tab trace/history diagnostics locate the defect in model output, with no
-evidence of converter/runtime corruption. The user withdrew the requested
-prompt/runtime correction and required no new paid run; answer quality is not
-claimed to be fixed. See
-[AW5 converter dogfooding](demo-checklist.md#aw5-converter-dogfooding).
+**Submission deadline: 2027-01-11 08:00 PT = 2027-01-12 01:00 KST.**
+Source repository: [almightie0214/agentic-web](https://github.com/almightie0214/agentic-web)
+— **PUBLIC**, **Apache-2.0**. Community-sharing activity is not recorded.
+Independent judge inference access is an entrant-owned open item. Screenshots,
+video and final Devpost submission are outside the current fixes-and-verification
+Goal and still require the entrant's action. Otari account creation/feedback is
+optional under Official Rules §4, not a release requirement.
 
 ## Project name and short description
 
 **Agent Review Desk + Spec Scout**
 
-Inspect portable agent-network artifacts, get report-grounded explanations, and
-consult a linked specification assistant through two static browser agent sites.
-Convert Theora or Markdown roles into reviewable portable conversation artifacts.
+Find and explain problems in portable agent-network artifacts, consult a linked
+specification assistant, and convert Theora or Markdown roles into reviewable
+conversation-network bundles—all from static browser sites.
 
 ## Inspiration and problem
 
 A manifest and a plausible agent graph are not enough to show that a browser agent
 site is interoperable. Authors need actionable artifact checks, but they also need
 to know which claims require a browser run. We built a review desk that separates
-deterministic static findings from runtime observations rather than letting an LLM
+deterministic static findings from model explanations rather than letting an LLM
 announce conformance without evidence.
 
 ## What it does
 
-Agent Review Desk (Site A) lets visitors paste public manifest/network/links JSON,
-try four built-in examples, or audit public artifact URLs without a model key.
-Reports show rule IDs, statuses, JSON Pointer locations, and correction hints.
-Acquisition failures, rule failures, warnings, and unverified behavior stay distinct.
+**Agent Review Desk** helps authors inspect a network before publishing it. Paste
+manifest/network/links JSON, choose one of four examples, or audit a public artifact
+URL without a model key. Reports locate problems with stable rule IDs, JSON Pointer
+paths and correction hints, while keeping acquisition errors, failed rules,
+warnings and unverified runtime behavior distinct.
 
-For model-assisted explanations, a two-agent network routes the visitor's question
-from `review_coordinator` to `conformance_reviewer`. The reviewer uses the read-only
-`validate_network` site action, advertised by the reference runtime as
-`website_validate_network`, and is instructed to explain only returned reports.
-Missing artifacts or failed actions are not successful conformance verdicts.
+For an explanation, the chat coordinator delegates to a conformance reviewer that
+uses the read-only local `validate_network` action (`website_validate_network` in
+the runtime). It explains returned evidence rather than inventing a verdict. A
+configuration graph shows intended wiring; a separate execution graph shows actual
+latest-run agents, tools, peers and consent decisions.
 
-Spec Scout (Site B) is an independent informational agent network whose public
-instructions embed cited MVP Profile 0.2 excerpts. Site A exposes a symbolic
-`spec_scout` peer tool through `links.json`. The intended flow is visitor approval,
-exact-name definition loading, then peer execution inside the caller's browser
-with the caller's router—not a server-side call to B's agent or B's site actions.
-The public [Site A](https://almightie0214.github.io/agentic-web/) now binds to
-`https://spec-scout.pages.dev/spec_scout`, with the matching allowed origin under
-closed policy. [Site B](https://spec-scout.pages.dev/) serves its manifest and exact
-network as JSON with ACAO `*`; absent paths return 404 rather than an SPA fallback.
-Immediately before 03:00Z on 2026-11-16, credential-free GETs of A's links,
-manifest and review_desk definition matched main 24395e4 byte-for-byte; those three
-files are unchanged from 298ce2b. In public run 2, a fresh Edge
-157.0.4341.60 (Chromium 157) temporary profile on Windows 11 x64 used CDP Network +
-ExtraInfo wire capture and the built-in panel with an Otari competition-credit key
-and `alibaba/qwen3.8-flash`. At 03:02:14.216Z the consent card was visible with zero B
-requests; Allow at 03:02:15.732Z preceded B manifest at .733Z and definition at .834Z
-(both 200, application/json, ACAO `*`) and absent links.json at .985Z (404,
-text/html;charset=utf-8, ACAO `*`). All three were GETs without redirect or body,
-Authorization or Cookie; no `otk_` marker appeared in URL/header values/body.
-The trace showed `remote_fetch`→`remote_call spec_scout`→peer agent/model, then a
-normal caller answer at 03:03:37.312Z citing §3.2 and separating requirements from
-observations. Exact quotation fidelity is unchecked. Caller/peer/caller produced
-three POST 200s, two models GET 200s and five OPTIONS 200s on `api.otari.ai`, with
-no other model host observed. The Allow event count remained zero; this is a defect
-candidate, not missing visual/wire ordering evidence. A separate `lc.getunicorn.org`
-request has unknown attribution; observed B isolation is not universal key
-non-disclosure proof. Public run 1 (input 59) returned literal WebFetch markup and
-a retry was declined; run 2 did not reproduce it, without establishing its cause.
-See [the public ledger](demo-checklist.md#4-public-deployment-measurements-and-judging-handoff).
+**Spec Scout** is a separate informational agent site with cited MVP Profile 0.2
+excerpts embedded in its public instructions. Ask it through Review Desk, inspect
+the destination and approve contact: its exact named definition is fetched and the
+peer executes locally in the caller's browser using the caller's selected router.
+The visitor can decline. Site A binds `spec_scout` to
+`https://spec-scout.pages.dev/spec_scout` under a closed policy with the matching
+allowed origin. This is not a server-side call to B's agent or B's site actions;
+its answers are specification help, not certification.
 
-The key-free **Role Converter** at `site-a/converter.html` accepts Theora project
-files, generic Markdown / `.claude/agents` roles, or two-role **Claude agents team**
-and **Theora role team** samples. The page uses shared pure modules to convert
-without an LLM, then applies AW2 static rules, displays findings and offers three downloads:
-`converted_team.network.json` (resolved JSON), `agent-manifest.json`, and an empty
-peer-binding `links.json` stub. Files are processed in the browser, not uploaded.
-**Open artifacts in Review Desk** uses a same-origin sessionStorage handoff that
-is removed on receipt, including invalid payloads, then structure-checked and
-statically validated. It is review-only: it does not load the converted team into
-chat, execute it, supply credentials or waive peer consent.
+The key-free **Role Converter** accepts Theora project files, Markdown or
+`.claude/agents` roles, and built-in **Claude agents team** / **Theora role team**
+samples. It converts without an LLM, applies the shared static rules, and offers
+`converted_team.network.json`, `agent-manifest.json` and `links.json` downloads.
+Files are processed in the browser, not uploaded. **Open artifacts in Review Desk**
+transfers the three objects once through same-origin sessionStorage for static
+inspection only; it never loads the team into chat, executes it or grants consent.
+The Node CLI uses the same pure conversion modules.
 
-The same conversion is available from Node:
+Generated front instructions now append a final-answer-only rule for the visitor;
+specialists append an answer-only rule for the front's inquiry. Both exclude drafts,
+plans, process notes and messages to other roles. Network/manifest descriptions
+identify the selected Theora or Markdown format. These rules improve the instruction
+contract, but do not guarantee a model's compliance or arbitrary answer quality.
+
+The sites are static, on separate origins, with no application backend, database,
+payment or authentication service. Static inspection/conversion require no key;
+chat needs a visitor-provided OpenAI-compatible router/key. Product evidence and
+measurement limits are in the [release ledger](demo-checklist.md#6-judge-ready-fixes-release-check),
+not implied by this feature description.
+
+## Testing instructions
+
+### Key-free workflow
+
+1. Open [Agent Review Desk / Site A](https://almightie0214.github.io/agentic-web/)
+   in Edge or Firefox and wait for the ready/settings interface. Boot loads public
+   metadata, not inference. If boot fails, the status should retain recovery guidance
+   and a sanitized loader error; key-free checks remain available.
+2. Select **Valid sample** and inspect its static report, then **Missing front_man**,
+   **Invalid schema** or **Peer cycle** to see findings and hints. Or paste public
+   manifest/network JSON and select **Validate pasted JSON**. The inspected network
+   is data, not executed code. Do not paste secrets or private context.
+3. Select **Audit This Site** or **Audit Linked Peer**, review the URL, then select
+   **Audit URL**. Expect public artifact acquisition and static findings without a
+   model call or peer invocation. A fetch error is not itself proof of a CORS cause.
+4. Follow **Role Converter**, select **Theora role team** or **Claude agents team**,
+   inspect the AW2 report and download all three JSON files. For your own public
+   roles, select files/a project directory and **Convert and check**; include hidden
+   directories for `.theora`/`.claude` discovery. **Open artifacts in Review Desk**
+   is static review only, not execution.
+5. Open [Spec Scout / Site B](https://spec-scout.pages.dev/) to check its boot and
+   settings screen. No key is needed to load it; a question requires inference setup.
+
+### Chat workflow (bring your own router access)
+
+1. Open **⚙ AI model settings**. Hosted Otari
+   (`https://api.otari.ai/api/v1`) is the default router;
+   `alibaba/qwen3.8-flash` is the default model hint. Obtain authorized access to an
+   OpenAI-compatible router. In **Advanced settings (optional)** set **Provider URL**
+   and **Model** if needed, enter the **API key** and select **Save and start**.
+   Use this same panel to switch models. We do not publish a shared key or promise
+   a free inference entitlement; judge inference access remains an entrant-owned
+   open item, not an inferred benefit of participant Otari credits.
+2. The key is saved only in the visitor's browser, in origin-local profiles/tab
+   settings, and sent to the selected inference router—not to the peer definition
+   host. Never put it in a URL, prompt, artifact or shared evidence. BYOK does not
+   isolate keys from untrusted JavaScript on the caller origin; request-level
+   isolation claims must remain limited to actual measurements.
+3. Ask Review Desk to explain supplied public artifacts. A validation question
+   should produce coordinator → reviewer → local `website_validate_network` and
+   a report-grounded answer; an action error is not a conformance verdict.
+4. Ask: “Ask Spec Scout what MVP Profile 0.2 §3.2 requires for peer discovery.”
+   Inspect the consent card for the new cross-origin contact and choose **Allow**.
+   Expected post-fix behavior is a `consent` event and nonzero corresponding trust
+   count, B manifest/definition fetch, `remote_call spec_scout`, peer inference on
+   the caller router and a final answer. The post-deployment Edge/Firefox runs
+   observed this execution path, with partial token corruption in the peer answer;
+   this is not a clean/accurate-answer guarantee. The earlier 90-second timeout
+   remains in the ledger. A decline is a valid refusal.
+5. Inspect the execution graph/Developer view. A top-level execution failure should
+   be visible as an error, not a successful answer containing failure text.
+   Preparing a draft is not sending it or approving peer contact. Record deviations
+   with revision/environment in the [release ledger](demo-checklist.md#6-judge-ready-fixes-release-check).
+
+The implementer's release checks use a development router at
+`http://127.0.0.1:8640/api/v1` and the fake `otk_sentinel_dev` browser key. Actual
+keys remain in the user's private router key file, outside the browser; the
+local router forwards to Otari. This verification setup is not a hosted judge
+service or a shared-key access arrangement. Public-to-loopback setup did not finish
+in default temporary profiles. Development Edge used
+`--disable-features=LocalNetworkAccessChecks`; Firefox used the temporary-profile
+preference `network.lna.skip-domains=127.0.0.1` (host-wide, not port-8640-only).
+Firefox's initial request/settings timeout alone does not prove its precise cause;
+completion under the changed condition is the measured result. Profiles were
+removed afterward. These are development-router conditions, not normal judge setup,
+product fixes or CSP relaxations.
+
+## How we built it / technologies used
+
+- JavaScript ES modules, HTML and CSS on GitHub Pages (only `site-a/`) and
+  Cloudflare Pages (`site-b/`). Separate publication origins are intentional.
+- Resolved JSON manifests/networks following Worldwide Agentic Web MVP Profile
+  0.2 / Neuro SAN: no published includes/environment substitutions. Instructions
+  and embedded excerpts are public; `site-b/spec-excerpts.json` is authoring data.
+- Separately vendored nsDeploy reference runtimes from
+  `cognizant-ai-labs/agentic-web`, pinned at
+  `63a956cf4653f610b1c238c70946f4d7647d17a8`, not a replacement runtime. Earlier
+  local changes remove obsolete compatibility paths, reject normalized duplicate
+  agent names before map overwrite, and remove key-bearing cookie mirroring/hints.
+  Origin-local profiles and per-tab precedence remain; old test cookies require
+  private manual cleanup, not migration. Upstream licenses/documentation remain.
+- Integrated runtime revision `ff3c493a569b22bd7037f3265ca215cc03d85fdb` retires
+  LangChain selection/bundled loop, MCP, toolbox/REST tools, coded-tool sandbox
+  workers and cross-origin action discovery/bridges/host forms. Unsupported
+  declarations fail compilation; static kernel/generated classification remains
+  for the validator. Same-origin action loading, `ActionRegistry`, `website_*`,
+  confirmation UI, validation and write receipts remain. Local `validate_network`
+  supplies the grounded capability; no MCP path is needed.
+- That runtime unifies accepted-answer-or-error semantics: only `executeToolCalls`
+  turns failures into error tool results, with diagnostics and uncertain-write
+  receipts preserved. Empty/function-call-only answers, exhausted steps, limits,
+  cycles and peer errors fail; a visitor's refusal remains normal. Valid
+  presentation-only answers and normal prose about a tool error remain acceptable.
+  Each invocation uses the earliest parent/composition/own absolute deadline;
+  context functions, tool dispatch, model/peer I/O and pending input are scoped,
+  with late input discarded. Child-only timeouts can be handled by the parent as
+  tool errors; a parent timeout fails the parent and differs from steering.
+- Revision `225890d241a9f4ef15956c9c3a69c5ece004d771` makes the composition deadline
+  use the top network's `max_execution_seconds` (default 90, maximum 300 seconds).
+  Review Desk declares 240, Spec Scout 180, and converted teams 240. Peers cannot
+  extend the caller deadline. Runtime compilation rejects nonfinite/nonpositive
+  time declarations and non-positive-integer `max_steps` at network/agent levels.
+- Consent checks the immediate caller's policy before asking. Exactly one event
+  identifies prompt Allow, prompt Always, remembered Always, Decline or headless
+  default; Site A counts these separately. Both pages show sanitized loader details
+  alongside fixed recovery guidance. Source changes do not prove deployed outcomes.
+- A shared `site-a/validator-rules.mjs` serves the UI, local action, URL audit and
+  static CLI. CLI-only checks cover local files/links, private-context declarations
+  and applicable B CORS headers, not live browser behavior.
+- Converter revision `495d04a6d5f488be9887900d36a2a80ef3ba1638` shares the parser's
+  selected format across CLI/web emission, appending output rules (`CVT-NET-005`)
+  and matching descriptions (`CVT-META-001`). The
+  [mapping contract](converter.md) fixes front selection, sanitation and limits.
+- CSP revision `b29ed15d5d57981df2be3e9b9f98b5707f297ace` adds restrictive meta to
+  A home/converter and B home: self-only scripts, no inline script/eval or workers,
+  scoped base/form/object restrictions, runtime-compatible styles, and HTTPS/
+  loopback router connections. `tools/browser-check.mjs` checks candidate pages
+  using headless Edge/CDP, two loopback origins and mock inference, with expected
+  probe violations separated from unexpected violations. It is a Task check, not
+  part of the merge gate; current results are recorded separately in the ledger.
+- Node.js 24's built-in tests and static conformance CLI, without npm dependencies.
+  Scripted model/fetch/storage tests are not live browser/provider observations.
+- Apache-2.0 licensing, with original attribution and runtime licenses preserved.
+  Local distribution notices: [A](../site-a/runtime/README.md),
+  [B](../site-b/runtime/README.md). Preserved upstream prose is not support for
+  locally retired capabilities.
+
+### Converter CLI and limits
 
 ```sh
 node tools/theora2hocon/theora2hocon.mjs <input-dir> <out-dir> [--front <role>] [--layout theora|markdown]
 ```
 
-Without `--layout`, an exact `.theora/roles/<role>/agent.md` selects Theora;
-otherwise Markdown is selected. Markdown discovery prefers immediate
-`.claude/agents/*.md`, then immediate root `*.md`; an agents directory itself also
-works. Explicit layout selection does not fall back. Front precedence is exact
-`--front`, Theora config's `front_man`, then the first name-sorted role. CLI exit 0
-means files were written, not deployment or runtime validation. The complete
-[mapping contract](converter.md) defines metadata, sanitization and failure rules.
+Auto selects exact `.theora/roles/<role>/agent.md` files when present, otherwise
+Markdown; explicit layouts never fall back. Markdown discovery prefers immediate
+`.claude/agents/*.md`, otherwise immediate root `*.md`. Front precedence is exact
+`--front`, Theora config `front_man`, then first sorted name. Invalid input fails
+rather than guessing. CLI exit 0 means written, not validated/deployed/executed.
 
-This is role text plus a default front-to-specialist star graph and common
-`inquiry` schema, not an executable Theora/Claude harness. Shell, git, gates,
-permissions, filesystem operations, tests, state, skills, scheduling, lifecycle
-hooks and source tools/MCP are not converted. Remaining prose grants none of those
-abilities. Secret/local-path pattern removal is incomplete and never replaces
-publication review. Authors must review every output and the suitability and
-licensing of the source instructions. The three data files are not a hosted app;
-publication with the reference runtime and its existing settings is separate.
-There is no generated runtime adapter or second configuration UI. A callable role
-is not evidence that a model actually delegates to it.
-
-The UI distinguishes expected configuration from latest-run trace events. It is a
-review aid, not a security certificate or an automated deployment repair service.
-
-## How we built it / technologies used
-
-- JavaScript ES modules, HTML and CSS for the static browser pages.
-- Resolved JSON network definitions and manifests following the Worldwide Agentic
-  Web MVP Profile 0.2 / Neuro SAN data model; no build-time includes or environment
-  substitutions in published definitions. All published instructions are public.
-- Separately vendored nsDeploy reference browser runtimes from
-  `cognizant-ai-labs/agentic-web`, pinned at
-  `63a956cf4653f610b1c238c70946f4d7647d17a8`. We did not build a replacement runtime.
-  In addition to compatibility-code removals, local browser findings led to
-  normalized duplicate-agent rejection in both `kernel.js` copies and removal of
-  key-bearing cookie profile storage in both `byok.js` copies and its `ui.js` hint.
-  Origin-local saved profiles and per-tab priority remain. The ledger preserves
-  the original failures, manual old-cookie cleanup procedure and scoped rechecks.
-- A shared deterministic rule module, `site-a/validator-rules.mjs`, reused by the
-  UI, site action, URL audit and `tools/check-conformance.mjs`. The CLI adds file,
-  local link, private-context declaration and CORS-configuration audits without
-  emulating a browser or forcing the vendor loader to run in Node.
-- Deterministic converter modules in `site-a/converter/`, reused by the Node CLI
-  at `tools/theora2hocon/theora2hocon.mjs` and Site A's browser converter. This
-  addresses the specification §7 framework-converter opportunity as role-text
-  export, not full source-framework semantics. Generated artifacts can be checked
-  with the existing AW2 rules and AW4 static CLI; these checks cannot establish
-  runtime behavior or answer quality. The separate local browser record shows
-  load/delegation PASS but model-output quality FAIL, not a guarantee of answer quality.
-- The runtime's existing AI model settings panel for router/model selection and
-  BYOK. Hosted Otari (`https://api.otari.ai/api/v1`) is the default router;
-  `alibaba/qwen3.8-flash` is a model hint. Live inference needs a visitor key.
-- Node.js 24's built-in test runner; no npm dependencies.
-- GitHub Pages workflow publishing only `site-a/`; Cloudflare Pages configuration
-  in `site-b/_headers` for public artifact CORS. Separate origins are intentional.
-- Apache-2.0 licensing, with upstream attribution and runtime licenses preserved.
-
-There is no application backend, database, payment or authentication service.
-External model inference is not part of the static hosting bundle.
+The output is sanitized role text, a default front-to-specialist star graph and a
+common `inquiry` schema, **not a Theora/Claude harness port**. Shell, git, gates,
+tests, permissions, filesystem operations, scheduling, lifecycle hooks, state,
+skills and source tools/MCP are not converted. Remaining prose grants none of
+those capabilities. Secret/path pattern removal is incomplete: review every file,
+source licensing and instruction suitability before publication. The three data
+files need separate hosting with the reference runtime/settings; no app, runtime
+adapter or new configuration UI is generated. A callable role alone is not proof
+that a model will delegate or obey the output rule.
 
 ## Judging criteria
 
 Source: [Devpost Official Rules §6, “Judges & Criteria”](https://cognizant-agenticweb.devpost.com/rules).
 The same four criteria appear on the [competition overview](https://cognizant-agenticweb.devpost.com/).
-The following official wording was supplied by the entrant for this draft; it is
-not part of the pinned technical specification.
+The official wording below was supplied by the entrant; it is not part of the
+pinned technical specification.
 
 > Stage One) The first stage will determine via pass/fail whether the Project is a conforming open agentic website as described in Submission Requirements
 
 > Stage Two) All Submissions that pass Stage One will be evaluated in Stage Two based on the following equally weighted criteria (the "Judging Criteria"), and according to the sole and absolute discretion of the judges:
 
-Stage One acceptance is not established by our static CLI exit code. The four
-Stage Two response paragraphs below describe the implementation and its remaining
-evidence gaps; they do not assert eligibility, acceptance or a judging result.
+Static CLI exit 0 does not establish Stage One acceptance. The responses below
+describe functionality and limits, not eligibility or a judging result.
 
 ### 1. Technological Implementation
 
 > How well is the project built, and how effectively does it use the open agentic web specification?
 
-The project reuses the reference browser runtime and one shared static validator
-rather than inventing a protocol or duplicating rules. A two-agent graph, a
-registered read-only site action, resolved public definitions, symbolic peer links,
-and separate publication roots map directly to the MVP Profile 0.2. Relative paths
-support subpath deployment. The CLI audits actual files and Site B's CORS
-configuration without treating it as runtime proof. Local browser records now
-support consent/refusal paths, exact-name loading, corrected duplicate rejection,
-caller-router retention, observed static-request key isolation, sentinel field
-filtering, cycle interruption and the 24-agent cap. These are bounded observations:
-comprehensive provider/prompt/action/error inspection and unexercised limits remain
-unverified. Public HTTPS/ACAO/404 responses are measured. Public run 2 adds visual
-consent→Allow→B manifest/definition/links wire reads→peer/caller-router model use
-and a normal §3.2-cited answer, plus key/Cookie/Authorization absence on B GETs.
-Input 59's failed answer remains historical. The zero Allow event count remains a
-defect candidate; quotation fidelity and attribution of the separate
-`lc.getunicorn.org` request remain open. See the ledger for bounded observations,
-not a universal security claim or a substitute for independent judge access.
+The project reuses the reference browser runtime and shared validator rather than
+inventing a protocol or duplicating rules. Two-agent delegation, a local read-only
+action, resolved public definitions, symbolic peers and separate origins map to the
+MVP profile. The current runtime makes failures/cancellation explicit and puts
+consent behind caller policy. The converter shares deterministic CLI/browser rules
+and fits the §7 converter opportunity without pretending to port a harness. Page
+CSP restricts executable code while permitting configurable inference routes.
 
-The §7 converter shares deterministic parsing/emission across CLI and browser,
-then sends artifacts to the same validator rather than inventing another rule set.
-Separate from AW4, its generated Theora sample loaded and delegated successfully
-in two local browser runs; both visible answers failed presentation quality.
-Same-tab trace/history diagnostics locate the failure in model output: coordinator
-drafts were already in streamed content and specialist output already contained
-garbled tokens. There is no evidence of converter/runtime corruption; the user
-withdrew the prompt/runtime fix request and required no new paid run.
+Historical local runs cover delegation, consent/refusal, duplicate rejection,
+caller-router retention, scoped key/context isolation and cycle/call-cap cases.
+Historical public run 2 produced a normal section-cited peer answer but exposed a
+missing Allow event; AW5 conversion loaded/delegated twice but answers leaked drafts
+and garbled lines. The new source fixes those contracts, not the historical results.
+The pre-deadline-config Edge flow then failed at 90 seconds. After configurable
+limits landed/deployed, both public browsers returned a real peer answer and final
+prose, each with one Allow event/trust count. Partial peer text corruption remains,
+not a quality PASS. The CLI-generated Theora run's final answer had no observed
+draft/meta text, while its specialist did. Exact conditions, local-filter request
+attribution and remaining limits are in the
+[release ledger](demo-checklist.md#6-judge-ready-fixes-release-check).
 
 ### 2. Design
 
 > Does the project deliver a complete, coherent product experience not just a technical proof of concept?
 
-The intended experience connects key-free inspection, actionable report locations,
-reviewed chat explanation drafts, and specification help in one review workflow.
-The converter adds files/samples → shared conversion → static findings → download
-or consume-once Review Desk inspection, without turning inspection into execution.
-The UI separates expected configuration from observed execution, keeps static checks
-usable when chat fails, and uses the reference runtime's model settings rather
-than a second configuration UI. The planned demonstration will follow one problem
-through correction, delegation, consent, peer use and evidence. B01 records the
-local correction/delegation/action path with instruction deviations retained; run 2
-rechecks panel persistence, tab priority and model switching. This is not a broad
-usability study or a completed video. Public run 2 in §4 reached the peer and
-returned a normal answer with §3.2 attribution and requirements/observations
-separated. Public run 1's WebFetch-markup failure remains historical and unexplained;
-a successful second run does not establish universal model reliability or exact
-quotation fidelity.
+The workflow connects key-free inspection, actionable report locations, reviewed
+chat drafts and optional specification help. The converter adds files/samples →
+conversion → static findings → downloads or one-time Review Desk inspection,
+without turning inspection into execution. Static checks remain usable when chat
+fails; built-in settings handle model selection instead of a second configuration
+UI. Expected configuration and observed execution are shown separately. The planned
+video will follow one actual correction/delegation/consent story; it has not been
+recorded. Historical instruction/output failures remain in the ledger, not hidden
+by a successful second run or a claim of universal model reliability.
 
 ### 3. Potential Impact
 
 > Does the project make a credible, specific case for solving a real problem for a real audience and does the solution actually address it based on what's demonstrated? Does the project include any tools or services the Entrant built and shared with the community while creating the Project?
 
-The target audience is authors publishing portable browser agent networks who
-need to locate invalid artifacts and avoid mistaking declarations for safety
-proof. Deterministic reports and section-cited peer explanations aim to make fixes
-and evidence gaps explicit. The §7 role converter offers a concrete starting point
-for authors with Theora or Markdown/Claude role instructions: portable public text,
-a predictable star graph and artifacts they can inspect before publication. It
-does not transfer executable harness capabilities or prove semantic equivalence.
-The repository contains the reusable validator, static CLI, converter CLI/web core
-and sample/test inputs under Apache-2.0; confirming public repository access and
-sharing these tools with the community remains a release handoff item. The impact
-case is specific to that author workflow. Two local Theora-sample runs demonstrate
-load and delegation, but both fail model-output quality; no quality guarantee
-follows from conversion. No adoption, measured improvement, quality resolution or
-completed public sharing is claimed. Public run 2 demonstrates one bounded
-specification-question flow, not adoption or a complete submission demonstration.
+The audience is authors of portable browser agent networks who need to locate
+invalid artifacts without confusing declarations with safety proof. Deterministic
+reports and section-cited explanations make correction paths and evidence gaps
+explicit. The role converter gives authors with Theora/Markdown instructions a
+predictable, inspectable starting graph rather than a false claim of executable
+harness equivalence. The validator, static CLI, CLI/web converter and samples/tests
+are in the **PUBLIC Apache-2.0**
+[repository](https://github.com/almightie0214/agentic-web).
+Community-sharing activity is unrecorded; no adoption, measured improvement or
+universal answer-quality result is claimed. The bounded public and converter runs
+are demonstrations, not evidence of community use or complete submission readiness.
 
 ### 4. Quality of the Idea
 
 > Is this a creative, non-obvious use of an open agentic website and does the team show genuine understanding of the problem space?
 
-The idea uses an agentic website to review the publication artifacts of other
-agentic websites, with a separate excerpt-grounded peer for specification context.
-It keeps deterministic judgment separate from model explanation, and static
-configuration separate from runtime evidence. This evidence-led workflow reflects
-the problem's trust boundaries rather than treating every plausible model answer
-as certification. It makes no unsupported claim of being first, uniquely
-compliant, or proven secure.
+An agentic website reviews the artifacts of other agentic websites, with a separate
+excerpt-grounded peer for specification context. Deterministic judgment stays
+separate from model explanation, and static configuration stays separate from
+runtime evidence. That evidence-led workflow reflects the trust boundaries rather
+than treating every plausible model answer as certification. We make no unsupported
+claim of being first, uniquely compliant or proven secure.
 
 Official tie-breaking rule (same source):
 
 > Tie Breaking: For each Prize listed below, if two or more Submissions are tied, the tied Submission with the highest score in the first applicable criterion listed above will be considered the higher scoring Submission. In the event any ties remain, this process will be repeated, as needed, by comparing the tied Submissions' scores on the next applicable criterion. If two or more Submissions are tied on all applicable criteria, the panel of Judges will vote on the tied Submissions.
 
-## Challenges and lessons
+## Challenges, observations and next work
 
-The main challenge is respecting the boundary between declared configuration and
-observed execution. An origin allowlist is not proof of consent; a private-context
-allow rule is not proof of filtering; `_headers` is not a measured public response.
-The CLI therefore retains runtime uncertainty even when its static checks pass.
+An origin allowlist is not proof of consent, a private-context declaration is not
+proof of filtering, and `_headers` is not a public response measurement. Publishing
+the repository root would also mix A and B origins; the workflow publishes only
+`site-a/` and B has its own root. The static CLI retains runtime uncertainty even
+when local files pass. The [README spec mapping](../README.md#checks-and-spec-mapping)
+connects implementation to these boundaries.
 
-Another boundary is deployment: publishing the repository root would mix Site B
-with Site A's origin and defeat this project's two-origin demonstration. The
-workflow uploads only `site-a/`, and Site B is deployed independently to
-`https://spec-scout.pages.dev/` with `site-b/` as its publication root. Public
-responses, rather than configuration alone, now establish the measured ACAO and
-missing-path 404 behavior.
+The ledger preserves the earlier evidence rather than silently promoting it to the
+current release:
 
-## What is implemented, and what is next
+- **Local AW4 run 1:** delegation/action and panel switching, approval/decline,
+  denied-origin no-contact paths, wrong-name refusal, sentinel field filtering,
+  synthetic cycle interruption and a **24-agent cap** observation. Duplicate names
+  were wrongly accepted; a key-bearing cookie reached A's static server. These
+  failures remain recorded.
+- **Local AW4 run 2:** corrected A/B top-loader duplicate variants and duplicate-peer
+  refusal, panel persistence/tab priority/model switching and observed A/B key
+  isolation with caller-router retention. Old-key revocation was later user-reported;
+  unrelated run 1 cases were not all repeated.
+- **Historical public §4:** HTTPS/ACAO/404 measurements at revision `298ce2b`;
+  pre-run A links/manifest/review_desk bytes matched main `24395e4` (same three files
+  as `298ce2b`). Public input 59 returned literal WebFetch markup and a retry was
+  declined. Input 61's Edge run observed no B request before Allow, then B
+  manifest/definition 200 and links 404, local peer/caller-router use and a normal
+  §3.2-cited answer. Three B GETs contained no key/Cookie/Authorization/body or
+  redirect. Exact quotation fidelity was unchecked; Allow event count was zero and
+  a separate `lc.getunicorn.org` request had unknown attribution. This is scoped
+  historical evidence, not universal non-disclosure or a new revision check.
+- **Historical AW5:** a generated Theora sample on loopback loaded and delegated in
+  `s3` and `s300` (2 agent and 3 model-call spans each), but **answer quality failed
+  twice** with drafts/meta text and garbled lines. Same-tab trace/history located
+  the text in model content, not converter/runtime corruption; provider response
+  bodies and outside-runtime/other-model comparisons were absent. At that time the
+  user withdrew the correction request; the current Goal subsequently introduced
+  output rules. The old records neither test those rules nor prove them effective.
 
-The repository contains both site bundles, shared artifact checks, report-backed
-agent instructions, peer wiring, tests, deployment configuration and the shared
-CLI/web role converter. See the
-[README spec mapping](../README.md#checks-and-spec-mapping) for the implemented
-checks and their limits. Public A and B now serve the paired publication artifacts;
-the HTTP measurements alone do not establish a live peer demo. Public run 2 adds
-actual browser consent/peer/caller-router execution, B wire isolation observations
-and a normal answer after input 59's failure. Complete runtime acceptance is not
-established; retained defects, unknowns and unrelated missing cases remain explicit.
+**Current release observations:** after `deadline-config` landed at `origin/main`
+`225890d`, the implementer rechecked public changed-file bytes, ran that revision's
+mock-router browser check and local duplicate-loader/redaction check, completed the
+public Edge/CDP and Firefox/BiDi peer flows, and executed one CLI-generated Theora
+sample on `127.0.0.1:8601`/`127.0.0.1:8602`. Public runs recorded one consent event /
+`Allow once: 1` each, 32 observed B requests per browser without sentinel/Cookie/
+Authorization, and zero A/converter/B CSP events. Real peer agent results matched
+the successful caller tool-result prefixes; caller final prose completed. That is
+runtime-contract completion, **not answer-quality PASS**: both peer answers had
+partially garbled tokens. The Theora final answer had no observed draft/meta
+sentences, but its specialist retained such text. No repeated paid attempts were
+used to hide these outcomes. Default-profile loopback setup failures and the
+throwaway-profile LNA exceptions remain explicit development conditions. The earlier
+90-second timeout is still a failure record. The local Unicorn Pro diagnosis is
+separate from site-source behavior. See the ledger for the observations and scoped
+unknowns; this document does not establish independent review/gate or judge access.
 
-The [demo checklist and execution ledger](demo-checklist.md) now contain actual
-user-supplied local browser observations, not just planned procedures. Run 1 used
-Chrome on Windows with separate loopback origins and disposable JSON fixtures;
-run 2 identifies corrected served runtimes by SHA-256. The ledger records dates,
-revision/hash correspondence, steps, sanitized trace/request observations and
-limits. These are supplied reports, not a fresh browser session run by this
-draft's implementer:
-
-- **Run 1 observations:** B01 records correction, coordinator/reviewer delegation,
-  a succeeded site action and built-in-panel model switching, with instruction
-  deviations retained. B02–B04/B06 record approval before peer contact, decline and
-  denied-origin zero-contact paths, exact-name execution and wrong explicit-name
-  refusal before peer inference. B05's invalid JSON, empty graph and missing local
-  reference were refused before inference. B08 records actual invocation-option
-  sentinel injection and filtered `remote_call.requestPayload.sly_data` field sets (public
-  field only vs {}), not exact delivered values or general upstream scoping.
-  B09 records synthetic cycle interruption without forbidden re-entry; B10 records
-  rejection beyond the **24-agent cap only**.
-- **Failures and corrections:** B05 originally accepted duplicate names and began
-  inference. B07 retained the caller router and isolated the peer, but broader
-  non-disclosure failed because a loopback cookie sent the key to A's static
-  server. Both runtime copies were corrected at these causes. Run 1 FAIL records
-  remain; neither passing spans nor later cleanup erase them.
-- **Run 2 rechecks:** A/B top loaders refuse exact, trimmed and replacement_strings
-  duplicate names before model calls; the duplicate peer is refused before peer
-  execution. Panel save/select/delete/reload, tab priority and two live models pass.
-  Observed A/B static requests contain no key; the profile cookie is not regenerated.
-  Peer calls retain A's selected router/model despite conflicting B metadata on
-  both models. The user subsequently confirmed old-key revocation, not an
-  independently verified account timestamp. Unrelated run 1 cases were not all
-  rerun on the corrected runtime.
-
-The [AW5 converter record](demo-checklist.md#aw5-converter-dogfooding) is separate
-from AW4. Under user approval, the Claude desktop built-in browser on Windows 11
-(version not captured) loaded a generated **Theora role team** bundle on loopback.
-Browser conversion passed AW2 static rules with runtime items still unverified;
-the served bundle was rebuilt through the CLI using the shared emitters. With
-non-mock `api.otari.ai` / `alibaba/qwen3.8-flash`, each of `s3` and `s300` completed
-coordinator → specialist → coordinator (2 agent spans, 3 model-call spans).
-**Load/delegation: PASS; answer quality: FAIL twice.** Draft/meta text and garbled
-lines appeared in both visible answers; the second also contained a readable final
-outline, which does not erase the leaked draft. Follow-up inspection of the same
-tab's trace/history locates the failure in model output: coordinator final calls
-`s134`/`s507` already streamed the draft in content (2477/6580 characters), matching
-the returned/displayed answer lengths. Specialist output was already garbled.
-No converter/runtime corruption was evidenced. Provider response bodies were not
-captured, and no other-model or outside-runtime comparison was performed. The user
-withdrew the earlier quality-fix request and asked to retain prompts/runtime and
-finish without another paid run; the quality FAIL remains recorded, not repaired.
-
-The source run used revision `298ce2bee1001e7186e7f5325975c063729881d5`; it is
-supplied evidence, not a fresh run by this draft's implementer. Converter/runtime
-paths match the original Task base `27c293226bb67d7efae2429610060a79c352f324`.
-That base still used the reserved Review Desk binding; the reported source and
-current checkout use the `pages.dev` binding. The generated manifest instead used
-empty allowed peers with a closed policy. This run does not verify CORS, consent,
-limits, private-context isolation, cycles or public HTTPS. Static snapshots/AW2 reports/AW4 CLI checks and
-the AW4 browser runs cannot replace missing AW5 observations or establish quality.
-
-Next work follows the ledger's
-[current acceptance summary and owners](demo-checklist.md#current-acceptance-summary-and-remaining-owners):
-
-- Direct provider request headers/bodies, complete definition-response-body
-  inspection, missing sentinel-header checks and comprehensive prompt/action/error
-  inspection remain unverified. Authenticated success and negative trace checks
-  cannot substitute for those boundary observations.
-- Other execution limits, including in-flight deadline behavior, remain unverified.
-  Browser replacement_values duplicate handling and top B malformed, empty-graph
-  and missing-reference variants were not separately recorded. Node coverage is
-  not browser evidence for those subcases.
-- Separate public hosts and the paired binding are deployed. Credential-free GETs
-  on 2026-11-16 measured HTTPS 200/ACAO `*` for both sites' home pages, manifests
-  and exact definitions, no redirects, and B's missing paths returning 404.
-  A links/manifest initially byte-matched 298ce2b; 02:31Z and 03:06Z HTTP probes
-  reconfirmed responses and hashes. Just before 03:00Z the operator also checked
-  A links/manifest/review_desk bytes against main 24395e4, unchanged from 298ce2b.
-  Public run 2 (input 61) then captured zero pre-Allow B requests,
-  manifest/definition 200 and links 404 with response headers, B wire
-  key/Cookie/Authorization absence, `remote_call spec_scout`, caller-router model
-  calls and a normal §3.2-cited answer. This closes input 59's missing B wire
-  observations, not every runtime case. Allow event count remains zero; quotation
-  fidelity, the first run's failure cause, separate-request attribution and
-  independent judging access remain open.
-
-Append follow-up environment/revision, steps, observations, verdicts and sanitized
-evidence to the ledger; never retain real keys. Node exit 0 or a written checklist
-does not complete missing cases. Environment/account-blocked cases stay unverified
-with the required user input identified. No separate evidence JSON download or
-forced Node execution of the browser vendor loader is required.
+Complete provider headers/bodies, broad context/prompt/action/error inspection,
+exact quotation fidelity, arbitrary converted inputs and unrecorded subcases remain
+outside what historical observations establish. Append environment, revision, exact
+commands/results and sanitized observations to the
+[release ledger](demo-checklist.md#6-judge-ready-fixes-release-check).
+Do not retain real keys or equate a checklist with execution evidence.
 
 ## Demonstration video plan
 
-Keep the entrant's own English explanation **under two minutes** and upload it as
-a **public YouTube video**. Focus on one story: a broken artifact → deterministic
-finding and correction → coordinator/reviewer/action → consent and exact peer call
-→ sanitized evidence. Use the built-in model settings panel for model switching.
-Do not splice unexecuted scenarios into apparent successes. Confirm the final
-video's duration and public accessibility before putting its URL in the submission.
+Keep the entrant's own English explanation **under two minutes**, published as a
+**public YouTube video**. Follow one actual story: broken artifact → deterministic
+finding/correction → coordinator/reviewer/action → consent/exact peer → sanitized
+evidence. Use the built-in panel for model switching. Never splice unexecuted
+scenarios into apparent successes. Confirm duration/access before submission.
+Recording, screenshots and submission are outside this Goal.
 
 ## Submission and public-access handoff
 
-All unchecked items are open. Roles below indicate the next responsible party,
-not an assertion that an action has occurred. Record URLs, dates, revision and
-evidence locations as items are completed. Do not put credentials in this tracker.
+Unchecked rows are open. Owners identify the next responsible party, not proof that
+an action occurred. Preserve historical failures and record URLs, dates, revisions
+and evidence as new work completes; never record credentials.
+
+**Submission deadline: 2027-01-11 08:00 PT = 2027-01-12 01:00 KST.**
 
 | Done | Item | Owner / required input | Evidence or current state |
 | --- | --- | --- | --- |
-| [ ] | Finalize the four criterion responses against actual demonstration evidence | Entrant | Official Rules §6 quoted above; local runs and public input 61's successful bounded answer/wire observations summarized, input 59 failure retained; final claims review pending |
-| [ ] | Confirm public repository access and share the reusable tools, including the converter CLI/web core, with the community | Entrant / repository account | Public repository URL and access/sharing record pending; repository implementation is not a sharing/adoption result |
-| [x] | Activate Site A GitHub Pages and record its public HTTPS URL | Repository account owner; HTTP measured by implementer | https://almightie0214.github.io/agentic-web/ — 2026-11-16 public 200; §4 records artifact correspondence to 298ce2b |
-| [x] | Deploy Site B to Cloudflare Pages on a separate origin and record its HTTPS URL | Cloudflare account owner; HTTP measured by implementer | https://spec-scout.pages.dev/ — public manifest/network 200 + ACAO `*`, missing paths 404, no redirects; §4 |
-| [x] | Publish public peer URL and paired allowed origin; align production tests and redeploy A | Maintainer | Commit 298ce2bee1001e7186e7f5325975c063729881d5 binds https://spec-scout.pages.dev/spec_scout and allows https://spec-scout.pages.dev; deployed A files byte-match source; production tests derive paired settings, one assertion pins public B |
-| [x] | Capture credential-free public artifact HTTPS/ACAO/404 responses | Implementer | §4: 2026-11-16T01:41:11.454Z–01:41:12.661Z, 02:31:27.844Z–02:31:28.965Z and latest 03:06:50.606Z–03:06:51.131Z probes, Node v24.16.0/Windows x64, revision 298ce2b, URLs/status/Content-Type/ACAO/redirects and hashes recorded |
-| [x] | Observe public consent→peer→caller-router flow and B request key isolation | User / delegated browser operator | Input 61, 2026-11-16 03:02–03:03Z, Edge 157/Windows 11 x64 fresh profile, CDP Network + ExtraInfo: consent before all three B GETs, manifest/definition 200 and links 404 with ACAO `*`, no B key/Cookie/Authorization/body/redirect; caller/peer/caller Otari POST 200; normal §3.2-cited answer. Pre-run A bytes match main 24395e4 (same three source files as 298ce2b). Allow event count zero remains a defect candidate; quotation fidelity and separate-request attribution unchecked. Input 59 failure remains historical, cause unknown; §4 |
-| [ ] | Complete missing real-browser observations and public-revision checks; resolve or explicitly retain blocked cases | Browser verifier + entrant for environment/accounts | Local run 1 and corrected run 2 observations are in the demo ledger; comprehensive provider/prompt/action/error inspection and unexercised limits remain unverified; public run 2 flow is observed, not full runtime acceptance; retain zero Allow event count and other §4 limits |
-| [x] | Observe a converted bundle's real-browser load/delegation and record the answer-quality diagnosis | User-authorized browser operator; user decision received 2026-11-16 | [AW5 dogfooding record](demo-checklist.md#aw5-converter-dogfooding): Theora sample load/delegation PASS in `s3`/`s300` (2 agent / 3 model-call spans each); model-output quality FAIL twice. Trace/history locate drafts and garbled text in model content, without converter/runtime corruption evidence. User withdrew the prompt/runtime fix request; no new paid run required. Quality resolution and public acceptance are not claimed |
-| [ ] | Capture and select English screenshots for submission | Entrant | Images pending; show actual UI and findings, remove keys/personal data |
-| [ ] | Record entrant's own English explanation, under two minutes, as a public YouTube video | Entrant / YouTube account | Public URL, duration and access check pending |
-| [ ] | Finalize all submission materials in English | Entrant | README and this draft are English; screenshots/video/final form still need review |
-| [ ] | Optional: create an Otari account and provide improvement feedback; email only if the entrant chooses | Entrant / account or chosen feedback channel | Official Rules §4: “Optionally create an Otari account and provide feedback”; not a mandatory email or submission blocker. No email sent by this task; any chosen correspondence remains unrecorded |
-| [ ] | Verify judge access to the public sites, artifacts and video; give accurate inference setup instructions | Entrant / independent access check | A/B URLs are recorded above, but independent judge access and video access remain unverified; live inference requires the visitor's supported router/key, never a shared published key |
-| [ ] | Complete final Devpost submission and save its confirmation/entry URL | Entrant / Devpost account | Not submitted; submission URL and timestamp pending |
-| [ ] | Keep sites, public artifacts and video accessible through judging end: **2027-01-19 10:00 KST (UTC+09:00)** | Entrant / hosting and video account owners | Availability commitment and monitoring/access records pending; equivalent UTC time is 2027-01-19 01:00 UTC |
+| [ ] | Finalize criterion responses against current demonstration evidence | Entrant | Current source contracts and §6 post-deployment observations described; final entrant claims review pending, residual peer/internal specialist quality limitations retained |
+| [x] | Public source repository and license | Repository account owner; HTTP measured by implementer | https://github.com/almightie0214/agentic-web — PUBLIC, Apache-2.0; credential-free GitHub API 200 on 2026-11-16T05:51:41.649Z (R01, §6). This is not a community-sharing/adoption result |
+| [ ] | Record community-sharing activity for reusable validator/CLI/converter | Entrant | Sharing activity unrecorded; public repository existence alone is not an activity or adoption record |
+| [x] | Historical activation of A/B and paired public binding | Hosting account owners | A: https://almightie0214.github.io/agentic-web/ ; B: https://spec-scout.pages.dev/ ; §4 measured public artifacts/ACAO/404 and the paired binding at earlier revisions, not current byte correspondence |
+| [x] | Preserve earlier public consent/peer flow and converter diagnosis | User / browser operator | §4 input 61 normal answer with scoped B wire isolation; input 59 markup failure, zero Allow events and unknown request attribution retained. AW5 load/delegation PASS, quality FAIL twice retained; not current release acceptance |
+| [x] | Verify current deployed A/B bytes and local browser check | Release-check implementer | §6 post-deadline-config: public changed files byte-match origin/main 225890d at canonical URLs; 16 removed modules 404. Landed-tree browser-check exit 0, Edge 157.0.4341.60/mock router, unexpected CSP 0, inline/eval blocked. Fresh local boot-error/redaction check exit 0; no real-key browser entry |
+| [x] | Record post-deadline-config public Edge/CDP and Firefox/BiDi observations | Release-check implementer / existing development router | §6: both execution flows completed with actual peer result/final prose, consent/trust 1 and scoped wire/CSP checks; partial peer text corruption remains, not answer-quality PASS; disposable-profile LNA exceptions required for development router |
+| [x] | Run current CLI-generated Theora bundle on loopback and inspect final answer | Release-check implementer / development router | §6: 225890d CLI bundle, 8601/8602, one live run completed; no observed final draft/meta sentences, internal specialist meta/awkward text retained; old s3/s300 quality FAIL unchanged |
+| [ ] | Complete independent release evidence review; retain other scoped unknowns | Independent reviewer / engine, then entrant claims review | Mandatory observation rows now have results, not universal quality/security proof. Review and engine checks are not claimed complete by this draft; provider/context/quotation claims remain unverified |
+| [ ] | Capture/select English screenshots | Entrant | Outside this Goal; pending; show actual UI/findings and remove keys/personal data |
+| [ ] | Publish entrant's own English explanation, under two minutes, on YouTube | Entrant / YouTube account | Outside this Goal; URL/duration/public-access check pending |
+| [ ] | Final English materials review | Entrant | README/testing instructions and draft are English; screenshots/video/final form still need review |
+| [ ] | Optional Otari account/feedback | Entrant / chosen account/channel | Official Rules §4 makes account/feedback optional; correspondence unrecorded, not a mandatory email or release blocker |
+| [ ] | Arrange and verify independent judge inference access | Entrant / router-access arrangement and independent check | Entrant-owned open item. Static pages/artifacts need no key; chat needs supported OpenAI-compatible router/key configured in ⚙ settings. No shared key published; participant Otari credit guidance does not establish judge access |
+| [ ] | Independently verify public site/artifact/video access | Entrant / independent access check | Historical A/B availability is recorded; independent judge and video access remain unverified |
+| [ ] | Submit Devpost entry by the deadline above and save confirmation | Entrant / Devpost account | Outside this Goal; not submitted; confirmation URL/timestamp pending |
+| [ ] | Keep sites/artifacts/video accessible through **2027-01-19 10:00 KST (UTC+09:00)** | Entrant / hosting and video accounts | Commitment/monitoring records pending; equivalent UTC is 2027-01-19 01:00 UTC |
 
-Optional Otari account/feedback or email, video publication, final submission and
-the availability commitment require the entrant's action. This document does not
-authorize account changes or establish competition acceptance. Do not mark the
-project submission-ready while required runtime evidence, retained defect review
-or judge access remains unresolved. Preserve unresolved observations honestly rather
-than replacing them with static test results.
+This document authorizes no account changes and establishes no competition
+acceptance. Do not mark the project submission-ready while required release
+evidence or judge access remains unresolved. New source fixes do not erase old
+failures, and old observations do not verify a new deployed revision.
