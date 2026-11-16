@@ -1,6 +1,5 @@
 // index.js — public entry point for the neuro-san-web runtime.
 // Changed by agentic-web. See README.md in this folder for what changed.
-// Changed by Agent Review Desk + Spec Scout: removed the obsolete runner alias.
 //
 // A business's index.html imports `boot` and points it at its origin. boot loads
 // the origin's published network, compiles it, mounts the themeable UI, and is
@@ -49,20 +48,11 @@ export async function boot(rootSelector = "#app", opts = {}) {
   const engine = new Engine({
     originUrl: siteBase,
     trace,
-    sandboxWorkerUrl: opts.sandboxWorkerUrl || "/runtime/sandbox-worker.js",
     byokKey: opts.byokKey || tabSetup.key,
     routerOverride: opts.router || tabSetup.router,
     modelOverride: opts.model || tabSetup.model,
   });
-  // Select the agent loop: ?runner=langchain drives the LLM via LangChain.js
-  // (neuro-san-web owns the loop).
-  // A saved setup's runner flag is ignored, because the panel has no setting to turn it off.
-  const runnerChoice = opts.runner || params.get("runner") || "";
   const { manifest } = await engine.loadTop();
-  if (manifest?.deployment?.mode !== "static"
-      && runnerChoice === "langchain") {
-    await engine.enableLangChain();
-  }
   mountApp(root, { engine, trace, manifest });
   {
     const status = document.createElement("details");
@@ -95,6 +85,5 @@ export async function boot(rootSelector = "#app", opts = {}) {
       engine.actions.onChange?.();
       return ref;
     },
-    refreshHostForms: () => engine.actions.hostForms?.refresh(),
   } };
 }

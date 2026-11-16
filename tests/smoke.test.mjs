@@ -105,7 +105,7 @@ test('smoke: Site A runtime loads artifacts under a site subpath and rejects fai
         assert.equal(url, `${base}/links.json`, 'only site-relative public artifacts should be fetched');
         return new Response('', { status: 404 });
       };
-      const engine = new Engine({ originUrl: `${base}/`, sandboxWorkerUrl: `${base}/runtime/sandbox-worker.js` });
+      const engine = new Engine({ originUrl: `${base}/` });
       if (scenario === 'valid') {
         const { network } = await engine.loadTop();
         assert.equal(network.findFrontMan(), 'review_coordinator');
@@ -255,7 +255,7 @@ test('smoke: Site A boot shows the desk only after success and reports failures'
       calls.push({ mount, options, hidden: app.hidden });
       entered.resolve();
       await loaded.promise;
-      if (failure) throw new Error('Network load failed');
+      if (failure) throw new Error("Duplicate agent name 'reviewer'. https://user:pass@desk.test/network.json?key=url-secret&token=private#hidden\nAuthorization: Bearer header-secret\nCookie: session=cookie-secret; other=another-cookie-secret\n\"token\":\"json-secret\"");
       const trace = new EventTarget();
       trace.events = [];
       const { AgentNetwork } = await import('../site-a/runtime/kernel.js');
@@ -274,7 +274,6 @@ test('smoke: Site A boot shows the desk only after success and reports failures'
       mount: app, hidden: true,
       options: {
         originUrl: new URL('site-a/', root).href,
-        sandboxWorkerUrl: new URL('site-a/runtime/sandbox-worker.js', root).href,
       },
     }]);
     assert.equal(app.hidden, failure);
@@ -283,6 +282,8 @@ test('smoke: Site A boot shows the desk only after success and reports failures'
       assert.equal(status.dataset.state, 'error');
       assert.match(status.textContent, /could not be loaded/);
       assert.match(status.textContent, /agent-manifest\.json/);
+      assert.match(status.textContent, /Loader error: Duplicate agent name 'reviewer'\./);
+      assert.doesNotMatch(status.textContent, /url-secret|private|user:pass|#hidden|header-secret|cookie-secret|json-secret/);
     } else {
       assert.match(status.textContent, /Review Desk is ready/);
       assert.match(status.textContent, /provider key/);
@@ -358,13 +359,12 @@ runtimeTest('runtime entry point and license are present', async (_t, runtime) =
   }
 });
 
-runtimeTest('boot enables only the current runner contract', async (t, runtime) => {
+runtimeTest('boot has one execution loop without runner selection', async (t, runtime) => {
   const entry = new URL('index.js?runner-contract', runtime).href;
   const modules = {
     './engine.js': `export class Engine {
       actions = { catalog: () => [], discoveryIssues: [] };
       top = { base: 'https://example.test/desk/', network: { name: 'test' } };
-      async enableLangChain() { this.langChainEnabled = true; }
     }`,
     './trace.js': 'export class TraceBus {}',
     './ui.js': 'export function mountApp() {}',
@@ -408,7 +408,7 @@ runtimeTest('boot enables only the current runner contract', async (t, runtime) 
         Object.defineProperty(globalThis, 'location', { configurable: true, value: location });
         Engine.prototype.loadTop = async () => ({ manifest: mode ? { deployment: { mode } } : {} });
         const { engine } = await boot(mount, source === 'opts' ? { runner } : {});
-        assert.equal(!!engine.langChainEnabled, runner === 'langchain' && mode !== 'static', label);
+        assert.ok(engine instanceof Engine, label);
       }
     }
   }
@@ -523,15 +523,16 @@ runtimeTest('welcome and response widgets share confirmation validation', async 
   Object.defineProperty(globalThis, 'location', {
     configurable: true, value: new URL('https://example.test/desk/'),
   });
+  document.createTextNode = text => ({ textContent: text });
   Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: fn => fn() });
-  const mount = (widget) => {
+  const mount = (widget, response = { text: '', presentation: null }) => {
     const root = element();
     const submitted = [];
     const engine = {
       mockLLM: true, resetHistory() {},
       async *streamTurn(text) {
         submitted.push(text);
-        yield { type: 'turn.completed', result: { text: '', presentation: null } };
+        yield { type: 'turn.completed', result: response };
       },
     };
     mountApp(root, { engine, trace: new EventTarget(), manifest: { welcome: { widget, message: 'Welcome to the review desk.' } } });
@@ -546,6 +547,12 @@ runtimeTest('welcome and response widgets share confirmation validation', async 
     await root.querySelector('#ns-send').events.get('click')();
     assert.deepEqual(submitted, ['Continue chatting.']);
   }
+  const answer = { text: 'The artifact is ready.', presentation: null, presentationIssues: ['Invalid optional chart.'] };
+  const optional = mount({ kind: 'confirm', confirmText: 'Continue.' }, answer);
+  optional.root.querySelector('#ns-input').value = 'Review it.';
+  await optional.root.querySelector('#ns-send').events.get('click')();
+  assert.ok(optional.msgs.children.some(child => child.textContent?.includes('Invalid optional chart.')));
+  assert.equal(answer.text, 'The artifact is ready.', 'display diagnostics do not become the agent answer');
   const current = { kind: 'confirm', confirmText: 'Submit this review.', confirmLabel: 'Proceed' };
   const { root, msgs, cards: [card], submitted } = mount(current);
   assert.equal(card.dataset.welcome, 'true');
@@ -626,7 +633,7 @@ runtimeTest('BYOK uses only current tab settings and saved profiles', async (t, 
     sessionAccess.length = 0;
     upsertByokProfile({ ...profile, id: 'test-profile', name: 'Test provider' });
     assert.deepEqual(getSelectedByokProfile(), {
-      ...profile, id: 'test-profile', name: 'Test provider', runner: false,
+      ...profile, id: 'test-profile', name: 'Test provider',
       updatedAt: getSelectedByokProfile().updatedAt,
     });
     assert.deepEqual(loadTabByokSetup(), profile);
@@ -812,7 +819,7 @@ test('smoke: Site B boot loads the published network unchanged and reports failu
   const profile = { key: 'test-profile-key', router: 'https://profile.example.test/v1', model: 'profile-model' };
   const tab = { key: 'test-tab-key', router: 'https://tab.example.test/v1', model: 'tab-model' };
 
-  for (const scenario of ['empty', 'profile', 'tab', 'missing manifest', 'missing network', 'invalid JSON', 'invalid graph', 'failure']) {
+  for (const scenario of ['empty', 'profile', 'tab', 'missing manifest', 'missing network', 'invalid JSON', 'invalid graph', 'duplicate names', 'failure']) {
     await t.test(scenario, async () => {
       const app = element();
       app.hidden = true;
@@ -847,6 +854,7 @@ test('smoke: Site B boot loads the published network unchanged and reports failu
         if (url === `${base}/./spec_scout.network.json`) {
           const data = structuredClone(config);
           if (scenario === 'invalid graph') data.tools[0].tools = ['missing_agent'];
+          if (scenario === 'duplicate names') data.tools.push(structuredClone(data.tools[0]));
           return new Response(scenario === 'invalid JSON' ? '{' : JSON.stringify(data), {
             status: scenario === 'missing network' ? 404 : 200,
           });
@@ -894,6 +902,14 @@ test('smoke: Site B boot loads the published network unchanged and reports failu
         assert.doesNotMatch(status.textContent, /url-secret|duplicate/);
         assert.match(status.textContent, /agent-manifest\.json/);
         assert.match(status.textContent, /network definition/);
+        const diagnostic = {
+          'missing manifest': /manifest fetch 404/,
+          'missing network': /fetch 404/,
+          'invalid JSON': /parse|syntax|unexpected/i,
+          'invalid graph': /missing_agent/,
+          'duplicate names': /Duplicate agent name 'spec_scout'\./,
+        }[scenario];
+        assert.match(status.textContent, diagnostic);
         assert.equal(Engine.instances.length, previousCount + 1);
         return;
       }
@@ -904,7 +920,6 @@ test('smoke: Site B boot loads the published network unchanged and reports failu
       assert.equal(engine.routerOverride, expected.router);
       assert.equal(engine.modelOverride, expected.model);
       assert.equal(engine.originUrl, new URL('site-b/', root).href.replace(/\/$/, ''));
-      assert.equal(engine.sandboxWorkerUrl, new URL('sandbox-worker.js', runtime).href);
       assert.equal(engine.top.network.name, 'spec_scout');
       assert.equal(engine.top.network.findFrontMan(), 'spec_scout');
       assert.equal(engine.top.network.getAgentSpec('spec_scout').instructions, config.tools[0].instructions,
@@ -930,4 +945,128 @@ test('smoke: Site B boot loads the published network unchanged and reports failu
       assert.equal(app.querySelector('#ns-key').value, expected.key);
     });
   }
+});
+
+
+runtimeTest('input prompts close on abort and ignore queued decisions', async (t, runtime) => {
+  const { mountApp } = await import(new URL('ui.js', runtime));
+  const originals = new Map(['document', 'location'].map(name =>
+    [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  t.after(() => {
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  });
+  const element = () => ({
+    value: '', dataset: {}, style: {}, children: [], fields: new Map(), events: new Map(),
+    classList: { add() {}, remove() {}, toggle() {} },
+    setAttribute() {}, removeAttribute() {}, getAttribute() { return null; }, closest() { return null; },
+    focus() {}, setCustomValidity() {}, reportValidity() {}, showModal() { this.open = true; },
+    close() { this.open = false; }, remove() { this.removed = true; },
+    append(...nodes) { this.children.push(...nodes); }, appendChild(node) { this.children.push(node); },
+    addEventListener(name, callback) { this.events.set(name, callback); },
+    querySelectorAll(selector) {
+      if (selector !== 'button') return [];
+      return ['allow', 'always', 'decline'].map(d => {
+        const button = this.querySelector('[data-d="' + d + '"]'); button.dataset.d = d; return button;
+      });
+    },
+    querySelector(selector) {
+      if (selector.startsWith('[data-ns-slot=') || selector === '#ns-split') return null;
+      if (!this.fields.has(selector)) this.fields.set(selector, element());
+      return this.fields.get(selector);
+    },
+  });
+  const body = element();
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true, value: { createElement: element, head: element(), body },
+  });
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true, value: new URL('https://example.test/desk/'),
+  });
+  const root = element();
+  const engine = { mockLLM: true };
+  mountApp(root, { engine, trace: new EventTarget(), manifest: {} });
+  const messages = root.querySelector('#ns-msgs');
+  for (const kind of ['allow', 'always', 'decline', 'link', 'action']) {
+    for (const timing of ['pre-aborted', 'pending', 'accepted']) {
+      const controller = new AbortController();
+      const reason = Object.assign(new Error('Invocation execution deadline exceeded'), { code: 'EXECUTION_DEADLINE' });
+      if (timing === 'pre-aborted') controller.abort(reason);
+      const before = messages.children.length + body.children.length;
+      const prompt = kind === 'action'
+        ? engine.onActionConfirm([{ action: 'save', origin: location.origin, effect: 'write' }], { signal: controller.signal })
+        : kind === 'link'
+          ? engine.onLinkRequired({ reference: 'scout', signal: controller.signal })
+          : engine.onConsent({ peerLabel: 'Scout', peerOrigin: 'scout.test', signal: controller.signal });
+      if (timing === 'pre-aborted') {
+        await assert.rejects(prompt, error => error === reason);
+        assert.equal(messages.children.length + body.children.length, before, 'aborted prompts never mount');
+        continue;
+      }
+      const card = kind === 'action' ? body.children.at(-1) : messages.children.at(-1);
+      const decide = kind === 'action' ? () => card.children[2].onclick()
+        : kind === 'link' ? () => {
+          card.querySelector('input').value = 'https://scout.test/scout';
+          card.querySelector('form').events.get('submit')({ preventDefault() {} });
+        } : () => card.querySelector('[data-d="' + kind + '"]').events.get('click')();
+      if (timing === 'pending') {
+        const rejected = assert.rejects(prompt, error => error === reason);
+        controller.abort(reason);
+        await rejected;
+        assert.equal(card.removed, true, kind);
+        const status = root.querySelector('#ns-status-text').textContent;
+        decide();
+        assert.equal(root.querySelector('#ns-status-text').textContent, status, 'queued input has no UI continuation');
+      } else {
+        decide();
+        assert.equal(await prompt, kind === 'action' ? true : kind === 'link' ? 'https://scout.test/scout' : kind);
+        controller.abort(reason);
+        if (kind !== 'action') assert.notEqual(card.removed, true, 'completed prompts are not pending abort listeners');
+      }
+    }
+  }
+});
+
+runtimeTest('model deadline abort remains an error rather than steering', async (t, runtime) => {
+  const { LlmClient } = await import(new URL('llm.js', runtime));
+  const { TraceBus } = await import(new URL('trace.js', runtime));
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+  t.after(() => {
+    if (original) Object.defineProperty(globalThis, 'fetch', original);
+    else delete globalThis.fetch;
+  });
+  const entered = Promise.withResolvers();
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: async (_url, { signal }) => {
+    entered.resolve();
+    return new Promise((_resolve, reject) => signal.addEventListener('abort', () =>
+      reject(new DOMException('Fetch aborted', 'AbortError')), { once: true }));
+  } });
+  const trace = new TraceBus();
+  const client = new LlmClient({ baseUrl: 'https://router.test/v1', apiKey: 'test-key', trace });
+  const controller = new AbortController();
+  const reason = Object.assign(new Error('Agent execution deadline exceeded'), { code: 'EXECUTION_DEADLINE' });
+  const pending = client.chat({ model: 'test-model', messages: [], signal: controller.signal });
+  const rejected = assert.rejects(pending, error => error === reason);
+  await entered.promise;
+  controller.abort(reason);
+  await rejected;
+  const result = trace.events.find(event => event.kind === 'model_call' && event.phase === 'end');
+  assert.equal(result.status, 'error');
+  assert.match(result.error, /execution deadline exceeded/);
+  assert.notEqual(result.interrupted, true);
+
+  // Streaming consumers use scoped async callbacks; their rejected completion is
+  // part of the model call, not an unhandled background promise or a final answer.
+  const streamTrace = new TraceBus();
+  const mock = new LlmClient({ baseUrl: 'browser://mock', mock: true, trace: streamTrace });
+  const callback = Promise.withResolvers();
+  const called = Promise.withResolvers();
+  const streamed = mock.chat({ messages: [], onContentDelta: () => { called.resolve(); return callback.promise; } });
+  const streamedRejection = assert.rejects(streamed, error => error === reason);
+  await called.promise;
+  callback.reject(reason);
+  await streamedRejection;
+  assert.equal(streamTrace.events.find(event => event.kind === 'model_call' && event.phase === 'end').status, 'error');
 });

@@ -1,7 +1,7 @@
 // trace.js — the structured execution-trace event bus.
 //
 // Every boundary in the runtime (compile, model call, tool call, remote
-// fetch-and-run, REST call, stream chunk, error, retry) emits a span here. The
+// fetch-and-run, website action, stream chunk, error, retry) emits a span here. The
 // bus powers the live graph, the chronological log, and the JSON export
 // ("HAR for agents"). It is platform glue (an intrinsic), not kernel logic.
 

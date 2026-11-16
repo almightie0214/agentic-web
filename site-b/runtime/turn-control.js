@@ -83,7 +83,7 @@ export class TurnControl {
 }
 
 // Race an in-flight top-agent model call against new steering. The operation is
-// expected to honor AbortSignal (both the direct fetch client and LangChain do).
+// expected to honor AbortSignal, as the model fetch client does.
 // Tool calls never use this helper and therefore are not replayed on steering.
 export async function runInterruptibleModelCall(turnControl, invoke) {
   if (!turnControl) return { interrupted: false, value: await invoke(undefined) };

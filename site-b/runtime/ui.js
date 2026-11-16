@@ -27,6 +27,7 @@ import { normalizePresentation } from "./cruse.js";
 import { PRESENTATION_CSS, renderMarkdown, renderRichComponent } from "./cruse-render.js";
 import { createTurnStatusController } from "./turn-status.js";
 import { reviewActions } from "./action-transport.js";
+import { assertActive } from "./scope.js";
 
 export const AI_MODEL_SETTINGS_LABEL = "AI model settings";
 export const API_KEY_HELP_URL = "https://ai.google.dev/gemini-api/docs/api-key";
@@ -231,10 +232,8 @@ fieldset.ns-w-row{min-width:0;margin:0;padding:0;border:0}
 .ns-row.k-model_call{border-left-color:#0891b2}
 .ns-row.k-tool,
 .ns-row.k-tool_call{border-left-color:#16a34a}
-.ns-row.k-rest_call{border-left-color:#ca8a04}
 .ns-row.k-remote_fetch{border-left-color:#db2777}
 .ns-row.k-remote_call{border-left-color:#db2777;background:#fdf2f8}
-.ns-row.k-mcp_call{border-left-color:#0d9488;background:#f0fdfa}
 .ns-row.k-error,.ns-row.status-error{border-left-color:#dc2626;background:#fef2f2}
 .ns-row pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-word;background:#fff;border:1px solid #eee;border-radius:4px;padding:6px;max-height:240px;overflow:auto}
 .ns-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:6px}
@@ -269,10 +268,8 @@ const KIND_TAG = {
   agent: "AGENT",
   model_call: "LLM",
   tool_call: "TOOL",
-  rest_call: "REST",
   remote_fetch: "FETCH",
   remote_call: "REMOTE CALL",
-  mcp_call: "MCP",
   tool_result: "RESULT",
 };
 
@@ -527,7 +524,7 @@ export function mountApp(root, { engine, trace, manifest }) {
   engine.onAnswerDelta = undefined;
 
   let activeTurnStream = null;
-  engine.onActionConfirm = items => reviewActions(items);
+  engine.onActionConfirm = (items, options) => reviewActions(items, options);
   let actionSubmissionBusy = false;
   const idlePlaceholder = input.getAttribute("placeholder") || "Type a request…";
   function setTurnInputState(active) {
@@ -580,6 +577,9 @@ export function mountApp(root, { engine, trace, manifest }) {
       renderMarkdown(currentBot, clean);
       if (!clean) currentBot.remove();
       renderPresentation(msgs, result.presentation, runUserTurn, result.turnId);
+      if (result.presentationIssues?.length) {
+        addBubble(msgs, "bot", `⚠️ I couldn’t display part of that response. ${result.presentationIssues.join(" ")}`);
+      }
       requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; });
     } catch (err) {
       turnStatusController.clear();
@@ -705,9 +705,6 @@ export function mountApp(root, { engine, trace, manifest }) {
       if (c.kind === "remote") {
         const u = new URL(ref);
         if (!nodeMeta.has(u.host)) nodeMeta.set(u.host, { label: u.host, role: "partner network", icon: "🏢", kind: "remote", origin: u.origin });
-      } else if (c.kind === "mcp") {
-        const u = new URL(typeof ref === "string" ? ref : ref.url);
-        if (!nodeMeta.has(u.host)) nodeMeta.set(u.host, { label: "Destination service", role: "hosted MCP server", icon: "🌐", kind: "mcp", origin: u.origin });
       }
     } catch {}
   }
@@ -780,8 +777,6 @@ export function mountApp(root, { engine, trace, manifest }) {
           ensureRemoteNode(ev.peerOrigin, { brand: ev.brand, network: ev.network });
           setActive(ev.peerOrigin, `Contacting ${labelOf(ev.peerOrigin)}…`);
           break;
-        case "mcp_call": setActive(ev.peerOrigin, `Asking ${labelOf(ev.peerOrigin)}…`); break;
-        case "rest_call": statusText.textContent = `Checking ${labelOf(ev.origin)} systems…`; break;
         case "tool_call": statusText.textContent = `Running ${ev.tool}…`; break;
         case "model_call": if (nodeMeta.has(ev.origin)) setActive(ev.origin, ev.origin === localHost ? "Thinking…" : undefined); break;
         default: break;
@@ -809,7 +804,8 @@ export function mountApp(root, { engine, trace, manifest }) {
 
   // A dangling agent reference becomes a tool-call-time linker. The entered URL
   // is validated against the peer's published manifest by Engine before storage.
-  engine.onLinkRequired = (info) => new Promise((resolve) => {
+  engine.onLinkRequired = (info) => new Promise((resolve, reject) => {
+    assertActive(info.signal);
     statusEl.classList.remove("busy");
     statusText.textContent = `Waiting for the ${info.reference} network URL…`;
     const el = document.createElement("div");
@@ -821,10 +817,12 @@ export function mountApp(root, { engine, trace, manifest }) {
       `<button type="submit">Link</button><button type="button" class="ghost">Cancel</button></form>`;
     msgs.appendChild(el);
     msgs.scrollTop = msgs.scrollHeight;
+    const finish = pendingInput(info.signal, el, resolve, reject);
     const form = el.querySelector("form");
     const input = el.querySelector("input");
     form.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (!finish.active()) return;
       const target = input.value.trim();
       let host = "";
       try { host = new URL(target).host; } catch {}
@@ -837,18 +835,20 @@ export function mountApp(root, { engine, trace, manifest }) {
       form.innerHTML = `<div class="ns-consent-done">Linked to ${escapeHtml(host)}. Validating…</div>`;
       statusEl.classList.add("busy");
       statusText.textContent = `Validating ${host}…`;
-      resolve(target);
+      finish(target);
     }, { once: true });
     el.querySelector("button.ghost").addEventListener("click", () => {
+      if (!finish.active()) return;
       form.innerHTML = `<div class="ns-consent-done">Linking cancelled.</div>`;
       statusText.textContent = "Continuing without that network…";
-      resolve(null);
+      finish(null);
     }, { once: true });
     input.focus();
   });
 
   // --- cross-network consent (approve calls to other hosted networks) ------
-  engine.onConsent = (info) => new Promise((resolve) => {
+  engine.onConsent = (info) => new Promise((resolve, reject) => {
+    assertActive(info.signal);
     statusEl.classList.remove("busy");
     statusText.textContent = `Waiting for your OK to contact ${info.peerLabel}…`;
     const tokens = info.est?.totalTokens ? `~${Number(info.est.totalTokens).toLocaleString()} tokens` : "";
@@ -866,14 +866,16 @@ export function mountApp(root, { engine, trace, manifest }) {
       `</div>`;
     msgs.appendChild(el);
     msgs.scrollTop = msgs.scrollHeight;
+    const finish = pendingInput(info.signal, el, resolve, reject);
     el.querySelectorAll("button").forEach((b) =>
       b.addEventListener("click", () => {
+        if (!finish.active()) return;
         const d = b.dataset.d;
         el.querySelector(".ns-consent-actions").outerHTML =
           `<div class="ns-consent-done">${d === "decline" ? "✕ Declined" : "✓ Allowed"}</div>`;
         statusEl.classList.add("busy");
         statusText.textContent = d === "decline" ? "Skipping that partner…" : `Contacting ${info.peerLabel}…`;
-        resolve(d);
+        finish(d);
       }, { once: true }),
     );
   });
@@ -889,9 +891,7 @@ export function mountApp(root, { engine, trace, manifest }) {
       case "remote_call": return ev.phase === "start"
         ? `→ Asked: “${(ev.requestPayload?.user_message?.text || "").slice(0, 120)}”`
         : `← Replied: ${(ev.responsePreview || "").slice(0, 140)}`;
-      case "mcp_call": return ev.phase === "end" ? `MCP ${ev.method}` : null;
       case "tool_call": return ev.phase === "end" ? `Ran tool: ${ev.tool}` : null;
-      case "rest_call": return ev.phase === "end" ? `Backend call: ${ev.url}` : null;
       case "model_call": return ev.phase === "end" ? `LLM call (${ev.model || "?"})${ev.mock ? " [mock]" : ""}` : null;
       case "agent": return ev.phase === "start" ? `Agent “${ev.agent}” started` : null;
       default: return null;
@@ -948,11 +948,10 @@ export function mountApp(root, { engine, trace, manifest }) {
   // Without a visitor-chosen model, each agent sends its declared model, then the
   // network's, or else the mock placeholder. Check the same model the runner sends.
   let everyAgentHasModel = true;
-  // The front man and "agent" tools call a model; coded and toolbox tools do not.
+  // All compiled local agents call a model.
   for (const spec of net?.config?.tools || []) {
-    const callsModel = spec === frontSpec || net.classifyTool(spec?.name).kind === "agent";
     const sent = effectiveModel("", spec?.llm_config?.model_name, net?.config?.llm_config?.model_name);
-    if (callsModel && isPlaceholderModel(sent)) everyAgentHasModel = false;
+    if (isPlaceholderModel(sent)) everyAgentHasModel = false;
   }
   // The Model field is optional only when every agent already has a model. Otherwise it
   // is marked required, like the API key.
@@ -1010,7 +1009,6 @@ export function mountApp(root, { engine, trace, manifest }) {
       key,
       model,
       router: portableByokRouter(router),
-      runner: false,
     };
   };
   const saveCurrentProfile = () => {
@@ -1305,6 +1303,32 @@ export function mountApp(root, { engine, trace, manifest }) {
   }
 }
 
+// Prompt callbacks may still be queued when the invocation expires.
+function pendingInput(signal, element, resolve, reject) {
+  let settled = false;
+  const abort = () => {
+    if (settled) return;
+    settled = true;
+    signal?.removeEventListener("abort", abort);
+    element.remove();
+    reject(signal.reason);
+  };
+  const active = () => {
+    if (settled) return false;
+    try { assertActive(signal); } catch { abort(); return false; }
+    return !settled;
+  };
+  const finish = value => {
+    if (!active()) return;
+    settled = true;
+    signal?.removeEventListener("abort", abort);
+    resolve(value);
+  };
+  finish.active = active;
+  signal?.addEventListener("abort", abort, { once: true });
+  return finish;
+}
+
 function addBubble(msgs, cls, text) {
   const el = document.createElement("div");
   el.className = `ns-msg ${cls}`;
@@ -1527,14 +1551,14 @@ function renderWidget(container, spec, onSubmit, turnId) {
 
 // Render the network as a hierarchy of boxes joined by elbow connectors: the
 // front-man is the root, each agent's `tools` nest beneath it (sub-agents recurse;
-// MCP/remote/coded tools are typed leaf boxes). A shared sub-agent is expanded once;
+// remote tools are typed leaf boxes). A shared sub-agent is expanded once;
 // later references show as "↩ name" (also breaks cycles). The active agent/origin
 // box glows + its dot pulses.
 function renderNodes(el, net, activeAgents, activeOrigins = new Set()) {
   if (!net) return;
   const tools = net.config.tools || [];
   const specByName = new Map(tools.filter((a) => a && a.name).map((a) => [a.name, a]));
-  const isAgent = (n) => { const s = specByName.get(n); return !!(s && s.instructions && !s.class && !s.toolbox); };
+  const isAgent = (n) => !!specByName.get(n)?.instructions;
   const hostOfRef = (ref) => { try { return new URL(ref).host; } catch { return String(ref); } };
   const front = net.findFrontMan();
   const rendered = new Set();
@@ -1554,14 +1578,10 @@ function renderNodes(el, net, activeAgents, activeOrigins = new Set()) {
       try { kind = net.classifyTool(ref).kind; } catch {}
       if (kind === "agent" && isAgent(ref)) {
         kids.push(`<li>${rendered.has(ref) ? box("leaf", "↩", ref, { title: "defined above" }) : node(ref)}</li>`);
-      } else if (kind === "mcp") {
-        const h = hostOfRef(ref); kids.push(`<li>${box("leaf", "🌐", h, { active: activeOrigins.has(h) })}</li>`);
       } else if (kind === "remote") {
         const h = hostOfRef(ref); kids.push(`<li>${box("leaf", "🏢", h, { active: activeOrigins.has(h) })}</li>`);
       } else if (kind === "link") {
         kids.push(`<li>${box("leaf", "🔗", ref, { title: "pending agent-network link" })}</li>`);
-      } else if (kind === "coded" || kind === "toolbox") {
-        kids.push(`<li>${box("leaf", "⚙", typeof ref === "string" ? ref : (ref.url || "tool"))}</li>`);
       }
     }
     const self = box("agent" + (name === front ? " root" : ""), "", name,
@@ -1588,10 +1608,8 @@ function rowLabel(ev) {
       break;
     }
     case "tool_call": detail = `${escapeHtml(ev.tool || "")} <span class="ns-meta">(${escapeHtml(ev.toolKind || "")})</span>`; break;
-    case "rest_call": detail = `${escapeHtml(ev.method || "GET")} ${escapeHtml(ev.url || "")}`; break;
     case "remote_fetch": detail = `${escapeHtml(ev.brand || ev.network || ev.peerOrigin || "")} <span class="ns-meta">${escapeHtml(ev.peerOrigin || ev.url || "")}</span>`; break;
     case "remote_call": detail = `${escapeHtml(ev.brand || ev.network || ev.peerOrigin || "")} <span class="ns-meta">@ ${escapeHtml(ev.peerOrigin || "")} · via ${escapeHtml(ev.method || "")}</span>`; break;
-    case "mcp_call": detail = `${escapeHtml(ev.method || "")} <span class="ns-meta">@ ${escapeHtml(ev.peerOrigin || "")}</span>`; break;
     case "tool_result": detail = `${escapeHtml(ev.tool || "")} <span class="ns-meta">${escapeHtml((ev.preview || "").slice(0, 80))}</span>`; break;
     case "presentation_proposal": detail = `${escapeHtml(ev.agent || "")} <span class="ns-meta">${ev.presentation?.components?.length || 0} components</span>`; break;
     default: detail = "";

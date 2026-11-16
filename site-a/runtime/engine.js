@@ -1,23 +1,22 @@
 // Changed by agentic-web. See README.md in this folder for what changed.
 // engine.js — top-level orchestration: load a published network from an origin,
 // compile it (HOCON -> filter chain -> validate -> AgentNetwork), and run it. Owns
-// the intrinsics (LLM client, sandbox, trace) and implements resolveRemote, the
+// the intrinsics (LLM client and trace) and implements resolveRemote, the
 // fetch-and-run-locally bridge that turns a peer URL into a runnable Session.
 
 import { parseHocon } from "./hocon.js";
-import { AgentNetwork, validateNetwork, parseExternalAgent, redactSlyData, ChatMessageType } from "./kernel.js";
+import { AgentNetwork, validateNetwork, redactSlyData, ChatMessageType } from "./kernel.js";
 import { LlmClient } from "./llm.js";
-import { ToolSandbox } from "./sandbox.js";
 import { TraceBus } from "./trace.js";
 import { fetchManifest, fetchText, resolveUrl, RemoteRegistry } from "./remote.js";
 import { runAgent } from "./runner.js";
-import { McpClient } from "./mcp.js";
 import { fallbackModel, normalizeModelName } from "./model.js";
 import { interactionMessage } from "./cruse.js";
 import { createTurnEventStream } from "./execution-stream.js";
 import { TurnControl } from "./turn-control.js";
 import { ActionRegistry, actionBindings, cloneData } from "./actions.js";
-import { loadActionModule, registerRemoteActions } from "./action-transport.js";
+import { loadActionModule } from "./action-transport.js";
+import { assertActive, scoped, bindContext } from "./scope.js";
 import { randomUuid } from "./web-crypto.js";
 
 function normOrigin(url) {
@@ -94,17 +93,14 @@ export function selectPeerRouter(callerRouter) {
 }
 
 export class Engine {
-  constructor({ originUrl, trace, sandboxWorkerUrl, byokKey, routerOverride } = {}) {
+  constructor({ originUrl, trace, byokKey, routerOverride } = {}) {
     this.originUrl = (originUrl || (typeof location !== "undefined" ? location.origin : "")).replace(/\/$/, "");
     this.trace = trace || new TraceBus();
-    this.sandboxWorkerUrl = sandboxWorkerUrl || "/runtime/sandbox-worker.js";
     this.byokKey = byokKey || "";
     this.routerOverride = routerOverride || "";
     this.modelOverride = normalizeModelName(arguments[0] && arguments[0].modelOverride);
     this.registry = new RemoteRegistry({ trace: this.trace });
-    this.sandbox = new ToolSandbox({ workerUrl: this.sandboxWorkerUrl, trace: this.trace });
-    this.top = null; // {network, base, bundleUrl, manifest, llm}
-    this.agentRunner = null; // set by enableLangChain(); neuro-san-web owns the loop
+    this.top = null; // {network, base, manifest, llm}
     this.history = []; // top-level conversation turns ([{role,content}]) across runs
     this.consent = new Map(); // peerOrigin -> "always" (remembered approvals)
     this.consentTail = Promise.resolve(); // serialize modal decisions for parallel tools
@@ -127,24 +123,23 @@ export class Engine {
 
   // Ask the user to approve contacting another hosted network. Remembers
   // "always" per origin; defaults to allow when no UI hook is attached (headless).
-  async requestConsent(info) {
+  async requestConsent(info, { signal } = {}) {
     const decide = async () => {
-      if (this.consent.get(info.peerOrigin) === "always") return "allow";
-      if (typeof this.onConsent !== "function") return "allow";
-      const decision = await this.onConsent(info);
-      if (decision === "always") { this.consent.set(info.peerOrigin, "always"); return "allow"; }
-      return decision || "allow";
+      assertActive(signal);
+      if (this.consent.get(info.peerOrigin) === "always") return { decision: "allow", source: "remembered_always" };
+      if (typeof this.onConsent !== "function") return { decision: "allow", source: "headless_default" };
+      const answer = await scoped(signal, () => this.onConsent({ ...info, signal }));
+      assertActive(signal);
+      if (answer === "always") {
+        this.consent.set(info.peerOrigin, "always");
+        return { decision: "allow", source: "prompt_always" };
+      }
+      return answer === "decline" ? { decision: "decline", source: "decline" }
+        : { decision: "allow", source: "prompt_allow" };
     };
     const pending = this.consentTail.then(decide, decide);
     this.consentTail = pending.then(() => undefined, () => undefined);
-    return pending;
-  }
-
-  // Load the prebuilt LangChain.js AgentRunner bundle and use it as the loop.
-  async enableLangChain() {
-    const mod = await import("./generated/agent-runner.bundle.js");
-    this.agentRunner = mod.runAgentLangChain || mod.default;
-    return this.agentRunner;
+    return scoped(signal, () => pending);
   }
 
   // Compile the origin's own published front network.
@@ -153,7 +148,7 @@ export class Engine {
     try {
       const { manifest, base } = await fetchManifest(this.originUrl);
       const entry = manifest.networks[0];
-      // Set manifest early so resolveRemote/resolveMcp policy checks have it.
+      // Set manifest early so resolveRemote policy checks have it.
       this.top = { manifest, base };
       const hasConfiguredModel = !!String(this.modelOverride || "").trim();
       const hasRealKey = !!(this.byokKey && this.byokKey !== "demo");
@@ -167,11 +162,9 @@ export class Engine {
           reason: "saved router is another nsDeploy site's published mock endpoint",
         });
       }
-      const { network, bundleUrl, integrity, llm, validation: v } = await this._compile(base, manifest, entry, { isTop: true });
-      this.top = { network, base, bundleUrl, integrity, manifest, llm };
-      const loadActions = typeof location !== "undefined" && new URL(base).origin !== location.origin
-        ? registerRemoteActions : loadActionModule;
-      await loadActions(this.actions, { base, network: network.name }, manifest);
+      const { network, llm, validation: v } = await this._compile(base, manifest, entry, { isTop: true });
+      this.top = { network, base, manifest, llm };
+      await loadActionModule(this.actions, { base, network: network.name }, manifest);
       this.trace.note("action_catalog", { count: this.actions.catalog({ base, network: network.name }).length,
         issues: this.actions.discoveryIssues });
       this.mockLLM = llm.mock; // true when using the deterministic mock router
@@ -190,13 +183,29 @@ export class Engine {
     }
   }
 
-  async _compile(base, manifest, entry, { isTop = false } = {}) {
+  async _compile(base, manifest, entry, { isTop = false, signal } = {}) {
     const hoconUrl = resolveUrl(base, entry.hocon);
-    const text = await fetchText(hoconUrl);
+    const text = await scoped(signal, () => fetchText(hoconUrl, { signal }));
+    assertActive(signal);
     const config = parseHocon(text);
-    const publishedLinks = await this._loadPublishedLinks(base, entry.name || entry.hocon);
+    const publishedLinks = await this._loadPublishedLinks(base, entry.name || entry.hocon, { signal });
     config.links = { ...(config.links || {}), ...publishedLinks };
     const network = new AgentNetwork(config, entry.name || entry.hocon);
+    assertActive(signal);
+    const unsupported = new Set();
+    if (manifest.coded_tools) unsupported.add("coded tools");
+    if (["catalog", "pages", "hostPage", "bridge", "callerOrigins"].some(key => Object.hasOwn(manifest.actions || {}, key))) {
+      unsupported.add("remote action discovery/bridges and host forms");
+    }
+    for (const spec of network.config.tools || []) {
+      if (spec.class) unsupported.add(spec.toolbox ? "toolbox/REST tools" : "coded tools");
+      if (spec.toolbox) unsupported.add("toolbox/REST tools");
+      for (const ref of spec.tools || []) {
+        const kind = network.classifyTool(ref).kind;
+        if (["mcp", "coded", "toolbox"].includes(kind)) unsupported.add(kind === "mcp" ? "MCP tools" : kind === "coded" ? "coded tools" : "toolbox/REST tools");
+      }
+    }
+    if (unsupported.size) throw new Error(`This runtime does not support ${[...unsupported].join(", ")}.`);
     // Validation gate: a network with structural errors must never run. (Warnings
     // are non-fatal and surfaced in the trace/UI.) This applies to the top network
     // AND to every fetched-and-run peer network compiled below.
@@ -204,8 +213,6 @@ export class Engine {
     if (validation.errors && validation.errors.length) {
       throw new Error(`Network '${network.name}' (${hostOf(base)}) failed validation: ${validation.errors.join("; ")}`);
     }
-    const bundleUrl = manifest.coded_tools?.bundle ? resolveUrl(base, manifest.coded_tools.bundle) : null;
-    const integrity = manifest.coded_tools?.integrity || null; // optional SRI digest
     // LLM routing boundary. The top site chooses the active router. Peer manifests
     // contribute network definitions only and can never redirect execution or keys.
     let routerBase;
@@ -225,7 +232,7 @@ export class Engine {
       mock = selected.mock;
     }
     const llm = new LlmClient({ baseUrl: routerBase, apiKey: this.byokKey, trace: this.trace, mock });
-    return { network, bundleUrl, integrity, llm, hoconUrl, validation };
+    return { network, llm, hoconUrl, validation };
   }
 
   // Every hop is constrained by the immediate caller's published manifest. The
@@ -238,13 +245,15 @@ export class Engine {
     }
   }
 
-  async _loadPublishedLinks(base, networkName) {
+  async _loadPublishedLinks(base, networkName, { signal } = {}) {
     try {
-      const resp = await fetch(resolveUrl(base, "/links.json"), { cache: "no-store" });
+      const resp = await scoped(signal, () => fetch(resolveUrl(base, "/links.json"), { cache: "no-store", signal }));
       if (!resp.ok) return {};
-      const doc = await resp.json();
+      const doc = await scoped(signal, () => resp.json());
+      assertActive(signal);
       return doc?.networks?.[networkName] || {};
-    } catch {
+    } catch (error) {
+      assertActive(signal);
       return {};
     }
   }
@@ -258,21 +267,25 @@ export class Engine {
     catch { return ""; }
   }
 
-  async _persistLink(base, networkName, reference, target) {
+  async _persistLink(base, networkName, reference, target, { signal } = {}) {
+    assertActive(signal);
     try { localStorage.setItem(this._linkKey(base, networkName, reference), target); } catch {}
     if (this.top?.manifest?.deployment?.mode === "static") return;
     try {
-      await fetch(resolveUrl(base, "/_nsdeploy/links"), {
+      await scoped(signal, () => fetch(resolveUrl(base, "/_nsdeploy/links"), {
+        signal,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ network: networkName, reference, target }),
-      });
+      }));
+      assertActive(signal);
     } catch {
+      assertActive(signal);
       // Static hosts have no mutable endpoint; browser-local persistence remains.
     }
   }
 
-  async _normalizeLinkTarget(reference, rawTarget) {
+  async _normalizeLinkTarget(reference, rawTarget, { signal } = {}) {
     let parsed;
     try { parsed = new URL(String(rawTarget || "").trim()); }
     catch { throw new Error("Enter a complete http:// or https:// nsDeploy site URL."); }
@@ -281,7 +294,8 @@ export class Engine {
     }
     const requested = parsed.pathname.endsWith("/") ? "" : parsed.pathname.split("/").filter(Boolean).pop() || "";
     const origin = (requested ? new URL("./", parsed).href : `${parsed.origin}${parsed.pathname}`).replace(/\/$/, "");
-    const { manifest } = await fetchManifest(origin);
+    const { manifest } = await scoped(signal, () => fetchManifest(origin, { signal }));
+    assertActive(signal);
     const networks = manifest.networks || [];
     const norm = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
     let entry = requested ? networks.find((item) => item.name === requested) : null;
@@ -300,19 +314,22 @@ export class Engine {
     return `${origin}/${entry.name}`;
   }
 
-  async resolveLink(reference, network, base, parentSpan) {
+  async resolveLink(reference, network, base, parentSpan, { signal } = {}) {
+    assertActive(signal);
     let target = network.getLink(reference) || this._storedLink(base, network.name, reference);
     let needsValidation = false;
     if (!target) {
       if (typeof this.onLinkRequired !== "function") {
         throw new Error(`Agent-network link '${reference}' is unresolved. Supply a peer nsDeploy URL.`);
       }
-      target = await this.onLinkRequired({
+      target = await scoped(signal, () => this.onLinkRequired({
+        signal,
         reference,
         sourceNetwork: network.name,
         sourceOrigin: base,
         parentSpan,
-      });
+      }));
+      assertActive(signal);
       if (!target) return null;
       needsValidation = true;
     }
@@ -320,7 +337,7 @@ export class Engine {
     if (needsValidation) {
       // Entering a URL is the developer's explicit request to contact that site
       // for validation. Persisted links wait for the normal call-consent gate.
-      normalized = await this._normalizeLinkTarget(reference, target);
+      normalized = await this._normalizeLinkTarget(reference, target, { signal });
     } else {
       let parsed;
       try { parsed = new URL(String(target)); } catch {}
@@ -328,16 +345,18 @@ export class Engine {
         throw new Error(`Stored link '${reference}' is not a valid http(s) URL.`);
       }
     }
-    this.runtimeAllowedPeers.add(new URL(normalized).origin);
+    assertActive(signal);
+    if (needsValidation) this.runtimeAllowedPeers.add(new URL(normalized).origin);
     network.setLink(reference, normalized);
-    await this._persistLink(base, network.name, reference, normalized);
+    await this._persistLink(base, network.name, reference, normalized, { signal });
+    assertActive(signal);
     this.trace.note("link", {
       origin: hostOf(base), network: network.name, reference, target: normalized,
     });
     return normalized;
   }
 
-  _makeCtx({ network, base, bundleUrl, integrity, manifest, llm, slyData, chain, composition, isTop, history, turnControl }) {
+  _makeCtx({ network, base, manifest, llm, slyData, chain, composition, isTop, history, turnControl, signal, deadline }) {
     const self = this;
     const ctx = {
       network,
@@ -345,10 +364,7 @@ export class Engine {
       actions: this.actions,
       baseOrigin: base,
       displayOrigin: hostOf(base),
-      codedToolBundleUrl: bundleUrl,
-      codedToolIntegrity: integrity || null,
       llm,
-      sandbox: this.sandbox,
       trace: this.trace,
       slyData,
       composition,
@@ -359,15 +375,17 @@ export class Engine {
       isTop: !!isTop,
       frontMan: network.findFrontMan(),
       onAnswerDelta: isTop ? (t) => self.onAnswerDelta?.(t) : undefined,
-      resolveRemote: (ref, callChain, parentSpan) => self.resolveRemote(ref, callChain || chain, parentSpan, manifest),
-      resolveMcp: (ref, parentSpan) => self.resolveMcp(ref, parentSpan, slyData, manifest),
-      resolveLink: (ref, parentSpan) => self.resolveLink(ref, network, base, parentSpan),
-      requestConsent: (info) => self.requestConsent(info),
-      confirmWebsiteActions: (items) => self.onActionConfirm(items),
-      // LangChain.js AgentRunner intrinsic (neuro-san-web owns the loop)
-      // The bundled LangChain runner expects an HTTP OpenAI-compatible endpoint.
-      // Static bundles use the dependency-free manual loop for browser://mock.
-      externalRunner: llm.baseUrl === "browser://mock" ? null : self.agentRunner,
+      resolveRemote: (ref, callChain, parentSpan, scope) => self.resolveRemote(ref, callChain || chain, parentSpan, manifest, scope),
+      resolveLink: (ref, parentSpan, scope) => self.resolveLink(ref, network, base, parentSpan, scope),
+      requestConsent: async (info, scope) => {
+        self._assertAllowedPeer(info.targetUrl, manifest);
+        const decision = await self.requestConsent(info, scope);
+        assertActive(scope?.signal);
+        const { kind, ...details } = info;
+        self.trace.note("consent", { ...details, consentKind: kind, parent: info.parentSpan, origin: hostOf(base), ...decision });
+        return decision.decision;
+      },
+      confirmWebsiteActions: (items, scope) => self.onActionConfirm(items, scope),
       routerBaseUrl: llm.baseUrl,
       mock: llm.mock,
       apiKey: self.byokKey,
@@ -377,7 +395,7 @@ export class Engine {
       modelOverride: isTop ? self.modelOverride : (self.modelOverride || self.callerModel()),
       maxSteps: isTop ? 0 : self.callerMaxSteps(),
     };
-    return ctx;
+    return bindContext(ctx, signal, deadline);
   }
 
   // This site's front-agent spec. kernel.js copies the network's llm_config and max_steps
@@ -398,7 +416,8 @@ export class Engine {
   }
 
   // fetch-and-run-locally: turn a peer URL into a runnable Session.
-  async resolveRemote(ref, chain, parentSpan, sourceManifest) {
+  async resolveRemote(ref, chain, parentSpan, sourceManifest, { signal } = {}) {
+    assertActive(signal);
     const target = new URL(ref, `${this.top.base}/`);
     const origin = new URL("./", target).href.replace(/\/$/, "");
     this._assertAllowedPeer(origin, sourceManifest); // per-hop publish-time policy gate
@@ -416,7 +435,8 @@ export class Engine {
     });
     let session;
     try {
-      const { manifest, base } = await fetchManifest(origin);
+      const { manifest, base } = await scoped(signal, () => fetchManifest(origin, { signal }));
+      assertActive(signal);
       // Fail closed: only run the exact published network that was requested —
       // never silently fall back to a different (e.g. networks[0]) network.
       const entry = manifest.networks.find((n) => n.name === lastSeg);
@@ -426,33 +446,18 @@ export class Engine {
       const fetchedUrls = {
         manifest: `${base}/agent-manifest.json`,
         hocon: resolveUrl(base, entry.hocon),
-        toolBundle: manifest.coded_tools?.bundle ? resolveUrl(base, manifest.coded_tools.bundle) : null,
       };
-      const { network, bundleUrl, integrity, llm } = await this._compile(base, manifest, entry);
-      await registerRemoteActions(this.actions, { base, network: network.name }, manifest);
+      const { network, llm } = await this._compile(base, manifest, entry, { signal });
+      assertActive(signal);
       this.trace.end(fetchSpan, { network: network.name, fetchedUrls, peerOrigin: hostOf(origin), brand: manifest.brand });
-      session = new Session(this, { network, base, bundleUrl, integrity, manifest, llm, fetchedUrls, brand: manifest.brand });
+      session = new Session(this, { network, base, manifest, llm, fetchedUrls, brand: manifest.brand });
+      assertActive(signal);
       this.registry.set(origin, lastSeg, session);
       return session;
     } catch (err) {
       this.trace.fail(fetchSpan, err);
       throw err;
     }
-  }
-
-  // Resolve an MCP tool reference (string URL or { url, tools }) to a cached
-  // MCP client. The browser acts as MCP client to a hosted MCP server.
-  async resolveMcp(ref, parentSpan, slyData, sourceManifest) {
-    const url = typeof ref === "string" ? ref : ref.url;
-    this._assertAllowedPeer(url, sourceManifest); // same per-hop policy gate as peer networks
-    if (!this._mcpClients) this._mcpClients = new Map();
-    let client = this._mcpClients.get(url);
-    if (!client) {
-      const headers = (slyData && slyData.http_headers && slyData.http_headers[url]) || {};
-      client = new McpClient({ url, trace: this.trace, headers });
-      this._mcpClients.set(url, client);
-    }
-    return client;
   }
 
   async run(userText, { slyData } = {}) {
@@ -511,15 +516,14 @@ export class Engine {
     const runSpan = this.trace.start("run", { origin: hostOf(this.top.base), input: userText, streamToken: _streamToken });
     _turnControl?.attach(this.trace, runSpan);
     try {
+      const chain = [`${this.top.base}::${this.top.network.name}`];
       const ctx = this._makeCtx({
         network: this.top.network,
         base: this.top.base,
-        bundleUrl: this.top.bundleUrl,
-        integrity: this.top.integrity,
         manifest: this.top.manifest,
         llm: this.top.llm,
         slyData: { ...(slyData || {}) },
-        chain: [`${this.top.base}::${this.top.network.name}`],
+        chain,
         isTop: true,
         history: this.history,
         turnControl: _turnControl,
@@ -534,7 +538,7 @@ export class Engine {
         },
       });
       const message = interactionMessage(userText, interaction);
-      const result = await runAgent(ctx, this.top.network.findFrontMan(), message, runSpan, ctx_chain(ctx, this.top));
+      const result = await runAgent(ctx, this.top.network.findFrontMan(), message, runSpan, chain);
       _turnControl?.close();
       result.turnId = runSpan;
       this.rememberActionPresentation(result);
@@ -555,30 +559,19 @@ export class Engine {
   }
 }
 
-function ctx_chain(ctx, top) {
-  return [`${top.base}::${top.network.name}`];
-}
-
 // A peer network made runnable locally, exposed through the uniform Session API.
 class Session {
-  constructor(engine, { network, base, bundleUrl, integrity, manifest, llm, fetchedUrls, brand }) {
+  constructor(engine, { network, base, manifest, llm, fetchedUrls, brand }) {
     this.engine = engine;
     this.network = network;
     this.brand = brand;
     this.base = base;
-    this.bundleUrl = bundleUrl;
-    this.integrity = integrity || null;
     this.manifest = manifest;
     this.llm = llm;
     this.fetchedUrls = fetchedUrls;
   }
 
-  async func() {
-    const front = this.network.getAgentSpec(this.network.findFrontMan());
-    return front?.function || { description: this.network.name };
-  }
-
-  async invoke(request, { parentSpan, chain = [], composition } = {}) {
+  async invoke(request, { parentSpan, chain = [], composition, signal, deadline } = {}) {
     const trace = this.engine.trace;
     const span = trace.start("remote_call", {
       parent: parentSpan,
@@ -595,13 +588,11 @@ class Session {
       const ctx = this.engine._makeCtx({
         network: this.network,
         base: this.base,
-        bundleUrl: this.bundleUrl,
-        integrity: this.integrity,
         manifest: this.manifest,
         llm: this.llm,
         slyData: { ...(request.sly_data || {}) },
         chain: invocationChain,
-        composition,
+        composition, signal, deadline,
         isTop: false,
       });
       const result = await runAgent(ctx, this.network.findFrontMan(), request.user_message.text, span, invocationChain);
@@ -609,7 +600,7 @@ class Session {
       return result;
     } catch (err) {
       trace.fail(span, err);
-      return `Error from ${hostOf(this.base)}: ${err.message}`;
+      throw err;
     }
   }
 }

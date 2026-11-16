@@ -263,7 +263,7 @@ function observe(event) {
   }
   if (!latestRun || !(event.id === latestRun || spans.has(event.parent) || spans.has(event.id))) return;
   if (event.id) spans.set(event.id, event);
-  else if (['consent', 'composition_limit', 'composition_skip'].includes(event.kind)) decisions.push(event);
+  else if (['consent', 'composition_limit'].includes(event.kind)) decisions.push(event);
   const list = $('#runtime-events');
   list.replaceChildren();
   for (const span of [...spans.values(), ...decisions]) {
@@ -274,7 +274,27 @@ function observe(event) {
     list.append(node('li', label));
   }
   const counts = kind => [...spans.values()].filter(span => span.kind === kind).length;
-  $('#trust-state').textContent = `Observed in latest chat run ${latestRun}: ${spans.get(latestRun)?.status ?? 'running'}; ${counts('agent')} agent spans, ${counts('model_call')} model-call spans, ${counts('remote_fetch')} peer-fetch spans, ${counts('remote_call')} peer-call spans, ${decisions.filter(item => item.kind === 'consent').length} explicit consent-decision events. These are runtime reports, not proof of credential or private-context isolation. Consent without an event, CORS policy, cycle interruption, and limit enforcement remain unverified.`;
+  const consent = decisions.filter(item => item.kind === 'consent');
+  const consentCounts = [
+    ['prompt_allow', 'Allow once'], ['prompt_always', 'Always allow now'],
+    ['remembered_always', 'Remembered always allow'], ['decline', 'Decline'],
+    ['headless_default', 'No UI hook default allow'],
+  ].map(([source, label]) => `${label}: ${consent.filter(item => item.source === source).length}`).join('; ');
+  $('#trust-state').textContent = `Observed in latest chat run ${latestRun}: ${spans.get(latestRun)?.status ?? 'running'}; ${counts('agent')} agent spans, ${counts('model_call')} model-call spans, ${counts('remote_fetch')} peer-fetch spans, ${counts('remote_call')} peer-call spans, ${consent.length} explicit consent-decision events (${consentCounts}). These are runtime reports, not proof of credential or private-context isolation. CORS policy, cycle interruption, and limit enforcement remain unverified.`;
+}
+
+const urlSecrets = [...new URLSearchParams(globalThis.location?.search || "")]
+  .filter(([name]) => /key|token|secret|password|authorization|cookie/i.test(name))
+  .map(([, value]) => value).filter(Boolean);
+
+function bootError(error) {
+  let message = String(error?.message || error || "Unknown loader error");
+  for (const value of urlSecrets) message = message.split(value).join("[redacted]");
+  return message.replace(/https?:\/\/[^\s<>"']+/gi, value => {
+    try { const url = new URL(value); return url.origin + url.pathname; }
+    catch { return "[redacted URL]"; }
+  }).replace(/\b(authorization|cookie)\s*:\s*[^\r\n]+/gi, "$1: [redacted]")
+    .replace(/(["']?(?:api[_-]?key|key|token|secret|password|authorization|cookie)["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi, "$1[redacted]");
 }
 
 async function mountDesk() {
@@ -282,7 +302,6 @@ async function mountDesk() {
     const { boot } = await import('./runtime/index.js');
     runtime = await boot(root, {
       originUrl: new URL('./', import.meta.url).href,
-      sandboxWorkerUrl: new URL('./runtime/sandbox-worker.js', import.meta.url).href,
     });
     root.hidden = false;
     status.textContent = 'Review Desk is ready. Configure AI model settings with your provider key to start chatting. Static validation and URL audits need no key.';
@@ -291,11 +310,11 @@ async function mountDesk() {
     runtime.trace.addEventListener('event', event => observe(event.detail));
     for (const event of runtime.trace.events) observe(event);
     renderChecks(currentChecks);
-  } catch {
+  } catch (error) {
     root.hidden = true;
     status.setAttribute('role', 'alert');
     status.dataset.state = 'error';
-    status.textContent = 'Review Desk chat could not be loaded. Serve this site over HTTP or HTTPS, check that its runtime, agent-manifest.json, and network definition are available and valid, and reload. Key-free checks and URL audits remain available above.';
+    status.textContent = 'Review Desk chat could not be loaded. Serve this site over HTTP or HTTPS, check that its runtime, agent-manifest.json, and network definition are available and valid, and reload. Key-free checks and URL audits remain available above.' + ` Loader error: ${bootError(error)}`;
   }
 }
 

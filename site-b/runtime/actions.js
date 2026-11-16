@@ -1,4 +1,5 @@
 // Site-owned executable capabilities. Agent output is data, never executable code.
+import { assertActive, scoped } from "./scope.js";
 export const plain = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 const badKeys = new Set(["__proto__", "prototype", "constructor"]);
 export function cloneData(value) {
@@ -65,19 +66,18 @@ export function actionContext(catalog) {
 }
 
 export class ActionRegistry {
-  constructor() { this.entries = new Map(); this.sequence = 0; this.discoveryIssues = []; }
+  constructor() { this.entries = new Map(); this.discoveryIssues = []; }
   register(scope, definition, execute = definition.execute) {
-    const { name, description, inputSchema, outputSchema, effect = "write", availability = "local-only", callerOrigins = [], timeoutMs = 180000 } = cloneData(definition);
+    const { name, description, inputSchema, outputSchema, effect = "write", availability = "local-only", timeoutMs = 180000 } = cloneData(definition);
     if (!/^[A-Za-z][\w-]{0,79}$/.test(name || "") || !description || typeof execute !== "function") throw new Error("Action requires name, description and execute function.");
-    if (!["read", "write", "irreversible"].includes(effect) || !["local-only", "bridge", "top-level"].includes(availability)) throw new Error("Invalid action policy.");
-    if (!Array.isArray(callerOrigins) || callerOrigins.some(o => o !== "*" && new URL(o).origin !== o)) throw new Error("callerOrigins must contain exact origins.");
+    if (!["read", "write", "irreversible"].includes(effect) || availability !== "local-only") throw new Error("Invalid action policy; only local-only actions are supported.");
     if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 300000) throw new Error("timeoutMs must be 100–300000.");
     checkSchema(inputSchema);
     if (inputSchema.type !== "object") throw new Error("Action input must be an object.");
     if (outputSchema) checkSchema(outputSchema);
     const ref = `${scope.base.replace(/\/$/, "")}/${encodeURIComponent(scope.network)}#${name}`;
     if (this.entries.has(ref)) throw new Error(`Duplicate action: ${name}`);
-    const entry = { ref, name, description, inputSchema, outputSchema, effect, availability, callerOrigins, timeoutMs, ...scope, execute };
+    const entry = { ref, name, description, inputSchema, outputSchema, effect, availability, timeoutMs, ...scope, execute };
     this.entries.set(ref, entry);
     return ref;
   }
@@ -112,7 +112,6 @@ export class ActionRegistry {
     if (issues.length) result.presentationIssues = [...(result.presentationIssues || []), ...issues];
     if (result.presentation?.components.length === 0) {
       result.presentation = null;
-      if (!result.text) result.text = "The proposed action could not be validated. Please ask me to try again.";
     }
     return result;
   }
@@ -127,25 +126,36 @@ export class ActionRegistry {
       return { entry, args };
     });
   }
-  async execute(plan, confirm, invocationId) {
+  async execute(plan, confirm, invocationId, { signal, onStart } = {}) {
+    assertActive(signal);
     // Confirm the immutable complete payload before any action begins.
-    if (!await confirm(plan.map(({ entry, args }) => ({ action: entry.name, description: entry.description, origin: new URL(entry.base).origin, effect: entry.effect, arguments: cloneData(args) })))) return null;
+    const approved = await scoped(signal, () => confirm(plan.map(({ entry, args }) => ({ action: entry.name, description: entry.description, origin: new URL(entry.base).origin, effect: entry.effect, arguments: cloneData(args) }))));
+    assertActive(signal);
+    if (!approved) return null;
     const receipts = [];
     for (let i = 0; i < plan.length; i++) {
+      assertActive(signal);
       const { entry, args } = plan[i];
       const requestId = `${invocationId}:${i}`;
       const controller = new AbortController();
       let timer;
+      let started = false;
+      const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
       try {
-        const result = cloneData(await Promise.race([
-          Promise.resolve().then(() => entry.execute(cloneData(args), { requestId, signal: controller.signal })),
-          new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error("Action timed out; outcome unknown. Check the site before retrying.")); }, entry.timeoutMs); }),
-        ]));
+        const result = cloneData(await scoped(combined, () => {
+          timer = setTimeout(() => controller.abort(new Error("Action timed out; outcome unknown. Check the site before retrying.")), entry.timeoutMs);
+          assertActive(signal);
+          started = true;
+          onStart?.({ action: entry.ref, requestId, effect: entry.effect });
+          return entry.execute(cloneData(args), { requestId, signal: combined });
+        }));
+        assertActive(signal);
         if (entry.outputSchema) validateData(entry.outputSchema, result, "result");
         receipts.push({ action: entry.ref, requestId, status: "succeeded", result });
       } catch (error) {
-        // The server may have committed before the connection failed. Never retry.
-        receipts.push({ action: entry.ref, requestId, status: "unknown", error: String(error.message || error) });
+        if (!started) throw error;
+        // The handler may have committed before failing. Never retry an uncertain result.
+        receipts.push({ action: entry.ref, requestId, status: "unknown", error: String(error?.message || error) });
         for (const { entry: rest } of plan.slice(i + 1)) receipts.push({ action: rest.ref, status: "not_started" });
         break;
       } finally { clearTimeout(timer); }

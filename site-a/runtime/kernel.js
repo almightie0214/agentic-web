@@ -144,7 +144,7 @@ export function filterConfig(rawConfig) {
 }
 
 // A blank or quoted-empty model_name ("  ", '""') becomes "", so it counts as not set
-// and falls back to the network's model. Both runners and the settings panel read
+// and falls back to the network's model. The runner and the settings panel read
 // this config, so they all fall back the same way.
 function normalizeConfiguredModel(llmConfig) {
   if (isPlainObject(llmConfig) && typeof llmConfig.model_name === "string") {

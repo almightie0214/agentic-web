@@ -27,7 +27,7 @@ export function fallbackModel(networkModel) {
 }
 
 // The model an agent sends: the visitor's choice, then the agent's declared model,
-// then fallbackModel. The runners and the settings panel both use this, so the panel
+// then fallbackModel. The runner and the settings panel both use this, so the panel
 // checks exactly what a turn would send.
 export function effectiveModel(override, agentModel, networkModel) {
   return override || agentModel || fallbackModel(networkModel);

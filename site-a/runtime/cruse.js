@@ -1,7 +1,7 @@
 // Changed by agentic-web. See README.md in this folder for what changed.
 // Changed by Agent Review Desk + Spec Scout: removed legacy confirm-text inference.
 // CRUSE's wire contract. Proposals are returned to the caller, never published
-// directly to the user by a child agent. This module is shared by both runners.
+// directly to the user by a child agent.
 const object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 const kinds = new Set(["form", "choice", "confirm", "info", "report", "table", "chart", "html", "action"]);
 
@@ -105,7 +105,7 @@ export function consolidateIntakePresentations(presentations) {
 // Preserve AAOSA metadata for parent agents, while exposing its human answer to
 // the UI. Handle presentation fences inside Response as well as outside it.
 export function parseAgentResponse(raw, source = {}) {
-  let text = typeof raw === "string" ? raw : JSON.stringify(raw ?? "");
+  let text = typeof raw === "string" ? raw : raw == null ? "" : JSON.stringify(raw);
   const proposals = [];
   const issues = [];
   let protocol;
@@ -145,7 +145,6 @@ export function parseAgentResponse(raw, source = {}) {
     merged.push(...(normalized.presentation?.components || []));
   }
   const { presentation } = normalizePresentation({ version: 1, components: merged }, source.invocation || "component");
-  if (!text && !presentation && issues.length) text = "I couldn’t display that response. Please ask me to try again.";
   if (protocol && typeof protocol.Response === "string") protocol = { ...protocol, Response: text };
   return { cruse: 1, text, presentation, source, ...(protocol ? { protocol } : {}),
     ...(issues.length ? { presentationIssues: issues, unrenderedProposals: proposals } : {}) };

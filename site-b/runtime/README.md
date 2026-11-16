@@ -14,9 +14,9 @@ clearing/hiding branch, and dedicated CSS are also removed from `ui.js`; current
 chat, agents, and settings mounts and in-chat turn status are preserved. Welcome
 widgets now use the same presentation validation as responses. Confirm widgets
 must provide explicit, nonblank `confirmText`; `confirmLabel` remains an optional
-button label. The current
-`langchain` selection, default runner, static mode exclusion, and Provider URL
-precedence are preserved. In `byok.js`, the obsolete standalone-key slot
+button label. LangChain selection and its optional bundled execution loop are
+retired: all calls use the same runtime loop, with no runner selection in `boot`.
+Provider URL precedence is preserved. In `byok.js`, the obsolete standalone-key slot
 `nsweb-byok-key` is no longer read, written, or cleared. Only current tab settings
 and saved profiles supply BYOK settings. After AW4 browser testing, cookie profile
 mirroring (including loopback) and its UI hint were removed from `byok.js` and
@@ -28,8 +28,24 @@ is no cookie migration, reader or automatic cleanup. See
 [the browser ledger](../../docs/demo-checklist.md) for the cleanup/recheck procedure.
 `kernel.js` now rejects duplicate agent names after `filterConfig` replacement and
 trimming, before `specMap` can overwrite an entry; this applies to both top and
-peer compilation. These are local corrections to the copied reference runtime,
-not a replacement runtime. The license and upstream documentation below are
+peer compilation.
+
+The local runtime also retires MCP, toolbox/REST tools, coded-tool sandbox workers,
+and cross-origin action discovery/bridges, including discovered catalogs and host
+forms. Their declarations are rejected before execution rather than silently
+ignored. Static kernel classification and generated validation remain available
+for the key-free validator. Local same-origin action modules, `ActionRegistry`,
+`website_*` tools, confirmation UI, validation and write receipts are retained.
+
+Agent calls and tool dispatch now either return an accepted answer/result or throw.
+Only `executeToolCalls` converts failures into error tool results, preserving
+website receipts and uncertain write outcomes; diagnostics never become answer
+text. Each invocation inherits the earliest parent, composition or own deadline.
+Model and peer I/O and all context functions share that invocation's cancellation
+scope; pending consent, link and action-confirmation UI close on abort and ignore
+late input. Policy is checked before consent, and every consent decision has one
+trace event with its source. The hosting pages expose sanitized loader errors.
+These are local corrections to the copied reference runtime, not a replacement runtime. The license and upstream documentation below are
 preserved; runtime claims there do not replace the local browser evidence ledger.
 
 ## Upstream documentation

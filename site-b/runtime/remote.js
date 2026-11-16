@@ -1,21 +1,24 @@
 // remote.js — the RemoteNetworkLoader intrinsic: fetch a peer origin's published
-// agent network (manifest + HOCON + coded-tool bundle) and make it runnable
+// agent network (manifest + HOCON) and make it runnable
 // locally. This is the "fetch-and-run-locally" cross-origin composition model:
 // there is no agent server — the caller's browser runs the peer's published files.
 
-export async function fetchManifest(originUrl) {
+import { assertActive, scoped } from "./scope.js";
+
+export async function fetchManifest(originUrl, { signal } = {}) {
   const base = originUrl.replace(/\/$/, "");
   const url = `${base}/agent-manifest.json`;
-  const resp = await fetch(url);
+  const resp = await scoped(signal, () => fetch(url, { signal }));
   if (!resp.ok) throw new Error(`manifest fetch ${resp.status} for ${url}`);
-  const manifest = await resp.json();
+  const manifest = await scoped(signal, () => resp.json());
+  assertActive(signal);
   return { manifest, base, url };
 }
 
-export async function fetchText(url) {
-  const resp = await fetch(url);
+export async function fetchText(url, { signal } = {}) {
+  const resp = await scoped(signal, () => fetch(url, { signal }));
   if (!resp.ok) throw new Error(`fetch ${resp.status} for ${url}`);
-  return resp.text();
+  return scoped(signal, () => resp.text());
 }
 
 // Resolve a relative path against an origin base.

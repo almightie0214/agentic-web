@@ -175,7 +175,6 @@ function normalizeProfile(raw) {
   const key = String(raw.key || "");
   const model = normalizeModelName(raw.model);
   const router = String(raw.router || "").trim();
-  const runner = !!raw.runner;
   const name = String(raw.name || guessByokProfileName({ router, model })).trim().slice(0, 80);
   if (!key && !model && !router) return null;
   return {
@@ -184,7 +183,6 @@ function normalizeProfile(raw) {
     key,
     model,
     router,
-    runner,
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : "",
   };
 }

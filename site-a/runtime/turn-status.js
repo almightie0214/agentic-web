@@ -6,7 +6,6 @@
 
 function humanize(value, fallback) {
   const text = String(value || "")
-    .replace(/^mcp_/, "")
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -33,7 +32,6 @@ export function statusTextForEvent(event) {
     case "tool.started": {
       if (event.tool?.kind === "agent") return `Asking ${tool}…`;
       if (event.tool?.kind === "remote network" || event.tool?.kind === "linked network") return `Contacting ${tool}…`;
-      if (event.tool?.kind === "MCP") return `Checking ${tool}…`;
       return `Running ${tool}…`;
     }
     case "tool.progress":

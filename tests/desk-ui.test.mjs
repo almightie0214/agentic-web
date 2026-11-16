@@ -309,14 +309,23 @@ test('desk UI: runtime graph uses current-run spans, actual decisions and effect
   trace.end(model);
   const peer = trace.start('remote_fetch', { parent: agent, peerOrigin: 'scout.localhost' });
   trace.end(peer, { network: 'spec_scout' });
-  trace.note('consent', { parent: agent, peerOrigin: 'denied.localhost', decision: 'declined', requestPayload: 'not displayed' });
+  trace.note('consent', { parent: agent, peerOrigin: 'denied.localhost', decision: 'decline', source: 'decline', requestPayload: 'not displayed' });
   trace.end(run);
   assert.match($('#runtime-events').textContent, new RegExp(`${run} → ${agent}: agent review_entry`));
-  assert.match($('#runtime-events').textContent, /consent denied.localhost — declined/);
+  assert.match($('#runtime-events').textContent, /consent denied.localhost — decline/);
   assert.doesNotMatch($('#runtime-events').textContent, /not displayed/);
   assert.match($('#runtime-events').textContent, /router.localhost \/ scripted-model \/ mock/);
   assert.match($('#trust-state').textContent, /1 peer-fetch spans, 0 peer-call spans, 1 explicit consent-decision events/);
   assert.match($('#trust-state').textContent, /not proof[\s\S]*unverified/);
+  for (const source of ['prompt_allow', 'prompt_always', 'remembered_always', 'headless_default']) {
+    trace.note('consent', { parent: agent, peerOrigin: 'scout.localhost', decision: 'allow', source });
+  }
+  const trust = $('#trust-state').textContent;
+  assert.match(trust, /5 explicit consent-decision events/);
+  for (const label of ['Allow once', 'Always allow now', 'Remembered always allow', 'Decline', 'No UI hook default allow']) {
+    assert.ok(trust.includes(label + ': 1'), label);
+  }
+  assert.doesNotMatch(trust, /Consent without an event/);
   trace.start('run');
   assert.doesNotMatch($('#runtime-events').textContent, /review_entry|denied.localhost/);
   assert.match($('#trust-state').textContent, /0 peer-fetch spans/);

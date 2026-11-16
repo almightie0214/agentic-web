@@ -2,6 +2,7 @@
 
 import { assertModelForRouter, normalizeModelName } from "./model.js";
 import { ProviderError } from "./provider-error.js";
+import { assertActive } from "./scope.js";
 
 function hostOf(url) {
   try { return new URL(url).host; } catch { return url || "?"; }
@@ -43,12 +44,8 @@ export function browserMockCompletion(messages = [], tools = []) {
   return { content, toolCalls: [], finishReason: "stop", usage: null, model: "neuro-san-mock-browser" };
 }
 
-//
-// In production this is @langchain/openai's ChatOpenAI pointed at a router base
-// URL. Here it is a direct fetch to any OpenAI-compatible endpoint (LiteLLM,
-// OpenRouter, vLLM, Ollama, Docker Model Runner, or the demo mock router). The
-// BYOK key is never put in the URL and is sent only to the chosen router as
-// Authorization.
+// Direct fetch to an OpenAI-compatible endpoint. The BYOK key is never put in
+// the URL and is sent only to the chosen router as Authorization.
 
 export class LlmClient {
   constructor({ baseUrl, apiKey, trace, mock }) {
@@ -62,6 +59,7 @@ export class LlmClient {
   // tools: [{type:'function', function:{name, description, parameters}}]
   // onContentDelta: (text) => void  — streamed natural-language tokens
   async chat({ model, messages, tools, origin, parentSpan, onContentDelta, signal }) {
+    assertActive(signal);
     model = normalizeModelName(model);
     // A real (non-mock) router with no API key: refuse rather than forward the
     // placeholder "demo" to a live provider (which returns a confusing 401). This
@@ -97,7 +95,8 @@ export class LlmClient {
         signal?.throwIfAborted?.();
         const result = browserMockCompletion(messages, tools);
         if (result.content) {
-          onContentDelta?.(result.content);
+          await onContentDelta?.(result.content);
+          assertActive(signal);
           this.trace?.update(span, { streamChunk: result.content });
         }
         this.trace?.end(span, {
@@ -145,8 +144,9 @@ export class LlmClient {
       });
       return result;
     } catch (err) {
-      const friendlyError = ProviderError.friendly(err, this.baseUrl);
-      if (err?.name === "AbortError" && signal?.aborted) {
+      const failure = signal?.aborted ? signal.reason : err;
+      const friendlyError = ProviderError.friendly(failure, this.baseUrl);
+      if (failure?.name === "AbortError" && signal?.aborted) {
         this.trace?.end(span, { status: "steered", interrupted: true });
       } else {
         this.trace?.fail(span, friendlyError);
@@ -171,7 +171,8 @@ export class LlmClient {
     let usage = null;
     let model = null;
 
-    const handleChunk = (json) => {
+    const handleChunk = async (json) => {
+      assertActive(signal);
       if (json.model) model = json.model;
       if (json.usage) usage = json.usage;
       const choice = json.choices?.[0];
@@ -180,7 +181,8 @@ export class LlmClient {
       if (delta.content) {
         content += delta.content;
         if (!signal?.aborted) {
-          onContentDelta?.(delta.content);
+          await onContentDelta?.(delta.content);
+          assertActive(signal);
           this.trace?.update(span, { streamChunk: delta.content });
         }
       }
@@ -209,11 +211,10 @@ export class LlmClient {
           if (!line || !line.startsWith("data:")) continue;
           const payload = line.slice(5).trim();
           if (payload === "[DONE]") continue;
-          try {
-            handleChunk(JSON.parse(payload));
-          } catch {
-            /* ignore malformed keep-alive lines */
-          }
+          let json;
+          try { json = JSON.parse(payload); }
+          catch { continue; } // Ignore malformed keep-alive lines, not callback errors.
+          await handleChunk(json);
         }
       }
     } finally {
