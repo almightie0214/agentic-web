@@ -35,6 +35,10 @@ async function assemble(input, layout) {
     const records = JSON.parse(await readFile(new URL('mini-theora/layout.json', fixtures), 'utf8'));
     // The input .theora layout exists only inside this test's unique workspace.
     for (const { path, content } of records) await put(input, path, content);
+  } else if (layout === 'adk') {
+    for (const path of ['root_agent.yaml', 'middle/agent.yaml', 'middle/leaf/agent.yaml']) {
+      await put(input, path, await readFile(new URL(`adk/${path}`, fixtures)));
+    }
   } else {
     for (const name of await readdir(new URL('sample-agents/', fixtures))) {
       if (name.endsWith('.md')) {
@@ -71,7 +75,7 @@ async function failure(result, { input, output, root }, extraPrivate = []) {
 
 async function snapshots(output, layout) {
   assert.deepEqual((await readdir(output)).sort(), artifacts);
-  const fixture = layout === 'theora' ? 'mini-theora' : 'sample-agents';
+  const fixture = layout === 'theora' ? 'mini-theora' : layout === 'adk' ? 'adk' : 'sample-agents';
   for (const name of artifacts) {
     assert.deepEqual(await readFile(join(output, name)), await readFile(new URL(`${fixture}/expected/${name}`, fixtures)));
   }
@@ -473,4 +477,93 @@ test('CVT-CLI/SEC-003: output write failures are nonzero and do not disclose hos
   await writeFile(ws.output, 'PRIVATE_OUTPUT_SENTINEL');
   await failure(invoke([ws.input, join(ws.output, 'PRIVATE_CHILD_SENTINEL')]), { ...ws, output: join(ws.output, 'PRIVATE_CHILD_SENTINEL') }, ['PRIVATE_OUTPUT_SENTINEL', 'PRIVATE_CHILD_SENTINEL']);
   assert.equal(await readFile(ws.output, 'utf8'), 'PRIVATE_OUTPUT_SENTINEL');
+});
+
+test('ADK CLI: auto and explicit conversion preserve snapshots, notices, and pass bundle checks', async t => {
+  for (const explicit of [false, true]) await t.test(String(explicit), async t => {
+    const ws = await workspace(t);
+    await assemble(ws.input, 'adk');
+    await assemble(ws.input, 'markdown');
+    await put(ws.input, 'unreachable.yaml', Buffer.from([0xff]));
+    const result = invoke([ws.input, ws.output, ...(explicit ? ['--layout', 'adk'] : [])]);
+    success(result);
+    assert.match(result.stdout, /Not converted for specialist:.*model.*tools|Not converted for specialist:.*tools.*model/);
+    await snapshots(ws.output, 'adk');
+    const input = await bundleInput(ws.output);
+    assert.deepEqual(input.network.tools.map(agent => [agent.name, agent.tools]),
+      [['coordinator', ['specialist']], ['researcher', []], ['specialist', ['researcher']]]);
+    assert.equal(validateNetwork(input).valid, true);
+    const tree = await publicationTree(ws.root, ws.output);
+    const report = await checkConformance({ root: pathToFileURL(`${tree}/`) });
+    assert.equal(report.valid, true, JSON.stringify(report.checks));
+    const checked = runConformance(tree);
+    assert.equal(checked.status, 0, checked.stdout);
+    // Theora wins even over the ADK root; explicit ADK remains available.
+    await assemble(ws.input, 'theora');
+    success(invoke([ws.input, ws.output]));
+    await snapshots(ws.output, 'theora');
+  });
+});
+
+test('ADK CLI: referenced input failures are atomic and diagnostics never echo source values', async t => {
+  const root = 'name: root\ninstruction: Answer public questions.\nsub_agents:\n  - config_path: child.yaml\n';
+  for (const [label, records, options] of [
+    ['missing', [['root_agent.yaml', root]], []],
+    ['UTF-8', [['root_agent.yaml', root], ['child.yaml', Buffer.from([0xff])]], []],
+    ['unsafe path', [['root_agent.yaml', root.replace('child.yaml', '../PRIVATE_SOURCE_SENTINEL.yaml')]], []],
+    ['duplicate', [['root_agent.yaml', root + '  - config_path: child.yaml\n'], ['child.yaml', 'name: child\ninstruction: Reply.']], []],
+    ['code', [['root_agent.yaml', root.replace('config_path: child.yaml', 'code: PRIVATE_SOURCE_SENTINEL')]], []],
+    ['cycle', [['root_agent.yaml', root.replace('child.yaml', 'root_agent.yaml')]], []],
+    ['case-sensitive reference', [['root_agent.yaml', root], ['Child.yaml', 'name: child\ninstruction: Reply.']], []],
+    ['front', [['root_agent.yaml', root], ['child.yaml', 'name: child\ninstruction: Reply.']], ['--front', 'child']],
+    ['explicit missing root', [['reader.md', '# Reader']], ['--layout', 'adk']],
+  ]) await t.test(label, async t => {
+    const ws = await workspace(t);
+    for (const [path, content] of records) await put(ws.input, path, content);
+    await failure(invoke([ws.input, ws.output, ...options]), ws, ['PRIVATE_SOURCE_SENTINEL']);
+  });
+});
+
+test('ADK CLI: symlinked references and directories are never followed', async t => {
+  for (const kind of ['file', 'dir']) await t.test(kind, async t => {
+    const ws = await workspace(t);
+    const external = join(ws.root, 'external');
+    await mkdir(external);
+    await put(external, 'child.yaml', 'name: child\ninstruction: Reply.');
+    const path = kind === 'file' ? 'child.yaml' : 'nested/child.yaml';
+    await put(ws.input, 'root_agent.yaml', `name: root\ninstruction: Answer.\nsub_agents:\n  - config_path: ${path}\n`);
+    try { await symlink(kind === 'file' ? join(external, 'child.yaml') : external,
+      join(ws.input, kind === 'file' ? 'child.yaml' : 'nested'), kind); }
+    catch (error) {
+      if (['EPERM', 'ENOSYS'].includes(error.code)) return t.skip('Host does not permit symlink creation.');
+      throw error;
+    }
+    await failure(invoke([ws.input, ws.output]), ws);
+  });
+});
+
+test('ADK CLI: only reached files must be readable', async t => {
+  if (process.platform === 'win32' || process.getuid?.() === 0) return t.skip('Host permissions cannot enforce mode 000.');
+  const ws = await workspace(t);
+  await put(ws.input, 'root_agent.yaml', 'name: root\ninstruction: Reply.');
+  await put(ws.input, 'child.yaml', 'name: child\ninstruction: Reply.');
+  const child = join(ws.input, 'child.yaml');
+  await chmod(child, 0);
+  try {
+    success(invoke([ws.input, ws.output]));
+    await rm(ws.output, { recursive: true });
+    await put(ws.input, 'root_agent.yaml', 'name: root\ninstruction: Reply.\nsub_agents:\n - config_path: child.yaml');
+    await failure(invoke([ws.input, ws.output]), ws);
+  } finally { await chmod(child, 0o600); }
+});
+
+test('ADK CLI: notice names are sanitized and values stay out of artifacts and diagnostics', async t => {
+  const ws = await workspace(t);
+  await put(ws.input, 'root_agent.yaml', 'name: root\ninstruction: Reply.\ntools: PRIVATE_VALUE_SENTINEL\nmodel: PRIVATE_VALUE_SENTINEL\nghp_abcdefgh: PRIVATE_VALUE_SENTINEL\n/private/key: PRIVATE_VALUE_SENTINEL\n');
+  const result = invoke([ws.input, ws.output]);
+  success(result);
+  assert.match(result.stdout, /model.*tools|tools.*model/);
+  assert.match(result.stdout, /2 additional key names withheld/);
+  for (const name of artifacts) assert.doesNotMatch(await readFile(join(ws.output, name), 'utf8'), /PRIVATE_VALUE_SENTINEL|ghp_abcdefgh|\/private\/key/);
+  assert.doesNotMatch(result.stdout + result.stderr, /PRIVATE_VALUE_SENTINEL|ghp_abcdefgh|\/private\/key/);
 });

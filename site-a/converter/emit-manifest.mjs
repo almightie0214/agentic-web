@@ -4,7 +4,7 @@ import { describeLayout } from './describe-layout.mjs';
  * Emit publication data using emitNetwork's selected, sanitized frontMan.
  * Front selection and role membership validation stay in emitNetwork.
  * @param {string} frontMan Selected role name, unchanged.
- * @param {'theora'|'markdown'} layout Input format selected by parseRoles.
+ * @param {'theora'|'markdown'|'adk'} layout Input format selected by parseRoles.
  * @returns {{manifest: object, links: object}} Fresh data for agent-manifest.json and links.json.
  */
 export function emitManifest(frontMan, layout) {

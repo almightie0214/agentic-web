@@ -26,6 +26,29 @@ test('converter fixtures: virtual Theora files contain two roles and valid confi
   assert.equal(config.front_man, 'coordinator');
 });
 
+test('converter fixtures: ADK sample mirrors the three-level fixture and sorted publication graph', async () => {
+  for (const path of ['root_agent.yaml', 'middle/agent.yaml', 'middle/leaf/agent.yaml']) {
+    assert.equal(await readFile(new URL(`adk/${path}`, fixtures), 'utf8'),
+      await readFile(new URL(`../../../site-a/converter/samples/adk/${path}`, fixtures), 'utf8'));
+  }
+  const expected = 'adk/expected/';
+  const artifacts = ['agent-manifest.json', 'converted_team.network.json', 'links.json'];
+  assert.deepEqual((await readdir(new URL(expected, fixtures))).sort(), artifacts);
+  const [manifest, network, links] = await Promise.all(artifacts.map((name) => readJson(expected + name)));
+  assert.equal(manifest.networks[0].front_man, 'coordinator');
+  assert.equal(manifest.networks[0].description, 'Converted Google ADK agent network.');
+  assert.equal(network.metadata.description, manifest.networks[0].description);
+  assert.deepEqual(network.tools.map(({ name, tools }) => ({ name, tools })), [
+    { name: 'coordinator', tools: ['specialist'] }, { name: 'researcher', tools: [] },
+    { name: 'specialist', tools: ['researcher'] },
+  ]);
+  assert.deepEqual(links, { version: 1, networks: { converted_team: {} } });
+  for (const name of artifacts) {
+    const text = await readFile(new URL(expected + name, fixtures), 'utf8');
+    assert.equal(text, JSON.stringify(JSON.parse(text), null, 2) + '\n');
+  }
+});
+
 // CVT-TEST-001: frontmatter and filename/title examples are input data only.
 test('converter fixtures: sample agents include coordinator and specialist Markdown', async () => {
   const entries = await readdir(new URL('sample-agents/', fixtures), { withFileTypes: true });

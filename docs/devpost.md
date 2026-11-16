@@ -29,11 +29,17 @@ approves contact, then the exact named peer network loads and runs in the caller
 browser with the caller's selected inference router and model policy.
 
 **Role Converter** turns Theora or Markdown roles into a front-to-specialist
-conversation graph, checks it, and offers a network, manifest and links file for
-download. Files are processed in the browser; the same conversion modules power
-the Node CLI. Opening artifacts in Review Desk transfers data for static inspection,
-not execution. The converter exports role text and a graph, not source-harness
-permissions, tools, scheduling or filesystem access.
+conversation graph, or Google ADK Agent Config into a graph preserving its
+multi-level `sub_agents` edges. ADK starts at `root_agent.yaml` and reads only
+reachable config files. It checks the result and offers a network, manifest and
+links file for download. Unmapped ADK and Markdown frontmatter keys such as
+`tools` and `model` produce sanitized key-name notices outside the artifacts;
+unsafe key names appear only as counts, and values are never included. Files are
+processed in the browser; the same modules power the Node CLI. Opening artifacts
+in Review Desk transfers data for static inspection, not execution. The converter
+exports sanitized instructions and edges, not source-harness permissions, tools,
+model choices, scheduling or filesystem access. ADK control transfer becomes
+call-and-answer delegation, not equivalent ADK execution.
 
 ### Try it without a key in one minute
 

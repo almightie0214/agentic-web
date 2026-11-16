@@ -4,7 +4,7 @@ import { describeLayout } from './describe-layout.mjs';
 // CVT-NET-005: append after the sanitized source, according to the selected front.
 const outputRules = {
   front: 'Return only the final answer intended for the visitor. Do not include drafts, plans, process notes, or messages addressed to other roles.',
-  specialist: 'Return only the answer to the inquiry sent by the front agent. Do not include drafts, plans, process notes, or messages addressed to other roles.',
+  specialist: 'Return only the answer to the inquiry you received. Do not include drafts, plans, process notes, or messages addressed to other roles.',
 };
 function fail(rule) {
   // Never include rejected front values or source text in diagnostics.
@@ -13,8 +13,8 @@ function fail(rule) {
 
 /**
  * Emit from parseRoles' sanitized IR without mutating it or the options.
- * @param {{roles: {name: string, description: string, instructions: string}[], configFront?: string, layout: 'theora'|'markdown'}} parsed
- * @param {{front?: string}} options Explicit front overrides the validated config candidate.
+ * @param {{roles: {name: string, description: string, instructions: string, tools?: string[]}[], configFront?: string, layout: 'theora'|'markdown'|'adk'}} parsed
+ * @param {{front?: string}} options Explicit front overrides config except for ADK's fixed root.
  * @returns {{network: object, frontMan: string}} Selected front is also used by the manifest emitter.
  */
 export function emitNetwork(parsed, options = {}) {
@@ -37,6 +37,17 @@ export function emitNetwork(parsed, options = {}) {
       || !roles.some(({ name }) => name === candidate))) fail('CVT-FRONT-001');
   }
   const description = describeLayout(parsed.layout);
+  if (parsed.layout === 'adk') {
+    if (parsed.configFront === undefined || (options.front !== undefined && options.front !== parsed.configFront)) {
+      fail('CVT-FRONT-001');
+    }
+    for (const role of roles) {
+      if (!Array.isArray(role.tools) || new Set(role.tools).size !== role.tools.length
+        || role.tools.some((name) => name === role.name || !roles.some((candidate) => candidate.name === name))) {
+        fail('CVT-IR-001');
+      }
+    }
+  }
   const frontMan = options.front ?? parsed.configFront ?? roles[0].name;
   const others = roles.filter(({ name }) => name !== frontMan);
   const front = roles.find(({ name }) => name === frontMan);
@@ -60,7 +71,7 @@ export function emitNetwork(parsed, options = {}) {
         },
       },
       instructions: `${role.instructions}\n\n## Converter-owned output rule\n${outputRules[role.name === frontMan ? 'front' : 'specialist']}`,
-      tools: role.name === frontMan ? others.map(({ name }) => name) : [],
+      tools: parsed.layout === 'adk' ? [...role.tools] : role.name === frontMan ? others.map(({ name }) => name) : [],
     })),
   };
   return { network, frontMan };

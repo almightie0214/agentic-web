@@ -372,12 +372,19 @@ async function main() {
     await desk.probe();
 
     const converter = await openPage(aOrigin + '/converter.html', 'Site A converter');
-    for (const layout of ['claude', 'theora']) {
+    for (const layout of ['claude', 'adk', 'theora']) {
       await converter.evaluate(`document.querySelector('[data-converter-sample="${layout}"]').click()`);
       await converter.until(`!document.querySelector('#converter-output').hidden
         && document.querySelector('#convert-status').textContent.startsWith('Static checks passed')`, `${layout} 변환·검사`);
       const artifacts = await converter.evaluate(`Object.fromEntries(['network', 'manifest', 'links'].map(key =>
         [key, document.querySelector('#converted-' + key).value]))`);
+      if (layout === 'adk') {
+        assert.deepEqual(JSON.parse(artifacts.network).tools.map(agent => [agent.name, agent.tools]),
+          [['coordinator', ['specialist']], ['researcher', []], ['specialist', ['researcher']]]);
+        const notices = await converter.evaluate(`document.querySelector('#converter-notices').textContent`);
+        assert.match(notices, /model/);
+        assert.match(notices, /tools/);
+      }
       for (const [key, filename] of [['network', 'converted_team.network.json'], ['manifest', 'agent-manifest.json'], ['links', 'links.json']]) {
         const before = downloads.size;
         await converter.evaluate(`document.querySelector('a[download="${filename}"]').click()`);

@@ -4,13 +4,14 @@ import { readFile, readdir } from 'node:fs/promises';
 import { parseRoles } from '../../site-a/converter/parse-roles.mjs';
 import { emitNetwork } from '../../site-a/converter/emit-network.mjs';
 import { emitManifest } from '../../site-a/converter/emit-manifest.mjs';
+import { validateNetwork } from '../../site-a/validator-rules.mjs';
 
 const fixtures = new URL('./fixtures/', import.meta.url);
 const role = (name) => ({ name, description: `Review as ${name}.`, instructions: `# ${name}\n\nReview supplied text.` });
 const parsed = (configFront) => ({ roles: ['zulu', 'alpha', 'Beta'].map(role), configFront, layout: 'markdown' });
 // CVT-NET-005: expected suffixes are independent of the emitter implementation.
 const frontRule = '\n\n## Converter-owned output rule\nReturn only the final answer intended for the visitor. Do not include drafts, plans, process notes, or messages addressed to other roles.';
-const specialistRule = '\n\n## Converter-owned output rule\nReturn only the answer to the inquiry sent by the front agent. Do not include drafts, plans, process notes, or messages addressed to other roles.';
+const specialistRule = '\n\n## Converter-owned output rule\nReturn only the answer to the inquiry you received. Do not include drafts, plans, process notes, or messages addressed to other roles.';
 const bytes = (value) => JSON.stringify(value, null, 2) + '\n';
 const inquirySchema = {
   type: 'object',
@@ -19,11 +20,14 @@ const inquirySchema = {
   additionalProperties: false,
 };
 
-for (const layout of ['mini-theora', 'sample-agents']) {
+for (const layout of ['mini-theora', 'sample-agents', 'adk']) {
   test(`CVT-NET/OUT-001: ${layout} parser-to-network byte snapshot and enumeration independence`, async () => {
     const files = layout === 'mini-theora'
       ? JSON.parse(await readFile(new URL('mini-theora/layout.json', fixtures), 'utf8'))
-      : await Promise.all((await readdir(new URL('sample-agents/', fixtures)))
+      : layout === 'adk'
+        ? await Promise.all(['root_agent.yaml', 'middle/agent.yaml', 'middle/leaf/agent.yaml']
+          .map(async (path) => ({ path, content: await readFile(new URL(`adk/${path}`, fixtures), 'utf8') })))
+        : await Promise.all((await readdir(new URL('sample-agents/', fixtures)))
         .filter((name) => name.endsWith('.md'))
         .map(async (name) => ({ path: name, content: await readFile(new URL(`sample-agents/${name}`, fixtures), 'utf8') })));
     const snapshot = await readFile(new URL(`${layout}/expected/converted_team.network.json`, fixtures), 'utf8');
@@ -31,7 +35,10 @@ for (const layout of ['mini-theora', 'sample-agents']) {
     const result = emitNetwork(input);
     assert.equal(result.frontMan, 'coordinator');
     assert.equal(bytes(result.network), snapshot);
-    assert.deepEqual(result.network.tools.map(({ name, tools }) => ({ name, tools })), [
+    assert.deepEqual(result.network.tools.map(({ name, tools }) => ({ name, tools })), layout === 'adk' ? [
+      { name: 'coordinator', tools: ['specialist'] }, { name: 'researcher', tools: [] },
+      { name: 'specialist', tools: ['researcher'] },
+    ] : [
       { name: 'coordinator', tools: ['specialist'] }, { name: 'specialist', tools: [] },
     ]);
     assert.equal(bytes(emitNetwork(parseRoles([...files].reverse())).network), snapshot);
@@ -46,6 +53,10 @@ for (const layout of ['mini-theora', 'sample-agents']) {
     assert.equal(bytes(emitManifest(reversed.frontMan, input.layout)), bytes(publication));
     assert.equal(publication.manifest.networks[0].front_man, result.network.tools[0].name);
     assert.deepEqual(Object.keys(publication.links.networks), [publication.manifest.networks[0].name]);
+    if (layout === 'adk') {
+      assert.equal(validateNetwork({ ...publication, network: result.network }).valid, true);
+      assert.doesNotMatch(bytes({ ...publication, network: result.network }), /notices|unavailable_demo_tool|source_model_not_transferred/);
+    }
   });
 }
 
@@ -75,6 +86,43 @@ for (const layout of ['theora', 'markdown']) for (const [label, configFront, opt
     assert.equal(bytes(emitNetwork({ ...input, roles: [...input.roles].reverse() }, options).network), bytes(network));
   });
 }
+
+test('CVT-NET-004/005: ADK preserves source child order and intermediate delegation without notices', () => {
+  const input = {
+    layout: 'adk', configFront: 'zulu',
+    roles: [
+      { ...role('zulu'), tools: ['middle', 'alpha'] },
+      { ...role('middle'), tools: ['leaf'] },
+      { ...role('leaf'), tools: [] },
+      { ...role('alpha'), tools: [] },
+    ],
+    notices: [{ role: 'middle', keys: ['tools', 'model'], hiddenKeyCount: 0 }],
+  };
+  input.roles.forEach((source) => { Object.freeze(source.tools); Object.freeze(source); });
+  Object.freeze(input.roles);
+  Object.freeze(input);
+  const { network, frontMan } = emitNetwork(input, { front: 'zulu' });
+  assert.equal(frontMan, 'zulu');
+  assert.equal(network.metadata.description, 'Converted Google ADK agent network.');
+  assert.equal(emitManifest(frontMan, input.layout).manifest.networks[0].description, network.metadata.description);
+  assert.deepEqual(network.tools.map(({ name, tools }) => ({ name, tools })), [
+    { name: 'zulu', tools: ['middle', 'alpha'] }, { name: 'alpha', tools: [] },
+    { name: 'leaf', tools: [] }, { name: 'middle', tools: ['leaf'] },
+  ]);
+  for (const agent of network.tools) {
+    assert.equal(agent.instructions, input.roles.find(({ name }) => name === agent.name).instructions
+      + (agent.name === 'zulu' ? frontRule : specialistRule));
+  }
+  assert.doesNotMatch(bytes(network), /notices|hiddenKeyCount/);
+  network.tools[0].tools.push('changed');
+  assert.deepEqual(emitNetwork(input).network.tools[0].tools, ['middle', 'alpha']);
+  assert.throws(() => emitNetwork(input, { front: 'alpha' }), /^Error: CVT-FRONT-001:/);
+  assert.throws(() => emitNetwork({ ...input, configFront: undefined }), /^Error: CVT-FRONT-001:/);
+  for (const tools of [undefined, 'leaf', ['unknown'], ['middle'], ['leaf', 'leaf']]) {
+    const roles = input.roles.map((source) => source.name === 'middle' ? { ...source, tools } : source);
+    assert.throws(() => emitNetwork({ ...input, roles }), /^Error: CVT-IR-001:/);
+  }
+});
 
 test('CVT-NET-001/003/004: one role has the exact resolved envelope and no outgoing calls', () => {
   const source = role('solo');

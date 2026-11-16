@@ -1,4 +1,4 @@
-import { parseRoles } from './converter/parse-roles.mjs';
+import { parseRoles, adkReferences } from './converter/parse-roles.mjs';
 import { emitNetwork } from './converter/emit-network.mjs';
 import { emitManifest } from './converter/emit-manifest.mjs';
 import { validateNetwork } from './validator-rules.mjs';
@@ -22,6 +22,7 @@ function invalidate() {
   for (const url of downloads.splice(0)) URL.revokeObjectURL(url);
   $('#converter-downloads').replaceChildren();
   $('#converter-report').replaceChildren();
+  $('#converter-notices').replaceChildren();
   $('#converter-output').hidden = true;
   $('#open-review').disabled = true;
   for (const key of ['network', 'manifest', 'links']) $(`#converted-${key}`).value = '';
@@ -63,6 +64,9 @@ function convert() {
       link.download = filename;
       $('#converter-downloads').append(link);
     }
+    for (const notice of parsed.notices) {
+      $('#converter-notices').append(element('p', `Not converted for ${notice.role}: ${notice.keys.join(', ')}${notice.hiddenKeyCount ? ` (${notice.hiddenKeyCount} additional key names withheld)` : ''}.`));
+    }
     result = input;
     $('#converter-output').hidden = false;
     $('#open-review').disabled = false;
@@ -97,13 +101,38 @@ async function acquire(load, sample = false) {
   }
 }
 
+// Both acquisition paths follow only references parsed by the shared ADK reader.
+async function readAdkFiles(load) {
+  const selected = [];
+  const seen = new Set();
+  const visit = async path => {
+    if (seen.has(path)) throw new Error('Repeated ADK reference.');
+    seen.add(path);
+    const content = await load(path);
+    selected.push({ path, content });
+    for (const reference of adkReferences(path, content)) await visit(reference);
+  };
+  await visit('root_agent.yaml');
+  return selected;
+}
+
 async function readLocalFiles() {
   const entries = localFiles.map(file => ({ file,
     path: file.webkitRelativePath ? file.webkitRelativePath.split('/').slice(1).join('/') : file.name,
   }));
   const theoraRole = /^\.theora\/roles\/[^/]+\/agent\.md(?![\s\S])/;
   const claudeRole = /^\.claude\/agents\/[^/]+\.md(?![\s\S])/;
-  const layout = $('#convert-layout').value || (entries.some(({ path }) => theoraRole.test(path)) ? 'theora' : 'markdown');
+  const layout = $('#convert-layout').value || (entries.some(({ path }) => theoraRole.test(path)) ? 'theora'
+    : entries.some(({ path }) => path === 'root_agent.yaml') ? 'adk' : 'markdown');
+  if (layout === 'adk') {
+    const selected = await readAdkFiles(async path => {
+      const matches = entries.filter(entry => entry.path === path);
+      if (matches.length !== 1) throw new Error('Missing or repeated ADK file.');
+      return decoder.decode(await matches[0].file.arrayBuffer());
+    });
+    const content = new Map(selected.map(entry => [entry.path, entry.content]));
+    return entries.map(({ path }) => ({ path, content: content.get(path) ?? '' }));
+  }
   const markdownRole = entries.some(({ path }) => claudeRole.test(path)) ? claudeRole : /^[^/]+\.md(?![\s\S])/;
   return Promise.all(entries.map(async ({ file, path }) => {
     const selected = layout === 'theora'
@@ -133,6 +162,9 @@ for (const button of document.querySelectorAll('[data-converter-sample]')) {
         return response;
       };
       if (button.dataset.converterSample === 'theora') return (await get('theora/layout.json')).json();
+      if (button.dataset.converterSample === 'adk') {
+        return readAdkFiles(async path => decoder.decode(await (await get(`adk/${path}`)).arrayBuffer()));
+      }
       return Promise.all(['coordinator', 'specialist'].map(async name => ({
         path: `.claude/agents/${name}.md`, content: decoder.decode(await (await get(`claude-agents/${name}.md`)).arrayBuffer()),
       })));

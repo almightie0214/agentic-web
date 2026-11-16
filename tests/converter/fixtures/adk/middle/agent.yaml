@@ -1,0 +1,9 @@
+name: specialist
+description: Obtain the fictional route facts from the researcher.
+instruction: |-
+  For every inquiry, call researcher with the inquiry and wait for its answer. Use only the returned museum facts to recommend the route, and include the exact route code. Do not guess facts or answer before the researcher returns.
+sub_agents:
+  - config_path: leaf/agent.yaml
+tools:
+  - code: unavailable_demo_tool
+model: source_model_not_transferred

@@ -1,33 +1,33 @@
-# AW5 converter mapping contract
+# Converter mapping contract
 
-This is the normative mapping for the deterministic Theora / generic Markdown
-converter planned in AW5. It specifies behavior for the subsequent fixtures,
-parser, emitters, CLI, and web tab; the presence of this document does **not** mean
-those components or browser verification have been completed.
+This is the current normative mapping for the deterministic Theora, generic
+Markdown / Claude agents, and Google ADK Agent Config converter. The browser tab
+and Node CLI share parsing and emission modules. Conversion produces reviewable
+network data; it does not establish that the source team's execution semantics,
+capabilities, or model behavior have been preserved.
 
 The target is the [pinned Worldwide Agentic Web MVP Profile 0.2](worldwide_agentic_web_mvp_spec.md),
 especially §§2.1–2.2, 3.3, 5, and the framework-converter opportunity in §7.
 JSON is a valid HOCON serialization: the converter emits resolved JSON, not HOCON
-source that requires includes, environment expansion, or local files.
+source requiring includes, environment expansion, or local files.
 
 ## Contract and rule IDs
 
-**CVT-CONTRACT-001 — Stable references.** The bold `CVT-*` identifiers below are
-stable references for fixtures and tests, not AW2 validator rule IDs. Tests should
-cite the relevant identifier in their name or nearby comment and assert behavior,
-not document wording. Do not renumber or reuse an ID for a different promise.
-An intentional mapping change must update this contract and its affected fixtures
-and tests together; there is no old-format reader or compatibility mode.
+**CVT-CONTRACT-001 — Stable references.** The `CVT-*` identifiers below are stable
+references for fixtures and tests, not AW2 validator rule IDs. Tests assert
+behavior, not document wording. Do not renumber or reuse an ID for a different
+promise. Mapping changes update this contract and affected fixtures and tests
+together; there is no old-format reader or compatibility mode.
 
 **CVT-CORE-001 — Pure shared core.** Parsing and emission live in
 `site-a/converter/parse-roles.mjs`, `emit-network.mjs`, and `emit-manifest.mjs`.
-두 emitter는 `describe-layout.mjs`의 공용 입력 형식 설명 규칙을 사용한다.
+Both emitters use the shared format-description rule in `describe-layout.mjs`.
 They consume in-memory values and return data without DOM, storage, network,
 filesystem, `node:*` imports, environment variables, clock, randomness, or LLMs.
-The Node adapter at `tools/theora2hocon/theora2hocon.mjs` imports them from
-`../../site-a/converter/`. The web tab imports the same modules from the Pages
-artifact, which contains only `site-a/`. Adapters own file acquisition, display,
-validation, download, and writing. Source arrays and options must not be mutated.
+The Node adapter at `tools/theora2hocon/theora2hocon.mjs` and the web tab import
+these same modules. The Pages artifact contains only `site-a/`. Adapters own file
+acquisition, display, validation, downloads, and writing. Source arrays and
+options must not be mutated.
 
 ## Input acquisition and layout
 
@@ -40,32 +40,37 @@ Ignore unrelated files after validating record structure and paths. Normalize on
 leading UTF-8 BOM and CRLF / bare CR to LF in content; reject NUL in selected
 role/config content. File enumeration order never affects the result.
 
-Adapters must supply UTF-8 text and these root-relative paths, not absolute host
-paths. The CLI reads only selected role files and the optional config described
-below, without following symlink files or directories. Neither adapter follows
-Markdown links, includes, imports, or referenced local files.
+Adapters supply UTF-8 text and root-relative paths, not absolute host paths. They
+read only selected roles and config, without following symlink files or
+directories. Decode selected files without stripping a BOM: normalization belongs
+to the shared parser. Neither adapter follows Markdown links or includes. For
+ADK, the only followed references are the `sub_agents` config paths below. The
+shared parser's reference-reading function also supplies the adapter's dependency
+list; adapters must not implement a second YAML parser. Unreachable files need
+not be decoded: an unreadable or non-UTF-8 unrelated YAML file must not prevent
+conversion, whereas a selected or referenced unreadable file is an error.
 
-**CVT-IN-002 — Layout selection.** `layout` may be `theora` or `markdown`; omission
-means automatic selection. Auto chooses Theora if any path exactly matches
-`.theora/roles/<role>/agent.md` (one directory component for `<role>`), otherwise
-Markdown. Explicit selection never falls back to the other layout on an error.
+**CVT-IN-002 — Layout selection.** `layout` may be `theora`, `adk`, or `markdown`;
+omission means automatic selection. Auto chooses Theora if any path exactly
+matches `.theora/roles/<role>/agent.md` (one directory component for `<role>`),
+otherwise ADK if the input root contains exactly `root_agent.yaml`, otherwise
+Markdown. Explicit selection never falls back to another layout on an error.
 Mixed input is not merged. No selected roles is an error.
 
 **CVT-IN-003 — Theora files and config.** Each exact
 `.theora/roles/<role>/agent.md` contributes one role; nested files, other filenames,
 and other Theora state are not roles. The directory component is the role name,
 not a body heading or frontmatter field. The entire normalized `agent.md` body is
-instructions, subject to the removal rules below; YAML metadata extraction is
-only for the Markdown layout.
+instructions, subject to the removal rules below; no YAML metadata is extracted
+and no unmapped-key notice is produced for Theora.
 
 If present, `.theora/config/theora.json` must parse as a JSON object, not an array
-or null. The converter reads only its own top-level `front_man` candidate. An
-absent field means no candidate; a present field must be a nonempty string naming
-an emitted role exactly. Invalid JSON, an invalid field, or an unknown candidate
-is an error even if an explicit front option is supplied. Other config fields
-are ignored and never copied. This is a deliberately narrow converter input
-contract, not a promise to interpret every Theora configuration dialect; there
-are no alternate-key guesses. Config is ignored in Markdown layout.
+or null. Read only its top-level `front_man` candidate. An absent field means no
+candidate; a present field must be a nonempty string naming an emitted role
+exactly. Invalid JSON, an invalid field, or an unknown candidate is an error even
+if an explicit front option is supplied. Other config fields are ignored and
+never copied. There are no alternate-key guesses. Config is ignored in other
+layouts.
 
 **CVT-IN-004 — Markdown files.** A selected agents directory contributes its
 immediate `*.md` files (lowercase extension only), not recursive descendants.
@@ -80,136 +85,210 @@ first normalized line is exactly `---` has frontmatter. Its next line exactly
 block from instructions, including ignored metadata. There is no frontmatter
 elsewhere in a document.
 
-Read top-level `name` and `description` as optional strings. Supported syntax is a
-single-line plain string, YAML single-quoted string (doubled single quotes decode
-to one), JSON-compatible double-quoted string, or a block scalar `|` / `>` with an
-optional `-` chomping suffix. A block's nonblank lines must have at least two
-leading spaces; remove two spaces, keep LF for `|`, and replace single line breaks
-between nonblank lines with spaces for `>` while retaining blank-line paragraph
-breaks. Final outer whitespace is trimmed for both fields, so chomping does not
-change the resulting value. Plain strings are trimmed and are literal except an
-inline comment beginning with space followed by `#` is removed. Empty values,
-YAML null/boolean/number values, collections, tags, aliases, anchors, duplicate
-recognized keys, and unsupported syntax for a recognized field are errors, not
-fallbacks. This is a bounded YAML subset, not a general YAML interpreter.
+Read top-level `name` and `description` as optional strings using the shared YAML
+subset below. A collection is not a valid value for either field. Other fields
+(for example `tools`, `model`, `permissionMode`, and `color`) and their indented
+contents are not evaluated or emitted. Report their top-level keys through the
+unmapped-key notices below. Unknown metadata cannot introduce tools or permissions.
+A frontmatter-free file uses the filename/title rules.
 
-Other fields (for example `tools`, `model`, `permissionMode`, `color`, and their
-indented continuations) are ignored, not evaluated or emitted. Blank and comment
-lines are allowed. Unrecognized metadata cannot introduce tools or permissions.
-A frontmatter-free file uses the filename/title rules below.
+### Google ADK Agent Config
 
-## Roles and public text
+The reference grammar is google/adk-python main `c6586f19ab` (2026-11-16),
+`AgentConfig.json` (`LlmAgentConfig`, `AgentRefConfig`) and
+`config_agent_utils.resolve_agent_reference`. This converter deliberately supports
+only the bounded subset below, not every ADK configuration or workflow agent.
 
-**CVT-ROLE-001 — Names.** Theora names are the unchanged directory names.
-Markdown names use explicit frontmatter `name` when present; otherwise derive a
-slug from the file stem (basename without `.md`): ASCII lowercase, replace each
-maximal run outside `[a-z0-9_]` with `_`, then trim leading/trailing `_`. If that
-is empty, apply the same slug rule to the first body heading; if still empty,
-fail. Thus `Research Lead.md` becomes `research_lead`; `coordinator.md` stays
-`coordinator` regardless of its heading. A title supplies the description, not a
-second competing identity, when the filename already supplies a usable name.
+**CVT-ADK-001 — Reachable LlmAgent config tree.** The input root's
+`root_agent.yaml` is the root agent and the front. Map:
+
+| ADK key | Converted role data |
+| --- | --- |
+| `name` | Name, validated unchanged with `CVT-ROLE-001` |
+| `description` | Description; when absent, use `CVT-ROLE-002` body fallback |
+| `instruction` | Instructions, sanitized with `CVT-SEC-*`; empty or removal-only text is an error |
+| `sub_agents` | Outgoing local agent tools in the original sequence order |
+
+`name` and `instruction` are required strings. `description`, when present, must
+be a string. A missing `sub_agents` means no outgoing calls. Each `sub_agents`
+item must be a mapping containing exactly one `config_path` string. `code`
+references and all other item shapes are errors: their definitions are not in the
+input, and a partial conversion would hide missing behavior.
+
+Resolve each `config_path` relative to the directory of its referring config and
+supply the resulting canonical root-relative path to the parser. Reject absolute
+paths and any `..` component; references always stay under the referring config's
+directory. Unlike ADK, even `..` that would remain within that directory is
+rejected. Missing files, cycles, and files referenced more than once are errors.
+Read only the tree reachable from `root_agent.yaml`; do not read neighboring YAML
+as possible agents. An invalid reachable agent fails the whole conversion.
+
+An absent `agent_class`, or any of these seven string values, denotes a supported
+LlmAgent:
+
+- `LlmAgent`
+- `Agent`
+- `google.adk.agents.LlmAgent`
+- `google.adk.agents.llm_agent.LlmAgent`
+- `google.adk.agents.Agent`
+- `google.adk.agents.llm_agent.Agent`
+- the empty string (`''` or `""`)
+
+Other classes, including `SequentialAgent`, `ParallelAgent`, `LoopAgent`, and
+user classes, are errors. Their execution order cannot be represented by this
+data mapping. An explicit front different from the root agent is an error.
+
+### Shared bounded YAML reader
+
+Markdown frontmatter and ADK use the same reader. It supports block mappings,
+string scalars (plain, single-quoted, double-quoted, literal `|` and folded `>`),
+block sequences of mappings, and comments. Each input format decides which value
+shapes its fields accept. Unread keys' indented contents are skipped, not parsed
+as executable metadata or interpreted as supported fields.
+
+Single-quoted strings decode doubled single quotes. Double-quoted strings decode
+YAML escapes. Plain strings are trimmed; an inline comment beginning with a
+space followed by `#` is removed. Read string fields do not coerce YAML
+null, booleans, or numbers. Empty required strings are errors. The empty quoted
+`agent_class` is the supported exception listed above.
+
+For block scalars, an optional `-` chomping suffix is accepted. The first nonblank
+content line sets the indentation removed from every content line, not a fixed
+two spaces. One-space and four-space blocks are valid. A later nonblank content
+line indented less than the first content line is an error. Preserve further
+indentation as content, keep LF for `|`, and fold single line breaks between
+nonblank lines to spaces for `>` while retaining blank-line paragraph breaks
+and line breaks around more-indented content. Final outer whitespace is trimmed
+for public fields; `instruction` retains its internal layout after sanitation.
+
+For read fields, reject flow collections, anchors, aliases, tags, `|+` / `>+`,
+explicit indentation digits, quoted keys, duplicate keys, multiline plain values,
+and multiple YAML documents. Unsupported syntax is an error, not a fallback or
+an excuse to silently drop an agent. This is not a general YAML interpreter.
+
+## Roles, public text, and unmapped keys
+
+**CVT-ROLE-001 — Names.** Theora names are unchanged directory names. ADK names
+are unchanged `name` values. Markdown uses explicit frontmatter `name` when
+present; otherwise derive a slug from the file stem (basename without `.md`):
+ASCII lowercase, replace each maximal run outside `[a-z0-9_]` with `_`, then trim
+leading/trailing `_`. If empty, apply the same rule to the first body heading;
+if still empty, fail. `Research Lead.md` becomes `research_lead`;
+`coordinator.md` stays `coordinator` regardless of its heading.
 
 Every final name must match `[A-Za-z][A-Za-z0-9_]{0,59}`. Explicit names and Theora
 names are validated, not silently slugged or truncated. Names must be unique,
-including case-insensitive comparison, across the selected roles. Reject
-collisions rather than overwriting or appending numeric suffixes. This subset
-avoids reference-runtime `safeName` rewriting and truncation collisions.
+including case-insensitive comparison, across selected roles. Reject collisions
+rather than overwriting or appending suffixes. This subset avoids runtime
+`safeName` rewriting and truncation collisions.
 
 **CVT-ROLE-002 — Instructions and description.** After frontmatter extraction
-where applicable, sanitize the body using `CVT-SEC-*`, then trim its outer
-whitespace. Retain Markdown, headings, code fences, and internal whitespace as
-text; do not render HTML, execute code, expand templates, or rewrite the role's
-meaning. An empty body, or a body containing only removal markers/whitespace, is
-an error; do not create a generic substitute agent.
+where applicable, sanitize the body (ADK: `instruction`) with `CVT-SEC-*`, then trim
+outer whitespace. Retain Markdown, headings, code fences, and internal whitespace
+as text; do not render HTML, execute code, expand templates, or rewrite meaning.
+An empty body, or one containing only removal markers/whitespace, is an error;
+do not create a generic substitute agent.
 
-For Markdown, use a sanitized frontmatter description if provided and still
-contains text other than removal markers. Otherwise use the first surviving ATX
+For Markdown and ADK, use a sanitized explicit description if provided and still
+containing text other than removal markers. Otherwise use the first surviving ATX
 heading (`#` through `######` followed by space, at column zero) in the sanitized
 body, stripping the prefix and optional space-separated trailing `#` sequence.
-If there is no heading, use the first nonempty body line other than a removal
-marker or a code-fence delimiter. For Theora, use this heading/line rule directly.
-Collapse description whitespace to single spaces and trim; if no description
-remains, use `Role <name>.` exactly. Do not synthesize a summary with a model.
+If none, use the first nonempty body line other than a removal marker or
+code-fence delimiter. Theora uses this heading/line rule directly. Collapse
+description whitespace to single spaces and trim; if none remains, use
+`Role <name>.` exactly. Do not synthesize a summary with a model.
+
 For heading extraction, fenced code blocks opened by three or more backticks or
 tildes at column zero are excluded until a matching character fence of at least
-the opening length; headings in code are not titles. Setext headings and inline
-Markdown formatting are not interpreted. Filename fallback to a heading uses this
-same heading recognition after sanitation.
+the opening length. Setext headings and inline Markdown formatting are not
+interpreted. Filename fallback uses the same heading recognition after sanitation.
 
 **CVT-SEC-001 — Secret-pattern removal.** Instructions and descriptions are public.
-Apply these rules before extracting descriptions or publishing any source text:
+Apply these rules before extracting descriptions or publishing source text:
 
 1. Replace a PEM block from a line containing `-----BEGIN ...PRIVATE KEY-----`
    through its matching END line with one `[REDACTED_SECRET]` line. If no matching
-   END exists, remove through end of text. The label between BEGIN/END must match.
+   END exists, remove through end of text. BEGIN/END labels must match.
 2. Replace an entire line with `[REDACTED_SECRET]` when it matches any of these
    JavaScript regular expressions (case flags as shown):
    - `/\b(?:api[_-]?key|access[_-]?token|auth[_-]?token|secret|password|passwd)\b\s*["']?\s*[:=]/i`
    - `/\bauthorization\s*[:=]|\bbearer\s+\S+/i`
    - `/\b(?:sk-[A-Za-z0-9_-]{8,}|gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|AKIA[A-Z0-9]{16})\b/`
 
-These patterns intentionally remove whole lines, including code examples, not
-just captured values. They are pattern removal, not a complete secret detector.
-Never interpolate removed text into markers, warnings, or errors.
+These rules remove whole lines, including code examples, not just captured values.
+They are not a complete secret detector. Never interpolate removed text into
+markers, notices, warnings, or errors.
 
 **CVT-SEC-002 — Local-path removal.** After secret removal, replace an entire line
 with `[REDACTED_LOCAL_PATH]` if it contains a local-path token. Token boundaries
 are start/end of line or whitespace, backtick, single/double quote, `(`, `)`,
-`[`, `]`, `<`, or `>`; punctuation inside a token is not decoded. A token is
-local when it starts with any of:
+`[`, `]`, `<`, or `>`; punctuation inside a token is not decoded. A token is local
+when it starts with:
 
 - `/` (including UNC-like `//`), `~/`, `./`, or `../`;
 - an ASCII drive letter followed by `:\` or `:/`, or Windows UNC `\\`;
-- `.theora/`, `.claude/`, `.ssh/`, `.codex/`, or `.env` (the last must be the
-  whole token or followed by `.`).
+- `.theora/`, `.claude/`, `.ssh/`, `.codex/`, or `.env` (the last must be the whole
+  token or followed by `.`).
 
-For example, a line mentioning `/home/example/work`, `C:\work\notes`,
+A line mentioning `/home/example/work`, `C:\work\notes`,
 `.theora/roles/reader/agent.md`, or `[notes](../private.md)` is removed. Ordinary
 relative prose references such as `docs/guide.md` and complete `https://...` URLs
-are retained as literal text, never resolved or fetched. This deliberately
-bounded lexical rule does not promise to detect every filesystem reference,
-percent-encoded path, or confidential URL. Sanitation is not a publication approval.
+are retained as literal text, never resolved or fetched. This bounded lexical
+rule does not detect every filesystem reference, encoded path, or confidential
+URL. Sanitation is not publication approval.
 
 **CVT-SEC-003 — No sensitive metadata passthrough.** Names and front candidates
 must pass the name grammar and must not trigger secret/path removal; otherwise
-fail without echoing their value. Publish neither source filenames nor host
-paths, raw config/frontmatter, credentials, environment, project state, timestamps,
-or diagnostic excerpts. Diagnostics may identify a rule ID and input record index,
-never raw source lines or JSON-parser excerpts. Keep conversion diagnostics
-separate from the three artifacts. Authors must review all artifacts before
-publication; unknown secrets and prompt injection remain possible. There is no
-translation: authors supply English roles for the English examples and demo.
+fail without echoing their value. Publish neither source filenames nor host paths,
+raw config/frontmatter, credentials, environment, project state, timestamps, or
+diagnostic excerpts. Diagnostics may identify a rule ID and input record index,
+never raw source lines or parser excerpts. Keep diagnostics outside the artifacts.
+
+Sanitized key-name-only notices are permitted outside the three artifacts. For
+each role, report unmapped original top-level keys, not their values. ADK keys
+outside the four mapped fields above (such as `tools`, `model`, schemas, and
+callbacks) are not copied. Markdown frontmatter keys outside `name` and
+`description` use the same notices. A key name is displayed only if it matches
+`[A-Za-z_][A-Za-z0-9_]*` and passes the existing secret/path rules; otherwise
+report only the number of hidden keys. Never reveal their names, values, or raw parsing errors.
+The browser displays notices and the CLI prints them; no notice is embedded in
+network, manifest, or links. Theora produces no such notices because its whole
+`agent.md` is instruction text.
+
+Authors must review all artifacts before publication; unknown secrets and prompt
+injection remain possible. There is no translation: authors supply English roles
+for the English examples and demo.
 
 ## Front selection and intermediate representation
 
-**CVT-IR-001 — Minimal role data.** The parser supplies roles containing `name`,
-`description`, and `instructions` as sanitized nonempty strings, sorted by name
-using ascending JavaScript string comparison (`a < b`), not locale-dependent
-sorting. It also supplies the validated config front candidate or no candidate.
-선택된 입력 형식도 `layout: theora | markdown`으로 전달한다. 자동 선택과 명시 선택
-모두 실제 선택된 형식을 전달하며, emitter는 원문이나 역할 이름에서 형식을 추측하지 않는다.
-This is sufficient emitter input; source capabilities are not executable fields.
-No persistent intermediate store is needed. Exact exported function signatures
-belong to the implementation tasks; these data semantics are fixed here.
+**CVT-IR-001 — Minimal role data.** The parser supplies roles with sanitized
+nonempty `name`, `description`, and `instructions`, sorted by ascending JavaScript
+string comparison (`a < b`), not locale-dependent sorting. It supplies the selected
+`layout: theora | adk | markdown`, the validated `configFront` candidate when
+present, and `notices: [{role, keys, hiddenKeyCount}]`. Notice `role` identifies
+the validated role; `keys` contains only safe unmapped key names. It contains no
+source values or paths. For ADK, each role's `tools` contains the child names in
+source order and `configFront` is the root agent's name. No persistent intermediate
+store is needed; source capabilities are not executable fields.
 
-**CVT-FRONT-001 — Explicit precedence, no guessing.** Choose the front from:
+**CVT-FRONT-001 — Explicit precedence, no guessing.** For Theora and Markdown:
 
-1. Explicit `--front <role>` (the equivalent in-memory option for the web).
+1. Explicit `--front <role>` (the equivalent in-memory web option).
 2. Theora config's `front_man` candidate, if present.
-3. The first role in the name-sorted list.
+3. First role in the name-sorted list.
 
-An explicit option must name one final role exactly; empty, whitespace-padded,
-case-mismatched, or unknown values fail, not fall back. Do not infer authority
-from `coordinator`, a heading, directory iteration order, or a framework tool list.
-Config validation still follows `CVT-IN-003`. One-role input is valid.
+An explicit option must name a final role exactly; empty, padded, case-mismatched,
+or unknown values fail. Do not infer authority from `coordinator`, a heading,
+directory order, or a framework tool list. Config validation still follows
+`CVT-IN-003`. For ADK, the root is always front; an explicit option may confirm it
+but cannot choose another role. One-role input is valid.
 
 ## Network emission
 
-**CVT-NET-001 — Identity and resolved envelope.** The output network name is
-`converted_team`, independent of the input directory's basename, host path,
-layout, and chosen front. Its filename is `converted_team.network.json`.
-설명은 `CVT-META-001`에 따라 선택된 입력 형식에서 만든다.
-Emit exactly these top-level fields in this order (Markdown example):
+**CVT-NET-001 — Identity and resolved envelope.** The network name is always
+`converted_team`, independent of input directory, host path, layout, and front.
+Its filename is `converted_team.network.json`. Description follows
+`CVT-META-001`. Emit these top-level fields in this order (Markdown example):
 
 ```json
 {
@@ -221,35 +300,30 @@ Emit exactly these top-level fields in this order (Markdown example):
 }
 ```
 
-`llm_config.temperature`는 입력 형식과 무관하게 0.2로 고정한다. 실행되는
-에이전트의 `llm_config.temperature`가 있으면 그 값을, 없으면 해당 네트워크의
-값을 모델 요청에 보낸다. 모델 선택 override와는 별개이며 caller의 temperature
-정책은 없다. 이 선언 자체가 실제 답 품질을 증명하지는 않는다.
+Temperature is fixed at 0.2 for all layouts. Runtime model requests use the
+executing agent's temperature when declared, otherwise its network's temperature,
+independently of visitor model selection. This declaration does not prove answer
+quality. The 90-second limit is fixed across layouts, derived from the approved
+converted-sample maximum `durationMs` 43567.69999998808 using
+`30 * ceil(2 * max(durationMs) / 30000)`; see
+[demo checklist §8](demo-checklist.md#8-measured-execution-limits). It declares a
+top-level query limit and cannot extend a peer caller's shorter deadline.
 
-`max_execution_seconds`는 입력 형식과 무관하게 90초로 고정한다. 변환 샘플의
-승인된 실측 최장 `durationMs` 43567.69999998808에
-`30 * ceil(2 * max(durationMs) / 30000)`을 적용한 값이다.
-[demo checklist §8](demo-checklist.md#8-measured-execution-limits)에서 회차별 원자료와 계산 근거를 기록한다.
-이는 최상위 질의의 시간 한도 선언이며, 피어로 호출될 때 caller의 더 짧은 한도를 늘리지 않는다.
-
-Replace `tools` as below. Identity/front are supplied by the manifest; do not add
-conflicting network-level identity. No `include`, `$include`, `$env`, substitutions,
-`commondefs`, executable `class`/`toolbox`, MCP, site action, private-context allow
-rules, or external URLs are synthesized. Literal `${...}` inside instructions
-is text, not a request to resolve environment variables. The finite declarations
-are not evidence of runtime enforcement; the caller's policy remains authoritative.
+Identity/front are supplied by the manifest; do not add conflicting network-level
+identity. No `include`, `$include`, `$env`, substitutions, `commondefs`, executable
+`class`/`toolbox`, MCP, site action, private-context allow rules, or external URLs
+are synthesized. Literal `${...}` in instructions is text, not an environment
+request. The caller's policy remains authoritative.
 
 **CVT-NET-002 — Agent mapping and order.** Emit the selected front first, then
-remaining roles in ascending name order. This is required even when the front is
-not alphabetically first: the vendored `find_front_man` selects the first agent
-with instructions, not a network-level `front_man` field. Each agent has exactly
-`name`, `function`, `instructions`, `tools`, in that order. Map `name` unchanged,
-`function.description` from the parsed description, and `instructions` from the
-sanitized body followed by the converter-owned output rule (`CVT-NET-005`).
-Within `function`, emit `description` then `parameters`.
+remaining roles in ascending name order. The vendored `find_front_man` selects the
+first agent with instructions, not a network-level `front_man` field. Each agent
+has exactly `name`, `function`, `instructions`, `tools`, in that order. Map name
+unchanged, description to `function.description`, and sanitized instructions plus
+`CVT-NET-005` to `instructions`. Within `function`, emit `description` then
+`parameters`.
 
-**CVT-NET-003 — Common inquiry schema.** Every agent's `function.parameters` is
-exactly:
+**CVT-NET-003 — Common inquiry schema.** Every agent's `function.parameters` is:
 
 ```json
 {
@@ -262,45 +336,53 @@ exactly:
 }
 ```
 
-No typed source task, framework input/output schema, or structured result is
-inferred. In the current reference runtime, `argsToText` serializes an object
-with only `inquiry` as JSON text; the receiving role can read that text. The
-converter does not add a runtime adapter to change this behavior.
+No source input/output schema or structured result is inferred. In the current
+reference runtime, `argsToText` serializes an object with only `inquiry` as JSON
+text; the receiving role can read it. No runtime adapter changes that behavior.
 
-**CVT-NET-004 — Default star wiring.** The front's `tools` is the list of all
-other role names in ascending order. Every other agent has `tools: []`. A single
-role has no outgoing calls. No self-edge, reverse edge, peer, or inferred workflow
-is added. Source Markdown `tools` metadata and prose mentioning tools do not alter
-this graph. Availability of a callable role is not proof that an LLM will choose
-it; real delegation must be observed separately. Do not append delegation prose
-to source instructions to manufacture semantic equivalence.
+**CVT-NET-004 — Source or default wiring.** Theora and Markdown keep the default
+star: the front's `tools` lists all other roles in ascending name order; other
+agents have `tools: []`. A single role has no calls. Markdown `tools` metadata and
+prose do not alter this graph. ADK instead uses each agent's `sub_agents` edges in
+source order, preserving multiple levels, including a child with no children.
+Do not flatten these edges into a star or infer additional calls. Output agent
+order remains front first and then name order, independently of edge order.
+Availability is not proof an LLM will delegate. Do not append delegation prose to
+manufacture semantic equivalence.
 
-**CVT-NET-005 — 변환기 소유 출력 규칙.** 각 역할의 정화된 원문 뒤에 LF 두 개,
-`## Converter-owned output rule`, LF 하나, 다음 규칙을 붙인다. 원문의 내부 서식과
-순서는 바꾸지 않는다. 규칙은 역할 이름이 아니라 최종 선택된 front에 따라 정한다.
-단일 역할도 front 규칙을 받으며, front를 바꾸면 이전 front는 specialist 규칙을 받는다.
+**CVT-NET-005 — Converter-owned output rule.** Append two LF characters, then
+`## Converter-owned output rule`, one LF, and the applicable sentence to each
+sanitized source. Preserve its internal layout and order. The final selected
+front, not the role's name, decides which rule applies. A single role receives
+the front rule. In layouts where front can change, the previous front then
+receives the specialist rule.
 
-front는 방문자에게 최종 답만 내고 초안·계획·과정 메모·다른 역할에게 하는 말을
-내지 않도록 다음 문장을 붙인다:
+Front:
 
 ```text
 Return only the final answer intended for the visitor. Do not include drafts, plans, process notes, or messages addressed to other roles.
 ```
 
-specialist는 front가 보낸 inquiry에 대한 답만 내도록 다음 문장을 붙인다:
+Every specialist, regardless of its caller or input format:
 
 ```text
-Return only the answer to the inquiry sent by the front agent. Do not include drafts, plans, process notes, or messages addressed to other roles.
+Return only the answer to the inquiry you received. Do not include drafts, plans, process notes, or messages addressed to other roles.
 ```
 
-이는 새 도구·권한·위임 간선을 만들거나 모델의 실제 준수를 증명하지 않는다.
+These instructions create no tools, permissions, or edges and do not prove model
+compliance.
 
-**CVT-META-001 — 입력 형식별 설명.** `parseRoles`가 선택한 `layout`으로 network의
-`metadata.description`과 manifest의 `networks[0].description`을 동일하게 만든다.
-`theora`는 `Converted Theora role conversation network.`, `markdown`은
-`Converted Markdown role conversation network.`를 쓴다. emitter는 형식 누락이나
-잘못된 값을 오류로 거부한다. CLI와 웹은 동일한 파서 결과의 형식을 전달한다.
-원본 config나 frontmatter의 설명으로 이 네트워크 설명을 덮어쓰지 않는다.
+**CVT-META-001 — Format-specific description.** Network `metadata.description` and
+manifest `networks[0].description` use the same selected parser layout:
+
+| Layout | Description |
+| --- | --- |
+| `theora` | `Converted Theora role conversation network.` |
+| `markdown` | `Converted Markdown role conversation network.` |
+| `adk` | `Converted Google ADK agent network.` |
+
+Emitters reject a missing or invalid format. CLI and web pass the same parser
+result; source metadata cannot override this description.
 
 ## Manifest, links, and serialization
 
@@ -328,12 +410,11 @@ Return only the answer to the inquiry sent by the front agent. Do not include dr
 }
 ```
 
-`<selected role name>`은 선택된 front이며, `description`은 위 Markdown 예시와 달리
-`CVT-META-001`에 따라 입력 형식별로 정한다. The router and model hint reuse the
-site defaults, not config credentials. Inference requires the visitor's setup in
-the existing runtime settings; there is no new credential/settings UI. These are
-public recommendations, never a peer's authority to replace the caller's router.
-References stay relative to support subpath hosting.
+`<selected role name>` is the selected front; description follows `CVT-META-001`.
+Router and model hint reuse site defaults, not source credentials. Inference
+requires visitor setup in existing runtime settings; no new credential/settings
+UI is generated. These are public recommendations, not a peer's authority to
+replace the caller's router. References remain relative for subpath hosting.
 
 **CVT-LINK-001 — Empty link stub.** `links.json` is exactly:
 
@@ -345,107 +426,118 @@ References stay relative to support subpath hosting.
 ```
 
 Do not create placeholder peer URLs, link slots, or consent grants. Local role
-calls need no peer link. Adding real peers is a separate, explicitly reviewed
-publication change with matching origin policy and runtime consent.
+calls need no peer link. Adding real peers is a separate reviewed publication
+change with matching origin policy and runtime consent.
 
-**CVT-OUT-001 — Deterministic artifacts.** Output consists of only
-`converted_team.network.json`, `agent-manifest.json`, and `links.json`. Serialize
-with `JSON.stringify(value, null, 2) + '\n'`, UTF-8, using the field orders above.
+**CVT-OUT-001 — Deterministic artifacts.** Emit only
+`converted_team.network.json`, `agent-manifest.json`, and `links.json`, serialized
+with `JSON.stringify(value, null, 2) + '\n'`, UTF-8, in the field orders above.
 Identical virtual input and options produce byte-identical artifacts in CLI and
-web, regardless of enumeration order or absolute input/output directory. Do not
-copy runtime code, source Markdown, keys, or executable bundles into the result.
+web regardless of file enumeration or absolute input/output directory. Do not
+copy runtime code, source files, keys, executable bundles, or notices into them.
 
 ## Adapters and failure boundary
 
-**CVT-CLI-001 — CLI contract.** The planned command is:
+**CVT-CLI-001 — CLI contract.** Run:
 
 ```sh
-node tools/theora2hocon/theora2hocon.mjs <input-dir> <out-dir> [--front <role>] [--layout theora|markdown]
+node tools/theora2hocon/theora2hocon.mjs <input-dir> <out-dir> [--front <role>] [--layout theora|adk|markdown]
 ```
 
-Without `--layout`, apply `CVT-IN-002`. Require two positional directories and
-reject unknown flags, repeated options, missing values, invalid layout values,
-and unreadable selected input. Build all three artifacts in memory before
-writing; parse/mapping failures must not leave a newly generated partial bundle.
-Report write failures as failures, not successful conversion. Exit 0 means the
-bundle was written, not that it was deployed or browser-verified. Errors use
-nonzero exit and sanitized diagnostics; no source content is executed.
+Without `--layout`, use `CVT-IN-002`. Require two positional directories and reject
+unknown flags, repeated options, missing values, invalid layouts, and unreadable
+selected input. Build all artifacts in memory before writing; parse/mapping
+failures must not leave a newly generated partial bundle. Report write failures
+as failures. Exit 0 means written, not deployed or browser-verified. Errors use
+nonzero exit and sanitized diagnostics; no source content is executed. Print
+unmapped-key notices separately from the artifacts, without source values.
 
 **CVT-WEB-001 — Same mapping, no implicit execution.** The web tab acquires files
-and options into the same virtual-file contract, converts with the same modules,
-passes all three parsed artifacts to AW2 `validateNetwork`, displays the report,
-and offers downloads. Validation failure must not be presented as successful
-conformance. Loading either two-role sample uses the same pipeline. Downloads
-and inspection require no inference key.
+and options into the same virtual-file contract, uses the same modules, passes
+all artifacts to AW2 `validateNetwork`, displays the report and unmapped-key
+notices, and offers downloads. Validation failure is not successful conformance.
+Samples use this same pipeline; buttons appear in this order: Claude agents team,
+Google ADK team, Theora role team. Inspection and downloads need no inference key.
 
-A one-time same-origin sessionStorage handoff may open the artifacts in the main
-Review Desk. Validate its structure as untrusted input and remove it on receipt,
-including invalid payloads. Importing or reviewing a result never automatically
-runs its network, contacts peers, supplies credentials, or bypasses consent.
-The existing reference runtime and settings remain the only execution path.
+The one-time same-origin sessionStorage handoff opens artifacts in Review Desk
+for static inspection. Validate it as untrusted input and remove it on receipt,
+including invalid payloads. Importing or reviewing never automatically executes
+a network, contacts peers, supplies credentials, or bypasses consent. At this
+stage, converted-team execution requires separate publication with the reference
+runtime; the existing reference runtime and settings remain the execution path.
 
-**CVT-ERR-001 — Fail closed.** A selected malformed role, invalid config,
-duplicate/invalid name, empty instruction body, or invalid front is a conversion
-error for the whole input, not a reason to silently drop a role. No best-effort
-successful subset, alternate framework loader, compatibility mode, or LLM repair
-is provided. Ignoring unselected files/metadata is only as specified above.
+**CVT-ERR-001 — Fail closed.** A malformed selected/reachable role, invalid config,
+reference or class, duplicate/invalid name, empty instruction, unsupported read
+YAML value, or invalid front fails the whole conversion. Do not silently drop a
+role or produce a successful subset. No alternate framework loader, compatibility
+mode, or LLM repair is provided. Ignore only unselected files and unmapped
+metadata as specified above; never include source values or parser excerpts in
+errors.
 
 ## Fixtures and verification obligations
 
-**CVT-TEST-001 — Reusable fixtures and assertions.** Store the two-role Theora
-fixture as `tests/converter/fixtures/mini-theora/layout.json`, an array of virtual
-files; its config content must itself be valid JSON. Do not create real repository
-`.theora` state. Store at least two Markdown roles, including coordinator and
-specialist, under `tests/converter/fixtures/sample-agents/`. Snapshot expectations
-may live under fixtures or as explicit test values. Both layouts must demonstrate
-front-to-specialist wiring, not just successful parsing.
+**CVT-TEST-001 — Reusable fixtures and assertions.** The two-role Theora fixture
+is `tests/converter/fixtures/mini-theora/layout.json`, an array of virtual files
+with valid JSON config content, not operational repository state. Markdown roles,
+including coordinator and specialist, live under
+`tests/converter/fixtures/sample-agents/`. ADK fixtures and the repository-authored
+web sample contain a three-level tree: coordinator → specialist → researcher.
+At least one ADK agent has `tools` and `model` keys to demonstrate notices, not
+capability passthrough. Snapshot expectations assert exact artifact bytes. All
+layouts demonstrate edges, not only successful parsing.
 
-Subsequent tests must cover these distinct promises:
+Tests cover these distinct promises:
 
 | Area | Rule references | Observable assertions |
 | --- | --- | --- |
-| Fixture integrity | `CVT-IN-001`, `CVT-IN-003`, `CVT-TEST-001` | Virtual file structure, parseable virtual config, at least two Markdown files |
-| Parsing | `CVT-IN-*`, `CVT-MD-001`, `CVT-ROLE-*`, `CVT-IR-001` | Both layouts and selected format; source instruction expectations derived from input, not emitted snapshots; no-frontmatter filename/title fallback, quoted/block descriptions, ignored metadata, malformed frontmatter/config, name collision, empty/no roles |
-| Public text | `CVT-SEC-*` | Synthetic secret/PEM/path removal, description sanitation, literal public URLs retained, no raw-value diagnostics |
-| Selection | `CVT-FRONT-001` | Explicit over config over sorted default, unknown front refusal, invalid config refusal even with override |
-| Network | `CVT-NET-*`, `CVT-META-001` | Fixed `llm_config.temperature: 0.2`, exact common schema, star edges, selected non-first front emitted first, single-role case, output-rule suffix for the selected front and specialists, format-specific description, no executable/peer capability passthrough |
-| Publication | `CVT-MAN-001`, `CVT-META-001`, `CVT-LINK-001`, `CVT-OUT-001` | Manifest front/reference/format-specific description and empty bindings match network; byte snapshots and shuffled-input determinism |
-| Adapters | `CVT-CLI-001`, `CVT-WEB-001`, `CVT-ERR-001` | CLI fixture-to-files snapshots and invalid-input failures; shared web pipeline, validated consume-once handoff without execution |
+| Fixture integrity | `CVT-IN-*`, `CVT-TEST-001` | Valid virtual files/config, multi-role Markdown, three-level ADK tree |
+| Parsing | `CVT-IN-*`, `CVT-MD-001`, `CVT-ROLE-*`, `CVT-IR-001` | Auto precedence, explicit no-fallback, name/title fallback, quoted/block strings, one-/four-space indentation and dedent refusal, invalid YAML/config, name collisions and empty bodies |
+| ADK | `CVT-ADK-001` | Minimal name/instruction input, seven LlmAgent values, root front, source edge order, rejection of unsupported classes, code, missing/cyclic/duplicate references, absolute paths and `..` |
+| Acquisition | `CVT-IN-001`, `CVT-ERR-001` | Reachable-only reads, unrelated unreadable/non-UTF-8 files ignored, selected unreadable/non-UTF-8 files refused, no symlink traversal |
+| Public text | `CVT-SEC-*` | Secret/PEM/path removal, sanitized descriptions, literal public URLs retained, safe key notices or hidden counts, no values in artifacts/notices/errors |
+| Selection | `CVT-FRONT-001` | Explicit over config over sorted default for text layouts; ADK root only; invalid candidate refusal even with override |
+| Network | `CVT-NET-*`, `CVT-META-001` | Fixed temperature/limits/schema, star or original edges, front-first order, single-role case, caller-neutral specialist rule for every layout, correct descriptions, no executable capabilities |
+| Publication | `CVT-MAN-001`, `CVT-META-001`, `CVT-LINK-001`, `CVT-OUT-001` | Matching front/reference/description, empty links, exact bytes and shuffled-input determinism |
+| Adapters | `CVT-CLI-001`, `CVT-WEB-001`, `CVT-ERR-001` | CLI/web byte equality, notices separate from artifacts, invalid-input failures, consume-once handoff without execution |
 
-**CVT-VERIFY-001 — Static versus browser evidence.** The later AW5 validation task
-must check generated bundles with AW2 `site-a/validator-rules.mjs` and AW4
-`tools/check-conformance.mjs`. The current AW4 checker audits two publication
-roots plus a Review Desk sample and Site B `_headers`; it is not an arbitrary
-output-directory CLI. Validation tests must place generated artifacts in a
-disposable checker-compatible tree or explicitly extend its input interface in
-that task. Do not rewrite operational site artifacts to run a converter test.
+**CVT-VERIFY-001 — Static versus browser evidence.** Generated bundles are checked
+with `site-a/validator-rules.mjs` and the existing bundle/conformance tests. The
+repository checker `tools/check-conformance.mjs` audits two publication roots,
+a Review Desk sample, and Site B `_headers`; it is not an arbitrary output-directory
+CLI. Tests use a disposable checker-compatible tree rather than overwriting
+operational artifacts. The engine runs the full tests and conformance gate.
 
 No forced vendor-loader execution in Node is required. Static reports and
 snapshots do not prove browser loading, model behavior, delegation, consent,
-CORS, credential isolation, or limit enforcement. At least one generated bundle
-must be loaded in a real browser using the vendored reference runtime and show
-the expected agent conversation/delegation. Record revision, environment,
-procedure, observed result, and sanitized evidence in
-[the demo checklist](demo-checklist.md). If accounts or environment are unavailable,
-record **unverified** and the required user input; a checklist alone is not proof.
-Public-site acceptance is tracked separately with AW4 deployment/judge access.
+CORS, credential isolation, or limits. At least one generated bundle must be
+loaded in a real browser using the reference runtime and demonstrate the expected
+conversation/delegation. Browser observations, including prior converted-team
+runs, belong in the [demo checklist](demo-checklist.md) with revision, environment,
+procedure, results, and sanitized evidence. Prior runs are not proof of the new
+ADK path. ADK public model/delegation verification remains a separate post-landing
+check; this contract does not claim it has run. If required accounts or environment
+are unavailable, report **unverified** and the required user input, not success.
+A checklist alone is not proof; public availability and independent judge access
+also require their own evidence.
 
 ## Explicit non-goals and loss of semantics
 
-**CVT-LIMIT-001 — Instructions, not the source harness.** This is a deterministic
-role-text export with a new default conversation graph, not an executable Theora
-or Claude environment and not a claim of full framework semantic equivalence.
+**CVT-LIMIT-001 — Instructions and edges, not the source harness.** Theora and
+Markdown exports add a default conversation graph; ADK exports instructions and
+its `sub_agents` graph. ADK transfers control to sub-agents, whereas the target
+calls an agent and receives an answer. These are not equivalent execution models.
+No executable Theora, Claude, or ADK environment is generated.
+
 Shell, git, gates, tests, filesystem access, scheduling, lifecycle hooks, task
-ownership, permissions, budgets, state, MCP servers, source tool lists, skills,
-subagent policies, and source input/output types are **not converted**. Prose
-requesting those abilities may remain as text but grants none of them. Authors
-must revise unsuitable role instructions before publication and must not claim
-that a converted agent actually performed unavailable operations.
+ownership, permissions, budgets, state, MCP servers, original tool lists (including
+ADK AgentTool), model choices, schemas, callbacks, skills, subagent policies, and
+source input/output types are not converted. Prose requesting them may remain
+but grants none. Workflow agents are rejected, not approximated. Authors must
+revise unsuitable instructions and must not claim unavailable operations occurred.
 
 No backend, database, authentication, payment system, hosted execution service,
 new runtime, or runtime adapter is generated. The three data files are not a
-complete hosted web app; serving them and the reference browser runtime requires
-a separate static publication setup. Public hosting, HTTPS/CORS, inference cost
-and credentials, licensing of source instructions, publication review, and actual
-browser verification remain explicit owner responsibilities. Later README and
-submission updates must preserve these limits rather than market a harness port.
+complete hosted web app. Separate static publication, HTTPS/CORS, inference cost
+and credentials, source licensing, publication review, and actual browser
+verification remain owner responsibilities. README and submission text must
+preserve these limits rather than market a harness port.

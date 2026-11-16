@@ -112,24 +112,27 @@ function output($) {
 }
 
 // CVT-WEB-001: real shared conversion and AW2 validation, without a runtime import.
-test('converter web: both public samples use shared emitters, format metadata, AW2 reports and CLI-identical downloadable bytes', async t => {
+test('converter web: public samples use shared emitters, format metadata, AW2 reports and CLI-identical downloadable bytes', async t => {
   const { $, samples, requests, bootCalls, html } = await mount(t);
   assert.match(html, /href="\.\/styles.css"/);
   assert.match(html, /href="\.\/index.html"/);
-  assert.equal(samples.length, 2);
+  assert.deepEqual(samples.map(sample => sample.dataset.converterSample), ['claude', 'adk', 'theora']);
   assert.equal($('#convert-submit').disabled, true);
   for (const sample of samples) {
     await sample.fire('click');
     const input = output($);
-    const layout = sample.dataset.converterSample === 'theora' ? 'theora' : 'markdown';
-    const description = `Converted ${layout === 'theora' ? 'Theora' : 'Markdown'} role conversation network.`;
+    const layout = sample.dataset.converterSample === 'claude' ? 'markdown' : sample.dataset.converterSample;
+    const description = layout === 'adk' ? 'Converted Google ADK agent network.'
+      : `Converted ${layout === 'theora' ? 'Theora' : 'Markdown'} role conversation network.`;
     assert.equal(input.network.metadata.description, description);
     assert.equal(input.network.max_execution_seconds, 90);
     assert.equal(input.network.llm_config.temperature, 0.2);
     assert.equal(input.manifest.networks[0].description, description);
     const records = layout === 'theora'
       ? JSON.parse(await readFile(new URL('site-a/converter/samples/theora/layout.json', root), 'utf8'))
-      : await Promise.all(['coordinator', 'specialist'].map(async name => ({ path: `.claude/agents/${name}.md`,
+      : layout === 'adk' ? await Promise.all(['root_agent.yaml', 'middle/agent.yaml', 'middle/leaf/agent.yaml'].map(async path => ({
+        path, content: await readFile(new URL(`site-a/converter/samples/adk/${path}`, root), 'utf8'),
+      }))) : await Promise.all(['coordinator', 'specialist'].map(async name => ({ path: `.claude/agents/${name}.md`,
         content: await readFile(new URL(`site-a/converter/samples/claude-agents/${name}.md`, root), 'utf8'),
       })));
     const scratch = fileURLToPath(new URL('.theora/tmp/converter-web/', root));
@@ -149,7 +152,13 @@ test('converter web: both public samples use shared emitters, format metadata, A
     assert.equal(cli.signal, null);
     assert.equal(cli.status, 0, cli.stderr);
     assert.equal(validateNetwork(input).valid, true);
-    assert.deepEqual(input.network.tools.map(role => [role.name, role.tools]), [['coordinator', ['specialist']], ['specialist', []]]);
+    assert.deepEqual(input.network.tools.map(role => [role.name, role.tools]), layout === 'adk'
+      ? [['coordinator', ['specialist']], ['researcher', []], ['specialist', ['researcher']]]
+      : [['coordinator', ['specialist']], ['specialist', []]]);
+    if (layout !== 'theora') {
+      assert.match($('#converter-notices').textContent, /tools/);
+      if (layout === 'adk') assert.match($('#converter-notices').textContent, /model/);
+    } else assert.equal($('#converter-notices').textContent, '');
     assert.ok(!JSON.stringify(input.network).includes('Read, Bash'), 'ignored source tools never become capabilities');
     assert.match($('#convert-status').textContent, /Static checks passed.*unverified/);
     assert.match($('#converter-report').textContent, /UNVERIFIED · runtime.safety/);
@@ -264,7 +273,12 @@ test('converter web: CLI and web acquisition agree on single and repeated UTF-8 
 test('converter web: acquisition reads only layout-selected roles and config, ignoring unrelated binary files', async t => {
   const theora = await fixture();
   const claude = ['coordinator', 'specialist'].map(name => ({ path: `.claude/agents/${name}.md`, content: `# ${name}\nHandle public requests.` }));
+  const adk = [
+    { path: 'root_agent.yaml', content: 'name: root\ninstruction: Delegate.\nsub_agents:\n - config_path: nested/child.yaml\n' },
+    { path: 'nested/child.yaml', content: 'name: child\ninstruction: Reply.' },
+  ];
   for (const [layout, selected, ignored] of [
+    ['adk', adk, ['unreachable.yaml', 'assets/logo.png', 'README.md', 'nested/unreachable.yaml']],
     ['theora', theora, ['assets/logo.png', 'README.md', '.claude/agents/broken.md', '.theora/roles/nested/extra/agent.md']],
     ['markdown', claude, ['assets/logo.png', 'README.md', '.theora/config/theora.json', '.claude/agents/nested/broken.md']],
     ['markdown', [{ path: 'guide.md', content: '# Guide\nHandle public requests.' }], ['assets/logo.png', 'nested/ignored.md', 'UPPER.MD']],
@@ -355,7 +369,7 @@ test('converter web: errors clear old downloads, sanitize diagnostics and retain
     assert.match($('#convert-status').textContent, /Could not read UTF-8/);
     assert.equal($('#convert-submit').disabled, true);
     globalThis.fetch = async () => new Response('', { status: 404 });
-    await samples[1].fire('click');
+    await samples.find(sample => sample.dataset.converterSample === 'theora').fire('click');
     assert.match($('#convert-status').textContent, /No artifacts produced/);
   });
   await t.test('AW2 failure is not success', async t => {
@@ -371,7 +385,7 @@ test('converter web: late acquisition cannot replace new input and option change
   const { $, samples } = await mount(t);
   const pending = Promise.withResolvers();
   globalThis.fetch = async () => pending.promise;
-  const loading = samples[1].fire('click');
+  const loading = samples.find(sample => sample.dataset.converterSample === 'theora').fire('click');
   const read = Promise.withResolvers();
   $('#markdown-files').files = [{ name: 'fresh.md', arrayBuffer: () => read.promise }];
   const reading = $('#markdown-files').fire('change');
@@ -401,6 +415,35 @@ test('converter web: late acquisition cannot replace new input and option change
   staleRead.resolve(new TextEncoder().encode('# Stale role').buffer);
   await Promise.all([stale, staleLayout]);
   assert.equal(output($).network.tools[0].name, 'latest');
+});
+
+test('ADK web: invalid references and UTF-8 reject the entire bundle and notices never expose values', async t => {
+  const { $, samples } = await mount(t);
+  for (const [label, rootContent, child] of [
+    ['missing', 'name: root\ninstruction: Reply.\nsub_agents:\n - config_path: missing.yaml', undefined],
+    ['invalid UTF-8', 'name: root\ninstruction: Reply.\nsub_agents:\n - config_path: child.yaml', new Uint8Array([0xff]).buffer],
+    ['unsafe path', 'name: root\ninstruction: Reply.\nsub_agents:\n - config_path: ../PRIVATE_VALUE_SENTINEL.yaml', undefined],
+    ['duplicate', 'name: root\ninstruction: Reply.\nsub_agents:\n - config_path: child.yaml\n - config_path: child.yaml', new TextEncoder().encode('name: child\ninstruction: Reply.').buffer],
+  ]) {
+    await samples.find(sample => sample.dataset.converterSample === 'adk').fire('click');
+    assert.equal($('#converter-output').hidden, false);
+    $('#project-files').files = [
+      { ...markdown('root_agent.yaml', rootContent), webkitRelativePath: 'root/root_agent.yaml' },
+      ...(child ? [{ name: 'child.yaml', webkitRelativePath: 'root/child.yaml', arrayBuffer: async () => child }] : []),
+    ];
+    await $('#project-files').fire('change');
+    assert.equal($('#converter-output').hidden, true, label);
+    assert.equal($('#convert-submit').disabled, true, label);
+    assert.equal($('#converter-notices').textContent, '', label);
+    assert.equal($('#converter-downloads').children.length, 0, label);
+    assert.doesNotMatch($('#convert-status').textContent, /PRIVATE_VALUE_SENTINEL/);
+  }
+  $('#project-files').files = [{ ...markdown('root_agent.yaml', 'name: root\ninstruction: Reply.\nmodel: PRIVATE_VALUE_SENTINEL\ntools: PRIVATE_VALUE_SENTINEL\nghp_abcdefgh: PRIVATE_VALUE_SENTINEL'), webkitRelativePath: 'root/root_agent.yaml' }];
+  await $('#project-files').fire('change');
+  await $('#convert-form').fire('submit');
+  assert.match($('#converter-notices').textContent, /model.*tools/);
+  assert.match($('#converter-notices').textContent, /1 additional key names withheld/);
+  assert.doesNotMatch($('#converter-notices').textContent + JSON.stringify(output($)), /PRIVATE_VALUE_SENTINEL|ghp_abcdefgh/);
 });
 
 test('converter web: blocked handoff storage offers manual download without navigating', async t => {
