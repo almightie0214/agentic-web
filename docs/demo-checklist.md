@@ -106,7 +106,7 @@ revision correspondence and diagnostic limits; the AW4 records remain separate.
   temporary profile deleted after the run. No software installation is needed.
 - Keyed runs use the dev router `.theora/tools/aw-dev-router.mjs`
   (`http://127.0.0.1:8640/api/v1`). Start it if the port is not listening. It reads
-  the user's keys from `%USERPROFILE%\.theora\keys\otari.key`; the browser panel
+  the user's keys from `%USERPROFILE%\.theora\secrets\keys\otari.key`; the browser panel
   gets only the router URL and the sentinel key `otk_sentinel_dev`. Never read,
   print or copy the key file's contents. Otari-side per-key limits cap spending on
   competition credits.
