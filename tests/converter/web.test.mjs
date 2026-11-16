@@ -166,6 +166,71 @@ test('converter web: directory roots and direct Markdown files preserve mapping 
   assert.equal(requests.length, 0, 'local conversion and handoff never fetch, infer, or contact peers');
 });
 
+test('converter web: acquisition reads only layout-selected roles and config, ignoring unrelated binary files', async t => {
+  const theora = await fixture();
+  const claude = ['coordinator', 'specialist'].map(name => ({ path: `.claude/agents/${name}.md`, content: `# ${name}\nHandle public requests.` }));
+  for (const [layout, selected, ignored] of [
+    ['theora', theora, ['assets/logo.png', 'README.md', '.claude/agents/broken.md', '.theora/roles/nested/extra/agent.md']],
+    ['markdown', claude, ['assets/logo.png', 'README.md', '.theora/config/theora.json', '.claude/agents/nested/broken.md']],
+    ['markdown', [{ path: 'guide.md', content: '# Guide\nHandle public requests.' }], ['assets/logo.png', 'nested/ignored.md', 'UPPER.MD']],
+  ]) await t.test(`${layout}: ${selected[0].path}`, async t => {
+    const { $ } = await mount(t);
+    const reads = [];
+    $('#project-files').files = [
+      ...selected.map(({ path, content }) => ({ ...markdown(path, content), webkitRelativePath: `root/${path}`,
+        arrayBuffer: async () => { reads.push(path); return new TextEncoder().encode(content).buffer; } })),
+      ...ignored.map(path => ({ webkitRelativePath: `root/${path}`, name: path,
+        arrayBuffer: async () => { reads.push(path); return new Uint8Array([0xff]).buffer; } })),
+    ];
+    await $('#project-files').fire('change');
+    await $('#convert-form').fire('submit');
+    assert.deepEqual(output($), bundle(selected));
+    assert.deepEqual(reads.sort(), selected.map(file => file.path).sort());
+    $('#convert-layout').value = layout;
+    await $('#convert-layout').fire('change');
+    await $('#convert-form').fire('submit');
+    assert.deepEqual(output($), bundle(selected));
+    assert.deepEqual(new Set(reads), new Set(selected.map(file => file.path)));
+  });
+  await t.test('layout changes reselect files and reject only selected invalid UTF-8', async t => {
+    const { $ } = await mount(t);
+    const reads = [];
+    let badPath;
+    $('#project-files').files = [...theora, ...claude, { path: 'README.md', content: '# Not an agent' }].map(({ path, content }) => ({
+      name: path, webkitRelativePath: `root/${path}`, arrayBuffer: async () => {
+        reads.push(path);
+        return path === badPath ? new Uint8Array([0xff]).buffer : new TextEncoder().encode(content).buffer;
+      },
+    }));
+    await $('#project-files').fire('change');
+    await $('#convert-form').fire('submit');
+    assert.deepEqual(output($), bundle(theora), 'auto prefers Theora in a mixed project');
+    assert.deepEqual(new Set(reads), new Set(theora.map(file => file.path)));
+    for (const [layout, selected] of [['markdown', claude], ['theora', theora]]) {
+      reads.length = 0;
+      $('#convert-layout').value = layout;
+      await $('#convert-layout').fire('change');
+      await $('#convert-form').fire('submit');
+      assert.deepEqual(output($), bundle(selected));
+      assert.deepEqual(new Set(reads), new Set(selected.map(file => file.path)));
+    }
+    for (const path of ['.theora/config/theora.json', '.theora/roles/coordinator/agent.md', '.claude/agents/coordinator.md']) {
+      badPath = path;
+      const selectedLayout = path.startsWith('.theora/') ? 'theora' : 'markdown';
+      $('#convert-layout').value = selectedLayout;
+      await $('#convert-layout').fire('change');
+      assert.equal($('#convert-submit').disabled, true);
+      assert.equal($('#converter-output').hidden, true);
+      assert.equal($('#converter-downloads').children.length, 0);
+      assert.match($('#convert-status').textContent, /Could not read UTF-8/);
+      $('#convert-layout').value = selectedLayout === 'theora' ? 'markdown' : 'theora';
+      await $('#convert-layout').fire('change');
+      await $('#convert-form').fire('submit');
+      assert.deepEqual(output($), bundle(selectedLayout === 'theora' ? claude : theora), 'an invalid unselected role/config must not poison the other layout');
+    }
+  });
+});
+
 test('converter web: errors clear old downloads, sanitize diagnostics and retain static failure verdicts', async t => {
   await t.test('invalid input and acquisition errors', async t => {
     const { $, samples, navigations } = await mount(t);
@@ -216,9 +281,9 @@ test('converter web: late acquisition cannot replace new input and option change
   $('#markdown-files').files = [{ name: 'fresh.md', arrayBuffer: () => read.promise }];
   const reading = $('#markdown-files').fire('change');
   $('#convert-layout').value = 'markdown';
-  await $('#convert-layout').fire('change');
+  const reloading = $('#convert-layout').fire('change');
   read.resolve(new TextEncoder().encode('# Fresh role\nUse public facts.').buffer);
-  await reading;
+  await Promise.all([reading, reloading]);
   await $('#convert-form').fire('submit');
   assert.equal(output($).network.tools[0].name, 'fresh');
   pending.resolve(new Response(JSON.stringify(await fixture())));
@@ -234,12 +299,12 @@ test('converter web: late acquisition cannot replace new input and option change
   $('#markdown-files').files = [{ name: 'stale.md', arrayBuffer: () => staleRead.promise }];
   const stale = $('#markdown-files').fire('change');
   $('#convert-layout').value = '';
-  await $('#convert-layout').fire('change');
+  const staleLayout = $('#convert-layout').fire('change');
   $('#markdown-files').files = [markdown('latest.md', '# Latest role\nUse public facts.')];
   await $('#markdown-files').fire('change');
   await $('#convert-form').fire('submit');
   staleRead.resolve(new TextEncoder().encode('# Stale role').buffer);
-  await stale;
+  await Promise.all([stale, staleLayout]);
   assert.equal(output($).network.tools[0].name, 'latest');
 });
 

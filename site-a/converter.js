@@ -5,6 +5,7 @@ import { validateNetwork } from './validator-rules.mjs';
 
 const $ = selector => document.querySelector(selector);
 let files;
+let localFiles;
 let acquisition = 0;
 let result;
 const downloads = [];
@@ -94,14 +95,27 @@ async function acquire(load, sample = false) {
   }
 }
 
+async function readLocalFiles() {
+  const entries = localFiles.map(file => ({ file,
+    path: file.webkitRelativePath ? file.webkitRelativePath.split('/').slice(1).join('/') : file.name,
+  }));
+  const theoraRole = /^\.theora\/roles\/[^/]+\/agent\.md(?![\s\S])/;
+  const claudeRole = /^\.claude\/agents\/[^/]+\.md(?![\s\S])/;
+  const layout = $('#convert-layout').value || (entries.some(({ path }) => theoraRole.test(path)) ? 'theora' : 'markdown');
+  const markdownRole = entries.some(({ path }) => claudeRole.test(path)) ? claudeRole : /^[^/]+\.md(?![\s\S])/;
+  return Promise.all(entries.map(async ({ file, path }) => {
+    const selected = layout === 'theora'
+      ? theoraRole.test(path) || path === '.theora/config/theora.json' : markdownRole.test(path);
+    // Preserve every path for the shared parser's path/duplicate validation, without reading unrelated bytes.
+    return { path, content: selected ? new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer()) : '' };
+  }));
+}
+
 for (const id of ['project-files', 'markdown-files']) {
   $(`#${id}`).addEventListener('change', () => {
-    const selected = Array.from($(`#${id}`).files);
+    localFiles = Array.from($(`#${id}`).files);
     $(id === 'project-files' ? '#markdown-files' : '#project-files').value = '';
-    return acquire(async () => Promise.all(selected.map(async file => ({
-      path: file.webkitRelativePath ? file.webkitRelativePath.split('/').slice(1).join('/') : file.name,
-      content: new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer()),
-    }))));
+    return acquire(readLocalFiles);
   });
 }
 
@@ -109,6 +123,7 @@ for (const button of document.querySelectorAll('[data-converter-sample]')) {
   button.addEventListener('click', () => {
     $('#project-files').value = '';
     $('#markdown-files').value = '';
+    localFiles = undefined;
     return acquire(async () => {
       const get = async path => {
         const response = await fetch(new URL(`./converter/samples/${path}`, import.meta.url), { credentials: 'omit' });
@@ -125,6 +140,7 @@ for (const button of document.querySelectorAll('[data-converter-sample]')) {
 
 for (const [id, event] of [['convert-layout', 'change'], ['convert-front', 'input']]) {
   $(`#${id}`).addEventListener(event, () => {
+    if (id === 'convert-layout' && localFiles) return acquire(readLocalFiles);
     invalidate();
     status('Options changed. Convert again for current artifacts.');
   });
