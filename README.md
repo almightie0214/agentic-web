@@ -61,7 +61,10 @@ reproduced in both browsers; user-supplied environment diagnosis attributes it t
 local Unicorn Pro HTTPS filtering, not site source. Independent review/gate and
 entrant-owned judge access are separate from these bounded observations.
 See [judge-ready release checks](docs/demo-checklist.md#6-judge-ready-fixes-release-check)
-for the current evidence, commands, revisions and remaining owners.
+for the current evidence, commands, revisions and remaining owners. Its evidence
+handoff correction identifies durable recovered run-514 stdout/field extracts,
+exact-restored deployment/serving JSON and a rebuilt source snapshot. The old run
+tmp and complete live JSON/trace arrays were lost; recovery is not a fresh live run.
 
 Historical evidence remains in the [demo ledger](docs/demo-checklist.md), not a
 fresh execution of this source:

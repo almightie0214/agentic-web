@@ -2352,8 +2352,11 @@ Claude first-click timeout **did not reproduce** after complete load; no cause i
 established and no product fix is claimed. These public subset runs inspected
 links, not downloaded file contents. Main-tree R02's download byte check is separate.
 
-Sanitized raw reports are local verification assets under the run's temporary
-directory, not product files or judge downloads:
+These historical subset reports were written under the earlier run's temporary
+directory, which has since been removed. The hashes below are historical provenance,
+not a claim that those original JSON files are still available. The mandatory
+post-deployment observations use the recovered durable evidence described at the
+end of §6, not these key-free subsets. Original report names:
 `report-firefox-1794810835212.json` SHA-256
 `28132263f79a355f713496b7ec1f08a523ccefb69b9b4483e3243ef8de7cfaf9` and
 `report-edge-1794810907007.json` SHA-256
@@ -2417,6 +2420,10 @@ All new checks used Windows x64, Node **v24.16.0**. The implementer materialized
 runtime in the release-check worktree:
 
 `I:/project/agentic-web/.theora/tmp/run-514-implementer/landed`
+
+That original temporary workspace was later removed. Round 2 rebuilt the same
+Git revision in the durable `source-225890d/` evidence tree below; this is a new
+source reconstruction, not preservation of the original workspace or a new run.
 
 `node {tmp}/prepare-release.mjs` exited **0**. HTTP measurement interval:
 **09:38:21.214Z–09:38:30.255Z**. It enumerated changed site paths from `24395e4` to
@@ -2686,30 +2693,98 @@ further paid run, prompt adjustment or output stripping was used to hide results
 
 #### Evidence locations, cleanup and remaining boundaries
 
-Sanitized JSON observations remain local verification assets, **not credentials,
-public downloads or product files**, under
-`I:/project/agentic-web/.theora/tmp/run-514-implementer/`. Essential observations and
-limits are transcribed above; the following hashes bind the full captured text and
-trace to that revision/run for independent inspection:
+**Round 2 evidence-retention correction.** The original
+`I:/project/agentic-web/.theora/tmp/run-514-implementer/` directory was removed when
+its execution ended. The earlier claim that it preserved the JSON/source snapshot
+for independent review was wrong: run-temporary lifetime was confused with review
+handoff lifetime. The observations were executed, but the first review could not
+read their underlying records. A hash or this ledger's summary alone is not a
+replacement for those records.
 
-| JSON file | SHA-256 |
-| --- | --- |
-| deployment.json | `ffed0eb8750b6b862b4ee4da57d77bfc351e7cdb21e40b0e9e34ea86b861c96d` |
-| live-edge.json | `335e9774b34cbdcf41a25cd9b9aa03748bac98ac314835c4501127a576ee38d7` |
-| live-firefox-script-failure.json | `12fb3781ef18637250947532b1cf878355855317fc221db51f49a1a869ca6302` |
-| live-firefox-default-failure.json | `b4ea12899a7a593a4f605b35a137728e78c7f592e7582f4ccefaf029fb1f8919` |
-| live-firefox.json | `0135d587d90bdf80752a4b960b4d8e8e83732dc5e84239e5bc108019460d3cd1` |
-| live-edge-theora.json | `4ffa7c7993c73e46b6ef213131d9bd92e9a27853166be9c04922200c7e1eea01` |
-| theora-serve.json | `671c47786acb9992f44d700d5e61e233f03b9eddcb984c6cb0642345251f6f56` |
+With input 80 / D59 authorization, the implementer recovered only existing
+**run-514 tool stdout**, without a new browser or paid inference run, at
+**2026-11-16T10:07:22.102Z**. Durable, project-local evidence root (not a run tmp,
+credential store, public download or product file):
+
+**`I:/project/agentic-web/.theora/judge-ready/release-check-225890d/`**
+
+Start independent inspection with **`manifest.json`**, SHA-256
+`7b01e593d9c1888032295696134ee23b3934a26e2de212e5dfe0684d880fb441`.
+It lists original run/output refs, source paths, target revision, recovery method,
+recovery time, observation ranges, every recovered file's size/hash and known losses.
+`transcripts/` contains byte-identical copies of the selected stored stdout files;
+`recovered-*.json` contains explicitly labeled field extraction, not a recreated
+original capture. A failed/unparseable/truncated JSON object was not filled in from
+this document. The original **complete live JSON and complete trace arrays were
+not recovered**. The following old hashes are therefore separated from current
+readable artifacts:
+
+| Original capture | Original SHA-256 (recorded during run 514) | Recovery status |
+| --- | --- | --- |
+| deployment.json | `ffed0eb8750b6b862b4ee4da57d77bfc351e7cdb21e40b0e9e34ea86b861c96d` | Restored at the durable root, exact old hash; the stdout JSON minus console's final newline |
+| live-edge.json | `335e9774b34cbdcf41a25cd9b9aa03748bac98ac314835c4501127a576ee38d7` | Complete original lost; available fields in recovered-edge.json and transcripts |
+| live-firefox-script-failure.json | `12fb3781ef18637250947532b1cf878355855317fc221db51f49a1a869ca6302` | Complete original lost; original failure stdout retained separately |
+| live-firefox-default-failure.json | `b4ea12899a7a593a4f605b35a137728e78c7f592e7582f4ccefaf029fb1f8919` | Complete original lost; original failure stdout retained separately |
+| live-firefox.json | `0135d587d90bdf80752a4b960b4d8e8e83732dc5e84239e5bc108019460d3cd1` | Complete original lost; available fields in recovered-firefox.json and transcripts |
+| live-edge-theora.json | `4ffa7c7993c73e46b6ef213131d9bd92e9a27853166be9c04922200c7e1eea01` | Complete original lost; available fields in recovered-theora.json and transcripts |
+| theora-serve.json | `671c47786acb9992f44d700d5e61e233f03b9eddcb984c6cb0642345251f6f56` | Restored at the durable root, exact old hash; stdout lines 1064–1534 of theora-flow.txt |
+
+**Currently readable extracted records** (all relative to the durable root, new
+serialization/hash; no substitution of old live-capture hashes):
+
+| File | Current SHA-256 | Restored observation scope |
+| --- | --- | --- |
+| recovered-edge.json | `c65b34d4d18af1d794056751fe78c481ebba70a53058f359e774eb001694dc6d` | Original 09:40:19.041Z–09:43:05.648Z; full peer/final text, actual caller tool-result status/preview, end spans, consent-visible ordering, trust, 32 B request records, router requests, CSP/log arrays and injection initiators |
+| recovered-firefox.json | `e1bd32b8ba52a3c2cfcb2012285ae6148de1313cc261dd50f35d82152ce24630` | Original 09:45:52.221Z–09:47:31.365Z; same observation fields, BiDi version/build metadata |
+| recovered-theora.json | `557bd100c39f40bb51c7fa8062e222d470827a3026af10ad7dfe167be4bcf080` | Original 09:48:25.575Z–09:49:52.270Z; full specialist/final text, tool status/preview, end spans, loopback flow/CSP/request fields |
+| verification.json | `1f42c67c65252125dd7abb59d509724017fac204842a61462d04a3e7e5c10210` | Recovery audit at 10:08:13.182Z: 108 artifacts hashed, 11 stdout copies byte-equal their source, 86 source files equal Git revision, original final-text hashes match, peer/tool prefixes and measured request/CSP fields agree; no new browser/paid run |
+
+The complete peer/specialist and final strings can be read without the larger JSON
+at `answers/{edge,firefox,theora}-peer.txt` and `answers/{edge,firefox,theora}-final.txt`.
+The final text-only hashes below still match exactly; byte sizes differ from JS
+character counts because they are UTF-8. Full caller tool payload remains unobserved:
+only the actual status/type/preview was captured and recovered, as stated above.
+
+**Source stdout index** — these are original execution outputs, not rewritten
+summaries. Source directory was
+`I:/project/agentic-web/.theora/outputs/judge-ready-fixes--release-check--a1/`;
+append `.txt` to each output ref there. Each durable copy's SHA-256 and original
+absolute path is in `manifest.json`. The source run is 514 and measured revision
+is `225890d241a9f4ef15956c9c3a69c5ece004d771` throughout.
+
+| Durable copy / readable lines | Original output ref | What to compare |
+| --- | --- | --- |
+| transcripts/deployment.txt:1–751 | `call_0f57e29f7b834e208dcc01ee119618ee` | 67 public response records, byte hashes/equality, GitHub SHA and original measurement times |
+| transcripts/edge-flow.txt:1–1465 | `call_2f5153c9bc3e49208d119fe4e42dd6cb` | Original timed UI steps/final answer, trust, B headers-presence booleans, CSP arrays and initiators |
+| transcripts/firefox-flow.txt:1–786 | `call_b049e0ab9c034b9a8594cf353e52cdae` | Same Firefox flow fields, including actual final answer |
+| transcripts/theora-flow.txt:1–1534 | `call_cbd9d1d01d0140dd84891ce7476e1357` | CLI output, full final answer, loopback flow, served-artifact hashes and times |
+| transcripts/answer-traces.txt:1–272 / 273–554 / 555–799 | `call_93cb33c87ed0424ab057fe7043bf6e86` | Edge / Firefox / Theora complete peer and final agent_result strings, actual caller tool_result status/preview and end spans; Theora full final text is the text field at line 590 |
+| transcripts/capture-index.txt:1–8 | `call_55783c59e7404b59891963a97ddd32a8` | Original capture/text hashes, consent-event arrays, span timing and original snapshot/profile audit timestamp; not full trace |
+| transcripts/firefox-script-failure.txt:1–41 | `call_ee9a22699788468a8f6bb1677715315f` | Original top-level await error, captured request/log fields and profileRemoved flag |
+| transcripts/firefox-default-failure.txt:1–70 | `call_0f8dd224e9964fcbb2d66ee7f589fe21` | Original timeout settings error, models/OPTIONS records, no peer requests, cleanup flag |
+| transcripts/browser-check.txt:1–332 | `call_f6c94b1cf5644cc083a5b7f69381b173` | The original 225890d landed-tree mock check, not a new/public-model run |
+| transcripts/boot-check.txt:1–167 | `call_c30b1a3f0cab4089b57a7831ef2e6a16` | Original four rendered loader/redaction cases and source digests |
+| transcripts/original-artifact-audit.txt:1 | `call_2485313eba1a456aaeee75c4acfa10af` | Original run-514 consistency-check output (no exact timestamp in this stdout) |
+
+The old source workspace and generated artifact files were removed; they are not
+claimed retained. `source-225890d/` is an **86-file reconstruction from the immutable
+Git commit**, made during recovery, with per-file hashes in the manifest and a fresh
+byte comparison to `git show`. Generated output/served correspondence is independently
+readable in the exact-restored `theora-serve.json`; generated file bytes themselves
+were not recovered. Missing complete trace/launchFlags/temporaryPrefs capture fields
+are not inferred from the ledger. Existing decisions and original command records
+support the documented conditions but do not become recovered browser fields.
 
 UTF-8 SHA-256 of final assistant text only: Edge
 `2e728cde64745427f667bd327bfb52416baab3cc0dba10868d8b21bc3dfd72f8`, Firefox
 `c6f2972305f7ac44b5de026ff6e4375ebbebeb35f12de6c8ece562fac40f8f25`, Theora
 `734503004f26032cc745b443171700cd8dec8b9f7985ef28fbf8344e23bc18a1`.
-All newly created profile directories were gone at the **09:51:07.125Z** cleanup
-check. Temporary executable scripts are removed after use; generated artifacts,
-source snapshot and sanitized JSON are retained as verification evidence only.
-No account, billing, credential file or operational browser configuration changed.
+The original run reported no remaining profile directories at **09:51:07.125Z**;
+that timestamp/result is readable in `transcripts/capture-index.txt:8`. Temporary
+execution scripts were removed after use. Durable recovered stdout/field extracts
+and the rebuilt source tree above are retained for review; the old run tmp is not.
+This Round 2 recovery made no new browser/model call and no account, billing,
+credential-file or operational-browser configuration change.
 
 **Required observation rows now have results:** public byte correspondence,
 landed-tree browser-check, local loader-error/redaction, public Edge/Firefox actual

@@ -18,6 +18,10 @@ Pro HTTPS filtering, not site source. Independent review/gate and entrant-owned
 judge access remain separate from this bounded observation record.
 Current results and gaps belong in the
 [judge-ready release ledger](demo-checklist.md#6-judge-ready-fixes-release-check).
+Its Round 2 handoff correction links durable recovered original stdout and field
+extracts: the complete live JSON/trace arrays were lost with the old run tmp.
+Deployment/serving JSON and final-answer strings were recovered with matching old
+hashes; the source snapshot was rebuilt from the same commit, not newly executed.
 Earlier local/public runs, failures and corrected rechecks remain in the ledger;
 they are not fresh executions of this revision.
 
