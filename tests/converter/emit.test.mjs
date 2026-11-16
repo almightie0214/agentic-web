@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { parseRoles } from '../../site-a/converter/parse-roles.mjs';
 import { emitNetwork } from '../../site-a/converter/emit-network.mjs';
+import { emitManifest } from '../../site-a/converter/emit-manifest.mjs';
 
 const fixtures = new URL('./fixtures/', import.meta.url);
 const role = (name) => ({ name, description: `Review as ${name}.`, instructions: `# ${name}\n\nReview supplied text.` });
@@ -30,6 +31,17 @@ for (const layout of ['mini-theora', 'sample-agents']) {
       { name: 'coordinator', tools: ['specialist'] }, { name: 'specialist', tools: [] },
     ]);
     assert.equal(bytes(emitNetwork(parseRoles([...files].reverse())).network), snapshot);
+
+    // CVT-MAN/LINK/OUT-001: all three publication artifacts share the same identity.
+    const publication = emitManifest(result.frontMan);
+    for (const [key, filename] of [['manifest', 'agent-manifest.json'], ['links', 'links.json']]) {
+      const expected = await readFile(new URL(`${layout}/expected/${filename}`, fixtures), 'utf8');
+      assert.equal(bytes(publication[key]), expected);
+    }
+    const reversed = emitNetwork(parseRoles([...files].reverse()));
+    assert.equal(bytes(emitManifest(reversed.frontMan)), bytes(publication));
+    assert.equal(publication.manifest.networks[0].front_man, result.network.tools[0].name);
+    assert.deepEqual(Object.keys(publication.links.networks), [publication.manifest.networks[0].name]);
   });
 }
 
@@ -43,6 +55,7 @@ for (const [label, configFront, options, expectedFront, expectedOrder] of [
     const input = parsed(configFront);
     const { network, frontMan } = emitNetwork(input, options);
     assert.equal(frontMan, expectedFront);
+    assert.equal(emitManifest(frontMan).manifest.networks[0].front_man, expectedFront);
     assert.deepEqual(network.tools.map(({ name }) => name), expectedOrder);
     assert.deepEqual(network.tools[0].tools, expectedOrder.slice(1));
     for (const agent of network.tools.slice(1)) assert.deepEqual(agent.tools, []);
@@ -61,6 +74,7 @@ for (const [label, configFront, options, expectedFront, expectedOrder] of [
 
 test('CVT-NET-001/003/004: one role has the exact resolved envelope and no outgoing calls', () => {
   const source = role('solo');
+  assert.equal(emitManifest(emitNetwork({ roles: [source] }).frontMan).manifest.networks[0].front_man, 'solo');
   assert.deepEqual(emitNetwork({ roles: [source] }), {
     frontMan: 'solo',
     network: {
@@ -149,9 +163,46 @@ test('CVT-CORE/OUT-001: frozen inputs, repeatable output, and independent schema
   assert.equal(bytes(input), before);
 });
 
-test('CVT-CORE-001: emitter loads as a browser-portable module without Node imports', async () => {
-  const source = await readFile(new URL('../../site-a/converter/emit-network.mjs', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /\b(?:from\s*|import\s*(?:\(\s*)?)["']node:/);
-  const portable = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
-  assert.deepEqual(portable.emitNetwork(parsed('zulu'), { front: 'alpha' }), emitNetwork(parsed('zulu'), { front: 'alpha' }));
+test('CVT-MAN-001/ERR-001: malformed selected fronts fail without disclosure or coercion', () => {
+  for (const front of [undefined, null, false, 42, {}, [], '', ' ', ' alpha', 'alpha ', 'alpha\n',
+    '0alpha', 'a-b', 'a'.repeat(61), '/private/DO_NOT_DISCLOSE', 'alpha\0']) {
+    assert.throws(() => emitManifest(front), (error) => {
+      assert.equal(error.message, 'CVT-MAN-001: invalid converter input.');
+      assert.equal(error.cause, undefined);
+      return true;
+    });
+  }
+  for (const front of ['A', 'a'.repeat(60), 'Role_123']) {
+    assert.equal(emitManifest(front).manifest.networks[0].front_man, front);
+  }
 });
+
+test('CVT-CORE/MAN/LINK/OUT-001: publication calls return independent data with no peer grants', () => {
+  const first = emitManifest('alpha');
+  const expected = bytes(first);
+  assert.deepEqual(Object.keys(first), ['manifest', 'links']);
+  assert.deepEqual(first.manifest.allowed_peers, []);
+  assert.deepEqual(first.manifest.peer_policy, { mode: 'closed' });
+  assert.deepEqual(first.links, { version: 1, networks: { converted_team: {} } });
+  first.manifest.networks[0].front_man = 'changed';
+  first.manifest.llm_router.mock = true;
+  first.manifest.allowed_peers.push('https://peer.invalid');
+  first.manifest.peer_policy.mode = 'open';
+  first.manifest.deployment.mode = 'changed';
+  first.links.networks.converted_team.slot = { url: 'https://peer.invalid' };
+  assert.equal(bytes(emitManifest('alpha')), expected);
+  assert.equal(emitManifest('zulu').manifest.networks[0].front_man, 'zulu');
+});
+
+for (const [moduleName, exportName, args] of [
+  ['emit-network', 'emitNetwork', [parsed('zulu'), { front: 'alpha' }]],
+  ['emit-manifest', 'emitManifest', ['alpha']],
+]) {
+  test(`CVT-CORE-001: ${moduleName} loads as a browser-portable module without Node imports`, async () => {
+    const source = await readFile(new URL(`../../site-a/converter/${moduleName}.mjs`, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /\b(?:from\s*|import\s*(?:\(\s*)?)["']node:/);
+    const portable = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+    const emitter = exportName === 'emitNetwork' ? emitNetwork : emitManifest;
+    assert.deepEqual(portable[exportName](...args), emitter(...args));
+  });
+}
