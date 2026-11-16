@@ -241,7 +241,11 @@ for (const site of ['site-a', 'site-b']) {
     const promise = new Promise(done => { resolve = done; });
     return { promise, resolve };
   };
-  const tick = () => new Promise(done => setTimeout(done, 0));
+  const flush = () => new Promise(setImmediate);
+  const useClock = t => {
+    t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1700000000000 });
+    return t.mock.timers;
+  };
   const fixture = (config = {}, extra = {}) => {
     const engine = new RuntimeEngine({ originUrl: base });
     const network = new RuntimeNetwork({ tools: [{ name: 'front', instructions: 'Answer.', tools: [] }], ...config }, 'test');
@@ -274,7 +278,7 @@ for (const site of ['site-a', 'site-b']) {
 
   test(site + ': runtime rejects unusable answers and accepts prose and valid presentations', async () => {
     const presentation = { version: 1, components: [{ kind: 'report', markdown: 'Useful report.' }] };
-    for (const [content, accepted] of [
+    for (const [content, accepted, expectedPresentation] of [
       ['', false], [null, false], ['   ', false], ['<function=WebFetch>{"url":"https://example.invalid"}</function>', false],
       ['<function=WebFetch>', false], ['<function=One>{}</function>\n<function=Two>{}</function>', false],
       ['The notation <function=WebFetch> is an example, not a call.', true],
@@ -284,14 +288,21 @@ for (const site of ['site-a', 'site-b']) {
       [JSON.stringify({ version: 1, components: [{ kind: 'confirm', confirmLabel: 'old' }] }), false],
       [JSON.stringify({ version: 1, components: [{ kind: 'action', action: 'missing#action' }] }), false],
       ['A valid prose answer.\n```cruse-ui\n' + JSON.stringify({ version: 1, components: [{ kind: 'action', action: 'missing#action' }] }) + '\n```', true],
-      [JSON.stringify(presentation), true],
-      ['<tool_response>' + JSON.stringify(presentation) + '</tool_response>', true],
-      [JSON.stringify({ Mode: 'Answer', Name: 'front', Response: JSON.stringify(presentation) }), true],
+      [JSON.stringify(presentation), true, presentation],
+      ['<tool_response>' + JSON.stringify(presentation) + '</tool_response>', true, presentation],
+      ...[presentation, JSON.stringify(presentation), '```json\n' + JSON.stringify(presentation) + '\n```'].map(Response => [
+        JSON.stringify({ Mode: 'Answer', Name: 'front', Response }), true, presentation,
+      ]),
     ]) {
       const { ctx, llm, chain, engine } = fixture();
       llm.chat = async () => ({ content, toolCalls: [] });
-      if (accepted) await runAgent(ctx, 'front', 'question', null, chain);
-      else {
+      if (accepted) {
+        const result = await runAgent(ctx, 'front', 'question', null, chain);
+        if (expectedPresentation) {
+          assert.equal(result.text, '');
+          assert.deepEqual(result.presentation.components.map(({ id, ...component }) => component), expectedPresentation.components);
+        }
+      } else {
         await assert.rejects(runAgent(ctx, 'front', 'question', null, chain), /answer|response|call|presentation|component|action/i);
         assert.equal(engine.trace.events.filter(e => e.kind === 'agent' && e.phase === 'end').at(-1).status, 'error');
       }
@@ -326,33 +337,45 @@ for (const site of ['site-a', 'site-b']) {
     await assert.rejects(dispatch(ctx, { kind: 'remote', url: peerBase + '/peer' }, {}, null, chain), /cycle/);
   });
 
-  test(site + ': runtime website failures retain receipts including unknown write outcomes', async () => {
+  test(site + ': runtime website failures retain receipts including unknown write outcomes', async t => {
+    const clock = useClock(t);
     for (const failure of ['handler', 'handler-null', 'output', 'timeout', 'deadline']) {
       const { engine, ctx, chain, manifest } = fixture();
       manifest.actions = { agentTools: ['check'] };
+      const entered = deferred();
       let started = 0;
       const ref = engine.actions.register({ base, network: 'test' }, {
         name: 'check', description: 'Check', effect: ['timeout', 'deadline'].includes(failure) ? 'write' : 'read',
         inputSchema: { type: 'object', properties: {} }, outputSchema: { type: 'string' }, timeoutMs: 100,
-      }, async () => { started++; if (failure === 'handler') throw new Error('handler rejected'); if (failure === 'handler-null') throw null; if (failure === 'output') return 4; return pending(); });
+      }, async () => {
+        started++;
+        entered.resolve();
+        if (failure === 'handler') throw new Error('handler rejected');
+        if (failure === 'handler-null') throw null;
+        if (failure === 'output') return 4;
+        return pending();
+      });
       const scope = createCallScope(ctx, { max_execution_seconds: failure === 'deadline' ? 0.03 : 1 });
       const active = bindContext(ctx, scope.signal, scope.deadline);
       try {
+        const operation = executeToolCalls(active, [toolCall({ kind: 'website', ref })], null, chain);
+        const outcome = failure === 'deadline'
+          ? assert.rejects(operation, e => e.code === 'EXECUTION_DEADLINE') : operation;
+        await entered.promise;
+        assert.equal(started, 1, 'the action must start before its deadline is advanced');
+        if (failure === 'deadline') clock.tick(30);
+        if (failure === 'timeout') clock.tick(100);
         if (failure === 'deadline') {
-          await assert.rejects(executeToolCalls(active, [toolCall({ kind: 'website', ref })], null, chain), e => e.code === 'EXECUTION_DEADLINE');
+          await outcome;
           const end = engine.trace.events.filter(e => e.kind === 'tool' && e.phase === 'end').at(-1);
           assert.equal(end.status, 'error');
           assert.equal(end.receipt.status, 'unknown', 'started writes keep uncertain receipts even when the parent fails');
-          assert.equal(started, 1);
           continue;
         }
-        const [result] = await executeToolCalls(active, [toolCall({ kind: 'website', ref })], null, chain);
+        const [result] = await outcome;
         assert.ok(result.error, failure);
-        assert.equal(started, 1);
         assert.match(result.content, failure === 'handler' ? /handler rejected/ : failure === 'handler-null' ? /null/ : failure === 'output' ? /Invalid result/ : /unknown|deadline/i);
-        if (failure === 'timeout') {
-          assert.match(JSON.stringify(result.error.receipt || result.error.receipts || result.receipts || result.content), /unknown/);
-        }
+        if (failure === 'timeout') assert.equal(result.error.receipt.status, 'unknown');
       } finally { scope.dispose(); }
     }
   });
@@ -411,35 +434,45 @@ for (const site of ['site-a', 'site-b']) {
     t.after(() => { globalThis.fetch = originalFetch; });
     for (const boundary of ['model', 'consent', 'link', 'manifest', 'definition', 'links']) {
       for (const owner of ['own', 'parent', 'composition']) {
-        await t.test(boundary + ' / ' + owner, async () => {
+        await t.test(boundary + ' / ' + owner, async t => {
+          const clock = useClock(t);
           const { engine, ctx, llm, network, chain } = fixture();
-          let late;
-          let lateArtifact;
-          let lateDocument;
+          const entered = deferred();
+          const late = deferred();
+          let lateValue;
           let persisted = 0;
           engine._persistLink = async () => { persisted++; };
           let fetches = 0;
-          let modelSignal;
-          if (boundary === 'model') llm.chat = async ({ signal }) => { modelSignal = signal; return pending(); };
-          else {
+          let workSignal;
+          if (boundary === 'model') {
+            lateValue = { content: 'Too late to answer.', toolCalls: [] };
+            llm.chat = async ({ signal }) => {
+              workSignal = signal;
+              entered.resolve();
+              return late.promise;
+            };
+          } else {
             network.getAgentSpec('front').tools = boundary === 'link' ? ['unbound'] : [peerBase + '/peer'];
             if (boundary === 'link') network.linkSlots.add('unbound');
             let calls = 0;
             llm.chat = async () => ++calls === 1 ? { content: '', toolCalls: [{ id: 'peer-call', function: { name: boundary === 'link' ? 'unbound' : 'peer', arguments: '{}' } }] } : { content: 'Recovered from tool error.', toolCalls: [] };
             if (boundary === 'consent' || boundary === 'link') {
-              late = deferred();
-              engine.onConsent = () => boundary === 'consent' ? late.promise : 'allow';
-              engine.onLinkRequired = () => late.promise;
+              lateValue = boundary === 'consent' ? 'always' : peerBase + '/peer';
+              const prompt = info => { workSignal = info.signal; entered.resolve(); return late.promise; };
+              engine.onConsent = boundary === 'consent' ? prompt : () => 'allow';
+              engine.onLinkRequired = prompt;
             }
             globalThis.fetch = async (url, options) => {
               fetches++;
               assert.ok(options.signal, boundary);
               url = String(url);
               if ((boundary === 'manifest' && url.endsWith('agent-manifest.json')) || (boundary === 'definition' && url.endsWith('peer.json')) || (boundary === 'links' && url.endsWith('links.json'))) {
-                lateArtifact = deferred();
-                lateDocument = boundary === 'manifest' ? { networks: [{ name: 'peer', hocon: 'peer.json' }] }
+                workSignal = options.signal;
+                const document = boundary === 'manifest' ? { networks: [{ name: 'peer', hocon: 'peer.json' }] }
                   : boundary === 'definition' ? { tools: [{ name: 'peer', instructions: 'Answer.', tools: [] }] } : {};
-                return lateArtifact.promise;
+                lateValue = new Response(JSON.stringify(document));
+                entered.resolve();
+                return late.promise;
               }
               if (url.endsWith('agent-manifest.json')) return new Response(JSON.stringify({ networks: [{ name: 'peer', hocon: 'peer.json' }] }));
               if (url.endsWith('peer.json')) return new Response(JSON.stringify({ tools: [{ name: 'peer', instructions: 'Answer.', tools: [] }] }));
@@ -447,45 +480,64 @@ for (const site of ['site-a', 'site-b']) {
             };
           }
           network.getAgentSpec('front').max_execution_seconds = owner === 'own' ? 0.035 : 1;
-          if (owner === 'parent') ctx.deadline = Date.now() + 35;
-          if (owner === 'composition') ctx.composition = { deadline: Date.now() + 35, agentCalls: 0, maxAgentCalls: 10, remoteCalls: 0, maxRemoteCalls: 10, peerCalls: new Map(), maxCallsPerPeer: 10 };
-          const started = Date.now();
-          await assert.rejects(runAgent(ctx, 'front', 'question', null, chain), error => error.code === 'EXECUTION_DEADLINE');
-          assert.ok(Date.now() - started < 1000, boundary + ' must not remain pending');
-          if (modelSignal) assert.ok(modelSignal.aborted);
-          const count = fetches;
-          late?.resolve(boundary === 'consent' ? 'always' : peerBase + '/peer');
-          lateArtifact?.resolve(new Response(JSON.stringify(lateDocument)));
-          await tick();
-          assert.equal(fetches, count, 'late UI input cannot contact a peer');
-          assert.equal(engine.consent.size, 0);
-          assert.equal(engine.runtimeAllowedPeers.size, 0);
-          assert.equal(engine.registry.cache.size, 0);
-          assert.equal(persisted, 0);
-          assert.equal(network.getLink('unbound'), null);
+          const parentScope = owner === 'parent' ? createCallScope(ctx, { max_execution_seconds: 0.035 }) : null;
+          const active = parentScope ? bindContext(ctx, parentScope.signal, parentScope.deadline) : ctx;
+          if (owner === 'composition') active.composition = { deadline: Date.now() + 35, agentCalls: 0, maxAgentCalls: 10, remoteCalls: 0, maxRemoteCalls: 10, peerCalls: new Map(), maxCallsPerPeer: 10 };
+          let settled = false;
+          const operation = runAgent(active, 'front', 'question', null, chain).finally(() => { settled = true; });
+          const rejected = assert.rejects(operation, error => error.code === 'EXECUTION_DEADLINE');
+          try {
+            await entered.promise;
+            assert.ok(workSignal, 'the selected pending boundary must actually be entered');
+            assert.equal(workSignal.aborted, false);
+            clock.tick(34);
+            await flush();
+            assert.equal(settled, false, 'the pending operation remains live before its absolute deadline');
+            clock.tick(1);
+            await rejected;
+            assert.equal(workSignal.aborted, true);
+            if (parentScope) assert.equal(parentScope.signal.aborted, true);
+            const count = fetches;
+            late.resolve(lateValue);
+            await late.promise;
+            await flush();
+            assert.equal(fetches, count, 'late input or artifacts cannot start another contact');
+            assert.equal(engine.consent.size, 0);
+            assert.equal(engine.runtimeAllowedPeers.size, 0);
+            assert.equal(engine.registry.cache.size, 0);
+            assert.equal(persisted, 0);
+            assert.equal(network.getLink('unbound'), null);
+          } finally { parentScope?.dispose(); }
         });
       }
     }
   });
 
   test(site + ': runtime invalidates queued decisions and input cancelled just before commit', async t => {
+    const clock = useClock(t);
     const { engine, ctx, network } = fixture();
     const originalFetch = globalThis.fetch;
     t.after(() => { globalThis.fetch = originalFetch; });
     globalThis.fetch = async () => { assert.fail('cancelled input must not fetch'); };
     const firstInput = deferred();
+    const firstEntered = deferred();
     let prompts = 0;
-    engine.onConsent = () => { prompts++; return firstInput.promise; };
+    engine.onConsent = () => { prompts++; firstEntered.resolve(); return firstInput.promise; };
     const firstScope = createCallScope(ctx, { max_execution_seconds: 1 });
-    const secondScope = createCallScope(ctx, { max_execution_seconds: 0.025 });
     const info = { targetUrl: peerBase + '/peer', peerOrigin: 'peer.invalid', kind: 'network' };
     const first = bindContext(ctx, firstScope.signal, firstScope.deadline).requestConsent(info);
+    await firstEntered.promise;
+    const secondScope = createCallScope(ctx, { max_execution_seconds: 0.025 });
     const second = bindContext(ctx, secondScope.signal, secondScope.deadline).requestConsent(info);
+    const secondRejected = assert.rejects(second, e => e.code === 'EXECUTION_DEADLINE');
     try {
-      await assert.rejects(second, e => e.code === 'EXECUTION_DEADLINE');
+      await flush();
+      assert.equal(prompts, 1, 'the first prompt holds the queue before advancing time');
+      clock.tick(25);
+      await secondRejected;
       firstInput.resolve('allow');
       await first;
-      await tick();
+      await flush();
       assert.equal(prompts, 1, 'expired queued prompts never reach UI');
       assert.equal(engine.trace.events.filter(e => e.kind === 'consent').length, 1);
     } finally { firstScope.dispose(); secondScope.dispose(); }
@@ -505,26 +557,39 @@ for (const site of ['site-a', 'site-b']) {
       assert.equal(network.getLink('unbound'), null);
     }
     const lateManifest = deferred();
+    const fetchEntered = deferred();
     const optionalScope = createCallScope(ctx, { max_execution_seconds: 0.025 });
     globalThis.fetch = async (_url, options) => {
       assert.equal(options.signal, optionalScope.signal, 'omitted optional span/chain still carries the invocation signal');
+      fetchEntered.resolve();
       return lateManifest.promise;
     };
     try {
-      await assert.rejects(bindContext(ctx, optionalScope.signal, optionalScope.deadline).resolveRemote(peerBase + '/peer'), e => e.code === 'EXECUTION_DEADLINE');
+      const rejected = assert.rejects(bindContext(ctx, optionalScope.signal, optionalScope.deadline).resolveRemote(peerBase + '/peer'), e => e.code === 'EXECUTION_DEADLINE');
+      await fetchEntered.promise;
+      clock.tick(25);
+      await rejected;
       lateManifest.resolve(new Response(JSON.stringify({ networks: [{ name: 'peer', hocon: 'peer.json' }] })));
-      await tick();
+      await lateManifest.promise;
+      await flush();
       assert.equal(engine.registry.cache.size, 0);
     } finally { optionalScope.dispose(); }
   });
 
   test(site + ': runtime actual peer failure reaches caller and child deadlines leave siblings intact', async t => {
+    const clock = useClock(t);
     const originalFetch = globalThis.fetch;
     t.after(() => { globalThis.fetch = originalFetch; });
     for (const [response, accepted] of [
       ['<function=WebFetch>{}</function>', false], ['', false], ['deadline', false], ['max_steps', false],
       [JSON.stringify({ version: 1, components: [{ kind: 'confirm' }] }), false],
       [JSON.stringify({ version: 1, components: [{ kind: 'action', action: 'unavailable' }] }), false],
+      ...[{ kind: 'confirm' }, { kind: 'action', action: 'unavailable' }].flatMap(component => {
+        const presentation = { version: 1, components: [component] };
+        return [presentation, JSON.stringify(presentation), '<tool_response>' + JSON.stringify(presentation) + '</tool_response>'].map(Response => [
+          JSON.stringify({ Mode: 'Answer', Name: 'peer', Response }), false,
+        ]);
+      }),
       ['valid', true], [JSON.stringify({ version: 1, components: [{ kind: 'report', markdown: 'Peer report.' }] }), true],
     ]) {
       const { engine, ctx, chain } = fixture();
@@ -532,13 +597,19 @@ for (const site of ['site-a', 'site-b']) {
         ? { networks: [{ name: 'peer', hocon: 'peer.json' }] }
         : String(url).endsWith('peer.json') ? { max_steps: 1, max_execution_seconds: response === 'deadline' ? 0.025 : 1, tools: [{ name: 'peer', instructions: 'Answer.', tools: [] }] } : {}));
       const session = await engine.resolveRemote(peerBase + '/peer', chain, null, engine.top.manifest);
-      session.llm.chat = response === 'deadline' ? pending : async () => response === 'max_steps'
+      let peerEntered = deferred();
+      session.llm.chat = response === 'deadline' ? () => { peerEntered.resolve(); return pending(); } : async () => response === 'max_steps'
         ? { content: '', toolCalls: [{ id: 'x', function: { name: 'unknown', arguments: '{}' } }] }
         : { content: response === 'valid' ? 'A real peer answer.' : response, toolCalls: [] };
-      const [result] = await executeToolCalls(ctx, [toolCall({ kind: 'remote', url: peerBase + '/peer' })], null, chain);
+      const operation = executeToolCalls(ctx, [toolCall({ kind: 'remote', url: peerBase + '/peer' })], null, chain);
+      if (response === 'deadline') { await peerEntered.promise; clock.tick(25); }
+      const [result] = await operation;
       if (accepted) assert.ok(!result.error);
       else {
         assert.ok(result.error, response);
+        assert.equal(result.status, 'error');
+        assert.equal(engine.trace.events.filter(e => e.kind === 'agent' && e.phase === 'end').at(-1).status, 'error');
+        assert.equal(engine.trace.events.filter(e => e.kind === 'tool' && e.phase === 'end').at(-1).status, 'error');
         assert.equal(engine.trace.events.filter(e => e.kind === 'remote_call' && e.phase === 'end').at(-1).status, 'error');
       }
       if (response === 'deadline') {
@@ -550,7 +621,11 @@ for (const site of ['site-a', 'site-b']) {
           assert.match(tool.content, /deadline/);
           return { content: 'The peer timed out; I will use the available information.', toolCalls: [] };
         };
-        assert.equal((await runAgent(ctx, 'front', 'parent question', null, chain)).text, 'The peer timed out; I will use the available information.');
+        peerEntered = deferred();
+        const parentOperation = runAgent(ctx, 'front', 'parent question', null, chain);
+        await peerEntered.promise;
+        clock.tick(25);
+        assert.equal((await parentOperation).text, 'The peer timed out; I will use the available information.');
         ctx.llm.chat = originalChat;
         ctx.network.getAgentSpec('front').tools = [];
       }
@@ -562,18 +637,29 @@ for (const site of ['site-a', 'site-b']) {
       { name: 'short', instructions: 'Short.', tools: [], max_execution_seconds: 0.025 },
       { name: 'long', instructions: 'Long.', tools: [], max_execution_seconds: 0.4 },
     ] });
+    const shortEntered = deferred();
+    const longEntered = deferred();
+    const longCompletion = deferred();
     llm.chat = async ({ messages, signal }) => {
-      if (messages[0].content === 'Short.') return pending();
-      await new Promise(done => setTimeout(done, 65));
+      if (messages[0].content === 'Short.') { shortEntered.resolve(); return pending(); }
+      longEntered.resolve();
+      await longCompletion.promise;
       assert.equal(signal.aborted, false);
       return { content: 'Long sibling completed.', toolCalls: [] };
     };
     const parentScope = createCallScope(ctx, { max_execution_seconds: 1 });
     try {
-      const results = await executeToolCalls(bindContext(ctx, parentScope.signal, parentScope.deadline), [
+      const operation = executeToolCalls(bindContext(ctx, parentScope.signal, parentScope.deadline), [
         { ...toolCall({ kind: 'agent', ref: 'short' }), id: 'short' },
         { ...toolCall({ kind: 'agent', ref: 'long' }), id: 'long' },
       ], null, chain);
+      await Promise.all([shortEntered.promise, longEntered.promise]);
+      clock.tick(25);
+      await flush();
+      assert.equal(parentScope.signal.aborted, false);
+      clock.tick(40);
+      longCompletion.resolve();
+      const results = await operation;
       assert.equal(results[0].error.code, 'EXECUTION_DEADLINE');
       assert.equal(results[1].status, 'ok');
       assert.equal(JSON.parse(results[1].content).text, 'Long sibling completed.');

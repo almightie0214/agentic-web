@@ -128,8 +128,10 @@ export function parseAgentResponse(raw, source = {}) {
     }
     if (object(doc) && doc.Mode !== undefined && (doc.Name !== undefined || doc.Inquiry !== undefined)) {
       protocol = doc;
-      if (object(doc.Response)) return unwrap(JSON.stringify(doc.Response));
-      return typeof doc.Response === "string" ? doc.Response : Array.isArray(doc.Requirements)
+      if (object(doc.Response) || typeof doc.Response === "string") {
+        return unwrap(typeof doc.Response === "string" ? doc.Response : JSON.stringify(doc.Response));
+      }
+      return Array.isArray(doc.Requirements)
         ? doc.Requirements.map((r) => typeof r === "string" ? r : r?.description || r?.title || "").filter(Boolean).join("\n") : "";
     }
     return plain;
