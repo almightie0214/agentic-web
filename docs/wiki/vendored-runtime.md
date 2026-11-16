@@ -10,7 +10,8 @@ description: site-a/runtime과 site-b/runtime에 복사된 nsDeploy 브라우저
 
 - `index.js`: 공개 진입. `boot(root, opts)`가 URL 쿼리 위생 처리, BYOK 설정 읽기, `Engine` 생성, `loadTop()`, `mountApp`을 수행한다. `Engine`·`TraceBus`·`mountApp` 등도 재export한다. runner 선택은 없다. 두 사이트 모두 `site.js`가 이 `boot`를 호출한다.
 - `engine.js`: manifest·네트워크 fetch와 컴파일(`_compile`: 은퇴 기능 거부, 구조 검증), 라우터 선택(`selectTopRouter`), 피어 정책, `_makeCtx`(호출 ctx와 동의 소유), `Session`. 원본 위치 기준 상대 URL을 해석한다.
-- `kernel.js`, `hocon.js`: `AgentNetwork`·`validateNetwork`(시간·step 한도 형식 검증 포함)와 정의 파싱.
+- `kernel.js`, `hocon.js`: `AgentNetwork`·`validateNetwork`(시간·step 한도와 `llm_config.temperature` 형식 검증 포함)와 정의 파싱.
+- `llm.js`: `LLMClient.chat`이 모델 요청 body를 만드는 유일한 경로다. `temperature`는 값이 있을 때만 body에 넣는다. 값을 고르는 쪽은 `runner.js`다([[runtime-execution-contract]]).
 - `runner.js`, `scope.js`: 유일한 에이전트 실행 루프와 호출 범위 취소(`createCallScope`·`scoped`·`bindContext`). 규칙은 [[runtime-execution-contract]].
 - `ui.js`, `cruse.js`, `cruse-render.js`: 설정 패널·채팅·에이전트 UI와 CRUSE 위젯 정규화/렌더링.
 - `byok.js`: 프로필·탭 단위 키/라우터/모델 저장.
@@ -37,6 +38,11 @@ description: site-a/runtime과 site-b/runtime에 복사된 nsDeploy 브라우저
 - 선택형 LangChain 루프(`Engine.enableLangChain`, `ctx.externalRunner`와 그 모듈·번들)와 쓰지 않는 기능(MCP·sandbox·sandbox worker·원격 action 발견·host form·bridge 모듈)을 지웠다. 지운 파일 목록은 [[runtime-execution-contract]]. 이를 선언한 네트워크는 `Engine._compile`에서 거부된다. 로컬 site action 경로와 `site-a/runtime/generated/graph.gen.mjs`·`site-a/runtime/generated/validation.gen.mjs`는 남았다.
 - 실패 경계(`runAgent`·`dispatchToolCall`은 던지고 `executeToolCalls`만 오류 tool 결과로 바꿈), 호출 범위 deadline, 정책 뒤 동의 기록, 네트워크 선언 composition deadline, 한도 선언 형식 검증, 부팅 오류 표시.
 - 이 수정은 `site-a/runtime/README.md`·`site-b/runtime/README.md`의 Local distribution notice에도 적혀 있다.
+
+공개 실측 뒤 수정(두 사본 동일):
+
+- `llm.js`·`runner.js`: 실행되는 에이전트의 `llm_config.temperature`(없으면 그 네트워크의 값)를 모델 요청에 싣는다. 원본은 이 값을 버렸다. `kernel.js`는 두 수준의 값을 0 이상 2 이하의 유한한 수로만 받는다.
+- `scope.js`의 `MAX_EXECUTION_SECONDS`: 300에서 180으로 바뀌었다. 세 네트워크 선언의 실측 계산값에서 나온 `max(90, …)`이며 원본의 다른 한도는 그대로다([[runtime-execution-contract]]의 "시간 상한은 실측에서 나온다"). 두 README의 Local distribution notice에도 같은 값이 적혀 있다.
 
 Site A의 `README.md`에는 상류 문서(사이트 action을 `website_*` 도구로 노출하는 편집 등)가 그대로 보존돼 있다. 이는 상류 설명이며 이 프로젝트의 action 연결은 위 문단과 [[validator-action]]에 있다.
 

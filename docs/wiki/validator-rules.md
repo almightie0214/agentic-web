@@ -27,6 +27,7 @@ Review Desk의 모든 판정은 `site-a/validator-rules.mjs` 한 곳에서 나�
 | 참조 | `agent.tools`, `tool.local`, `tool.mcp`, `tool.link`, `tool.peer.url` | tools 배열, 로컬 에이전트·MCP 서술자·명명된 링크·직접 피어 URL |
 | 합성 | `peer.base`, `peer.chain`, `peer.composition` | 활성 피어 체인 재진입 |
 | 실행 상한 | `execution.limit` | `max_steps`·`max_execution_seconds` 미선언은 `warning`, 선언된 잘못된 값은 `fail` |
+| 샘플링 | `llm.temperature` | 네트워크(`/network/llm_config/temperature`)와 에이전트(`/network/tools/<i>/llm_config/temperature`)에서 선언했을 때만 하나씩 판정한다. 유한한 수이고 0 이상 2 이하이면 `pass`, 아니면 `fail`이다. 미선언은 finding이 없다 |
 | 미확인 | `runtime.composition`, `runtime.safety` | 항상 `unverified`를 내어 정적 입력으로 알 수 없는 것을 구분 |
 
 ## 핵심 판단과 이유
@@ -36,6 +37,7 @@ Review Desk의 모든 판정은 `site-a/validator-rules.mjs` 한 곳에서 나�
 - **합성 사이클은 활성 피어 체인 재진입만 뜻한다.** 내부 agent의 상호 참조·재귀·반복 호출은 합법이며 사이클로 보지 않는다. 판정은 레퍼런스 `RemoteRegistry.checkCycle`(`site-a/runtime/remote.js`)을 재사용한다. 입력으로 `activePeerChain`을 받거나, `baseUrl`이 있으면 자신의 피어 URL로 되돌아오는 선언된 hop을 진단한다. 도달 가능한 에이전트(front_man에서 시작)의 피어 hop만 대상이다. 실제 브라우저가 호출을 중단하는지는 이 규칙이 입증하지 않는다(`runtime.composition`이 미확인으로 남김).
 - **명명된 링크와 직접 피어 참조는 소비 계약이 다르다.** 직접 참조는 `/`로 시작하는 루트 상대 경로를 `baseUrl` 기준으로 해석할 수 있지만, `network.links`와 `links.json`의 `networks[이름]` 바인딩은 완전한 절대 URL이어야 한다(`Engine.prototype.resolveLink`와 대조한 테스트). 명명된 링크는 `network.link_slots`에 선언되어 있어야 하며 두 출처의 바인딩을 합쳐 쓴다.
 - 피어 URL은 HTTPS(개발용 loopback만 HTTP)이고 경로가 정확한 발행 네트워크 이름으로 끝나야 한다. 사이트 base나 로컬 파일 경로는 실패다.
+- **temperature는 두 수준을 따로 본다.** `inspectTemperature`(`site-a/validator-rules.mjs`)가 네트워크와 각 에이전트의 `llm_config`를 각각 검사하므로 유효한 에이전트 값이 잘못된 네트워크 값을 가리지 못한다. 런타임 컴파일(`site-a/runtime/kernel.js`)이 같은 범위를 실행 보호로, 이 규칙이 정적 finding으로 확인하는 짝이며 `max_execution_seconds` 검사와 같은 배치다. 선언이 실제 요청에 실리는 경로는 [[runtime-execution-contract]]에 있다. 테스트는 `tests/validator.test.mjs`의 "rules: temperature …" 두 개다.
 
 ## 교훈(리뷰 지적에서)
 

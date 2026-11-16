@@ -11,7 +11,7 @@ Site B는 스펙 질문에 답하는 정보 제공 전용 사이트다. 직접 �
 | 경로 | 책임 |
 | --- | --- |
 | `site-b/agent-manifest.json` | 네트워크 이름 `spec_scout`, `front_man: spec_scout`, `hocon: ./spec_scout.network.json`. 라우터는 Site A와 같은 hosted Otari 기본값(`mock: false`). `allowed_peers: []`, `peer_policy.mode: closed`, `deployment.mode: static`. `actions`와 `coded_tools`는 없다 |
-| `site-b/spec_scout.network.json` | 실행에 쓰는 배포본. resolved JSON, agent 하나(`spec_scout`, `tools: []`, `class`/`toolbox` 없음). 네트워크 수준 `max_execution_seconds: 180`이 직접 방문 질의의 composition deadline이다. Site A에 피어로 불릴 때는 caller의 deadline을 늘리지 못한다([[runtime-execution-contract]]) |
+| `site-b/spec_scout.network.json` | 실행에 쓰는 배포본. resolved JSON, agent 하나(`spec_scout`, `tools: []`, `class`/`toolbox` 없음). 네트워크 수준 `llm_config.temperature: 0.2`는 이 에이전트가 실행될 때 모델 요청에 실린다(피어로 불리면 caller가 아니라 이 정의의 값이 쓰인다). `max_execution_seconds: 120`이 직접 방문 질의의 composition deadline이다. Site A에 피어로 불릴 때는 caller의 deadline을 늘리지 못한다([[runtime-execution-contract]]) |
 | `site-b/spec-excerpts.json` | 발췌의 저작 원본(출처 `source` + `excerpts[]`: `id`·`topic`·`section`·`text`). 런타임이 읽지 않는다 |
 | `site-b/site.js` | 부트. `./runtime/index.js`의 `boot()`로 네트워크를 그대로 로드한다 |
 | `site-b/index.html` | 스타일 인라인. `header`·`agents` 슬롯은 `hidden inert`, `settings`·`chat` 슬롯을 쓴다. restrictive CSP meta를 선언한다(인라인 스타일을 위해 `style-src`에는 `'unsafe-inline'`이 있고 script는 `'self'`만; [[page-csp-and-browser-check]]) |

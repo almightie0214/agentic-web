@@ -1,5 +1,5 @@
 ---
-description: 두 runtime 사본의 실행 계약. 실패를 답 문자열로 바꾸지 않는 경계 두 곳, 호출 범위 시간 한도와 composition deadline, 정책 뒤 동의 기록, 은퇴한 기능의 컴파일 거부, 부팅 오류 표시
+description: 두 runtime 사본의 실행 계약. 실패를 답 문자열로 바꾸지 않는 경계 두 곳, 호출 범위 시간 한도(실측으로 정한 상한)와 composition deadline, temperature 전달·검사, 정책 뒤 동의 기록, 은퇴한 기능의 컴파일 거부, 부팅 오류 표시
 ---
 
 # 런타임 실행 계약 (fail closed·시간 한도·동의)
@@ -37,7 +37,7 @@ description: 두 runtime 사본의 실행 계약. 실패를 답 문자열로 바
 
 ## 시간 한도는 호출 범위로 강제한다
 
-- `createCallScope`(`scope.js`)가 `runAgent` 시작 때 절대 한도를 한 번 계산한다: `min(부모 deadline, composition.deadline, 시작 시각 + 자기 max_execution_seconds)`. 자기 한도는 300초(`MAX_EXECUTION_SECONDS`)로 상한을 둔다. 그 시각이나 부모 signal abort에 abort되는 signal을 만들어 `bindContext`로 하위 ctx에 넘기고, `runAgent` 본문 전체(도구 표 구성 포함)를 `scoped`로 이 signal과 경주시킨다. 공유 client·`Session`은 한도를 저장하지 않는다. 호출마다 scope를 받는다.
+- `createCallScope`(`scope.js`)가 `runAgent` 시작 때 절대 한도를 한 번 계산한다: `min(부모 deadline, composition.deadline, 시작 시각 + 자기 max_execution_seconds)`. 자기 한도는 `MAX_EXECUTION_SECONDS`(현재 180초, 두 사본 같은 값, 아래 "시간 상한은 실측에서 나온다")로 상한을 둔다. 그 시각이나 부모 signal abort에 abort되는 signal을 만들어 `bindContext`로 하위 ctx에 넘기고, `runAgent` 본문 전체(도구 표 구성 포함)를 `scoped`로 이 signal과 경주시킨다. 공유 client·`Session`은 한도를 저장하지 않는다. 호출마다 scope를 받는다.
 - `bindContext`는 `_makeCtx`(`engine.js`)가 만드는 ctx의 모든 함수형 속성(동의, 링크 해석, 피어 해석, action 확인 등)을 `scoped` 감싸개로 바꾼다. 감싸개는 이미 abort면 즉시 오류를 던지고, 대기를 abort와 경주시키고, abort 뒤 도착한 결과를 버린다. 마지막 인자로 `{ signal, deadline }`을 넘겨 실제 I/O(`llm.chat`, `remote.js`의 `fetchManifest`·`fetchText`, links·정의 fetch)가 signal을 받는다. 선택적 fetch의 catch는 abort를 삼키지 않는다(`_loadPublishedLinks`가 catch 안에서 `assertActive`).
 - 대기에서 깨어난 코드는 `assertActive`로 scope를 확인한 뒤에야 다음 작업을 시작하거나 공유 상태(동의 기억, 런타임 허용 피어, 링크 저장, 세션 캐시)를 바꾼다. 사람 입력 UI(동의 카드·링크 입력·action 확인)는 abort 시 닫히고 대기 중이던 입력은 무효가 된다(`ui.js`의 `pendingInput`). `ActionRegistry.execute`는 handler 시작 전마다 scope를 확인한다.
 - 모델 호출 signal은 한도 signal과 steering signal을 합친다(`runAgentManual`의 `AbortSignal.any`). 한도 abort 사유는 `ExecutionDeadlineError`(`code: EXECUTION_DEADLINE`)라 steering의 `AbortError`와 구별된다(`tests/smoke.test.mjs`의 "model deadline abort remains an error rather than steering").
@@ -45,9 +45,28 @@ description: 두 runtime 사본의 실행 계약. 실패를 답 문자열로 바
 
 ### composition deadline은 네트워크가 선언한다
 
-`Engine.runTurn`이 질의 `composition.deadline`을 최상위 네트워크의 `max_execution_seconds`로 정한다. 선언이 없을 때만 90초이고 선언값은 300초로 줄인다. 피어 네트워크의 선언은 caller의 composition을 바꾸지 못한다. 피어는 자기 에이전트 한도로만 더 짧게 할 수 있다. 명세 §3.1이 한도를 네트워크 단위로 설정할 수 있어야 한다고 하기 때문이다. 이전의 고정 90초에서 Spec Scout 질문이 피어 모델 호출 약 71초 뒤 coordinator 최종 호출에서 잘렸다. 공개 선언은 `site-a/review_desk.network.json`이 240, `site-b/spec_scout.network.json`이 180이고 변환기는 240을 내보낸다([[converter-mapping-contract]]).
+`Engine.runTurn`이 질의 `composition.deadline`을 최상위 네트워크의 `max_execution_seconds`로 정한다. 선언이 없을 때만 90초이고 선언값은 `MAX_EXECUTION_SECONDS`로 줄인다(`engine.js`의 `Math.min(선언 ?? 90, MAX_EXECUTION_SECONDS)`). 피어 네트워크의 선언은 caller의 composition을 바꾸지 못한다. 피어는 자기 에이전트 한도로만 더 짧게 할 수 있다. 명세 §3.1이 한도를 네트워크 단위로 설정할 수 있어야 한다고 하기 때문이다. 이전의 고정 90초에서 Spec Scout 질문이 피어 모델 호출 약 71초 뒤 coordinator 최종 호출에서 잘렸다. 공개 선언은 `site-a/review_desk.network.json`이 180, `site-b/spec_scout.network.json`이 120이고 변환기는 90을 내보낸다([[converter-mapping-contract]]).
 
 선언 형식은 `kernel.js`의 `validateNetwork`가 `Engine._compile`에서 강제한다. 네트워크·에이전트 수준 `max_execution_seconds`가 유한한 양수 number가 아니거나(null·문자열·0·음수·NaN·Infinity), `max_steps`가 양의 정수가 아니면 실행 전에 거부한다. 소수 값은 허용한다. 정적 validator의 `execution.limit` 규칙만 이를 보던 때는 잘못된 값이 NaN deadline이 되어 타이머가 걸리지 않았다.
+
+### 시간 상한은 실측에서 나온다
+
+원본 runtime에서 온 한도(질의 기본 90초, 에이전트 호출 24회, 원격 호출 4회, 피어당 1회, 동시 tool 4개, 피어 깊이 5, `max_steps` 기본 12, action `timeoutMs` 100~300000)는 그대로 두고, 이 프로젝트가 정한 값 네 개(runtime 상한과 세 네트워크 선언)만 공개 실측에서 계산한다.
+
+- 네트워크 선언 = `30 * ceil(2 * max(durationMs) / 30000)`초. `durationMs`는 그 네트워크가 맨 위인 성공 실행의 trace 최상위 `kind:"run"` span이 끝날 때 기록한 값이다. 입력은 `docs/demo-checklist.md` §7의 여덟 실행(review_desk 4회 최장 78037ms → 180, spec_scout 직접 2회 최장 47318ms → 120, 변환 샘플 2회 최장 43568ms → 90)이고 계산 근거는 §8에 있다([[browser-evidence-ledger]]).
+- runtime 상한 = `max(90, 세 선언)` = 180(`site-a/runtime/scope.js`·`site-b/runtime/scope.js`의 `MAX_EXECUTION_SECONDS`). 90 아래로 내려가면 선언 없는 질의의 원본 기본 90초가 바뀌므로 하한 90을 둔다. 이전 상한은 300이었다.
+- 새 상한보다 큰 네트워크 선언도, 단독 에이전트 선언도 상한으로 줄어든다(`createCallScope`·`runTurn`). 이 값은 고정된 질문과 조건의 실측이지 임의 질문이 그 안에 끝난다는 보장이 아니다. 새 한도를 공개 배포에서 다시 재지는 않았다.
+- 결정적 검사: `tests/smoke.test.mjs`의 "measured query limits match the approved longest run budgets"가 위 원자료에서 공식을 다시 계산해 세 선언과 두 `MAX_EXECUTION_SECONDS`가 같은지 단언하고, `tests/peer.test.mjs`의 "runtime uses the top network query deadline with default and maximum"(A/B)가 기본 90초와 상한 줄임을 mock 시계로 확인한다.
+
+## 샘플링 temperature는 실행되는 에이전트가 정한다
+
+이전에는 네트워크 `llm_config.temperature`가 선언돼도 모델 요청에 실리지 않았다(`LLMClient.chat`은 `model`·`messages`·`stream: true`·`tools`만 body에 넣었다). 지금은 다음 경로를 따른다.
+
+- **값 고르기**: `runner.js`의 `runAgentManual`이 한 곳에서 `spec.llm_config.temperature`(그 에이전트) → 없으면 `network.config.llm_config.temperature`(그 에이전트가 속한 네트워크)를 고른다. 피어도 자기 정의의 값을 쓴다. 모델 선택(`agentModel`, caller·설정 화면 override 우선)과 규칙이 별개이고 caller의 temperature 정책은 없다. 그래서 caller 네트워크 0.7·피어 0.2이면 피어 요청은 0.2, caller 요청은 0.7이다(router·키는 여전히 caller 것). 설정 화면의 모델 선택은 모델만 바꾸고 temperature를 지우지 않는다.
+- **body 반영**: `llm.js`의 `chat({ model, temperature, … })`은 `temperature !== undefined`일 때만 body에 넣는다. 없으면 키 자체가 없고 0은 0으로 간다.
+- **컴파일 검사**: `kernel.js`의 `validateNetwork`가 네트워크와 각 에이전트의 `llm_config.temperature`가 유한한 number이고 0 이상 2 이하인지 `max_execution_seconds`·`max_steps`와 같은 반복문에서 확인한다. 네트워크와 에이전트를 따로 보므로 유효한 에이전트 값이 잘못된 네트워크 값을 가리지 못한다. 0~2는 OpenAI Chat Completions의 범위이고 공급자별 예외나 자동 재시도는 두지 않는다. 정적 쪽은 [[validator-rules]]의 `llm.temperature`다.
+- **이유와 한계**: 진단에서 Spec Scout 지시문과 같은 질문을 runtime 밖에서 Otari(`alibaba/qwen3.8-flash`)에 보냈을 때, `stream: true`에 temperature 없이 보낸 2회는 문장 중간부터 무너졌고 temperature 0.2를 준 1회는 깨끗했다. Otari의 실제 기본 temperature는 모르고 공급자 쪽 결함의 정체는 단정하지 않는다. 세 네트워크가 0.2를 선언한 것은 이 진단에서 나온 완화책이며, 공개 실측 8회에서 읽은 답에 깨진 문장이 관찰되지 않았다는 범위가 한정된 관찰이다([[browser-evidence-ledger]]).
+- 결정적 검사(A/B 같은 조건): `tests/peer.test.mjs`의 "runtime sends agent temperature independently of model override"(에이전트 우선·네트워크 대체·둘 다 없음·0·상한 2), "runtime peer uses its own temperature with caller routing and model"(요청 temperature `[0.7, 0.2, 0.7]`), "runtime compiles only valid temperature declarations", `tests/smoke.test.mjs`의 "settings model selection preserves declared temperature after reload".
 
 ## 동의는 정책 뒤에 묻고 결정마다 기록한다
 

@@ -13,7 +13,7 @@ description: 변환기의 코드 구조. site-a/converter/ 순수 모듈 4개, N
 | 파일 | 함수 | 책임 |
 | --- | --- | --- |
 | `site-a/converter/parse-roles.mjs` | `parseRoles(files, { layout })` | 가상 파일 검증·정규화, 레이아웃 선택, frontmatter 부분집합 해석, 비밀/로컬 경로 줄 제거(`sanitize`), 이름·설명 도출, config의 front 후보 검증. `{ roles, configFront, layout }`을 낸다(`layout`은 선택된 입력 형식) |
-| `site-a/converter/emit-network.mjs` | `emitNetwork(parsed, { front })` | 중간 표현을 다시 검증하고, 명시 front → config → 첫 역할 순으로 front를 정해 front 우선 배열과 별 모양 배선의 네트워크를 만든다. 각 instructions 뒤에 front/specialist별 출력 규칙(`outputRules`)을 붙이고 `max_execution_seconds: 240`을 낸다. `{ network, frontMan }` 반환 |
+| `site-a/converter/emit-network.mjs` | `emitNetwork(parsed, { front })` | 중간 표현을 다시 검증하고, 명시 front → config → 첫 역할 순으로 front를 정해 front 우선 배열과 별 모양 배선의 네트워크를 만든다. 각 instructions 뒤에 front/specialist별 출력 규칙(`outputRules`)을 붙이고 `llm_config.temperature: 0.2`와 `max_execution_seconds: 90`을 낸다. `{ network, frontMan }` 반환 |
 | `site-a/converter/emit-manifest.mjs` | `emitManifest(frontMan, layout)` | 이름 문법을 확인하고 형식별 설명을 담은 manifest와 빈 links 스텁을 새 객체로 낸다 |
 | `site-a/converter/describe-layout.mjs` | `describeLayout(layout)` | `theora`·`markdown`만 받아 `Converted <Theora\|Markdown> role conversation network.`를 만든다. network와 manifest가 같은 함수를 쓰고 다른 값은 `CVT-META-001`로 거부한다 |
 

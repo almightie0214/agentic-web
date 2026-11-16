@@ -1,10 +1,10 @@
 ---
-description: docs/demo-checklist.md 실제 브라우저 검증 원장의 구성, 증거 규칙, 시나리오 B01–B10, run 1 실패와 보정, 공개 배포 측정(§4), AW5 변환 번들, judge-ready 수정 뒤 착륙 트리·공개 Edge/Firefox 실측(§6), 미확인
+description: docs/demo-checklist.md 브라우저 검증 원장의 구성과 증거 규칙, B01–B10, run 1 실패와 보정, 공개 측정(§4), AW5 번들, §6 실측, temperature 적용 뒤 실측(§7)과 시간 한도 계산(§8), 미확인
 ---
 
 # 실제 브라우저 검증 원장
 
-`docs/demo-checklist.md`는 절차 체크리스트이자 **사용자가 실행해 제공한** 브라우저 관찰(로컬과 공개)과 구현자가 잰 공개 HTTP 측정의 원장이다. 체크리스트 작성이나 Node exit 0은 런타임 검증 완료가 아니다. 구현자는 정제된 Markdown 기록을 읽었을 뿐 라이브 브라우저 세션이나 스크린샷을 본 것이 아니며 원장은 그렇게 명시한다. 정적 쪽은 [[conformance-cli]], 배포는 [[deployment-and-release]]에 있다.
+`docs/demo-checklist.md`는 절차 체크리스트이자 **사용자가 실행해 제공한** 초기 브라우저 관찰(로컬과 공개), 그 뒤 구현자가 직접 실행한 공개 브라우저 실측(§6·§7)과 공개 HTTP 측정의 원장이다. 체크리스트 작성이나 Node exit 0은 런타임 검증 완료가 아니다. 구현자는 정제된 Markdown 기록을 읽었을 뿐 라이브 브라우저 세션이나 스크린샷을 본 것이 아니며 원장은 그렇게 명시한다. 정적 쪽은 [[conformance-cli]], 배포는 [[deployment-and-release]]에 있다.
 
 ## 구성
 
@@ -18,6 +18,8 @@ description: docs/demo-checklist.md 실제 브라우저 검증 원장의 구성,
 | §5 영상 계획 | 한 사례 서사, 녹화본 아님 |
 | AW5 converter dogfooding | 변환 번들의 Node 정적 검증 요약, 재현 절차(계획), 사용자 승인 번들 실행 두 번의 결과와 답변 품질 진단 |
 | §6 judge-ready fixes release check | R01 공개 바이트·저장소 공개 여부, R02 착륙 트리 `browser-check`, R06 부팅 오류 화면, deadline-config 뒤 실행 갱신(공개 Edge/Firefox 실측, CLI Theora 묶음 실행, 증거 보존) |
+| §7 judge-facing public check | temperature 0.2 적용 뒤 고정 질문 여덟 번의 새 대화 실행(공개 A Edge 3·Firefox 1, 공개 B Edge 2, 변환 샘플 Edge 2)의 요청 값·경과 시간·답 가독성, 중단된 수집 시도, 증거 보존 위치 |
+| §8 measured execution limits | §7의 최상위 run span `durationMs`에서 세 네트워크 선언과 runtime 상한을 계산한 근거 |
 
 B08은 [[conformance-cli]]의 `test-slydata` 샘플을 기존 `Engine.runTurn(…, { slyData })` 옵션으로 주입하고 정의 fetch의 URL·헤더·본문을 병행 관찰하도록 한다. 판정은 PASS·FAIL·UNVERIFIED이며 모델이 도구를 썼다거나 비밀을 지켰다고 말한 것은 증거가 아니다.
 
@@ -58,10 +60,32 @@ A/B 최상위 로더의 중복 이름 거부, 중복 피어의 피어 추론 전
 - **공개 Edge(CDP)·Firefox(BiDi) 실측**: 개발용 loopback router(`http://127.0.0.1:8640/api/v1`)와 가짜 sentinel 키만 패널에 넣었다(실제 키는 브라우저에 들어가지 않음). Allow 전 B 요청 0건, `consent` 이벤트 정확히 1개(`prompt_allow`), trust 표시 `Allow once: 1`, B manifest·정의 200과 `links.json` 404, 피어 답이 caller의 정상 tool 결과가 되어 최종 답까지 완료됐다. 캡처된 B 요청(브라우저당 32건)에는 Authorization·Cookie·sentinel이 없었고 세 페이지의 CSP 이벤트 배열은 비어 있었다. 두 피어 답 모두 모델 토큰이 일부 깨졌고 caller 최종 답이 그 사실을 밝혔다. **실행 완료는 관찰됐지만 답 품질은 PASS가 아니다.** 개발 router 접근을 위해 Edge는 `LocalNetworkAccessChecks` 비활성, Firefox는 임시 프로필의 `network.lna.skip-domains`를 써야 했다(기본 Firefox 프로필에서는 설정 대기가 시간 초과됐고 정확한 원인은 미진단). 기본 심사자 설정의 증거가 아니다.
 - **`lc.getunicorn.org` 요청**: 두 브라우저 각각 8건 재현됐고 Edge는 문서 파서 위치를 initiator로 보고했으며 Firefox는 `type:other`만 주었다. 사용자 제공 환경 진단은 로컬 HTTPS 필터 주입이며 사이트 코드가 아니다. 필터 자체를 새로 검사한 것은 아니다.
 - **CLI 생성 Theora 묶음 loopback 1회**(`127.0.0.1:8601`/`8602`): coordinator → specialist → 최종 호출이 모두 ok로 끝났고 최종 답에는 초안·계획 독백이 관찰되지 않았다. 다만 specialist 내부 답에는 메타 문장과 깨진 토큰이 남아 출력 규칙이 내부 메타 텍스트를 없애지는 못했다. 이전 AW5 품질 FAIL은 그대로 남는다.
-- **시간 초과 기록**: 수정 전 고정 90초 composition deadline에서 Spec Scout 질문이 최종 호출에서 잘린 실패는 지워지지 않는다. 이후 한도는 네트워크 선언(240/180)으로 바뀌어 공개 Edge 실행(합계 약 159.8초)과 Firefox 실행(약 94.2초)이 한도 안에서 끝까지 완료됐다. 이 절은 정상 완료 측정이고 한도 만료 중단은 결정적 테스트가 다룬다.
+- **시간 초과 기록**: 수정 전 고정 90초 composition deadline에서 Spec Scout 질문이 최종 호출에서 잘린 실패는 지워지지 않는다. 이후 한도는 네트워크 선언(당시 240/180, 현재는 아래 §8의 실측 계산값)으로 바뀌어 공개 Edge 실행(합계 약 159.8초)과 Firefox 실행(약 94.2초)이 한도 안에서 끝까지 완료됐다. 이 절은 정상 완료 측정이고 한도 만료 중단은 결정적 테스트가 다룬다.
 - **증거 보존 교훈**: 첫 검토에서 원장이 실행 종료 시 지워지는 run tmp를 증거 보존 위치로 적었다. 실행 수명과 독립 검토 인계 수명을 혼동한 것이다. 이후 승인된 프로젝트 근거 루트에 저장된 원 출력 사본, 정확 복구본, 필드 추출본, 86파일 소스 재구성과 manifest·검증 결과를 두었다. 전체 live JSON과 전체 trace 배열은 복구되지 않았고 복구는 새 실행이 아니다. 요약이나 해시만으로 원자료를 대신하지 않는다(교훈: [[no-compat-code-lessons]]).
 
-이 절은 독립 검토·gate 판정이 아니다. 남은 한계는 피어·내부 specialist 모델 품질, 인용 정확성, provider 응답 본문과 caller tool payload 전체, 임의 변환 입력, 기본 심사자 추론 접근(참가자 소유의 열린 항목)이다.
+이 절은 독립 검토·gate 판정이 아니다. 남은 한계는 피어·내부 specialist 모델 품질, 인용 정확성, provider 응답 본문과 caller tool payload 전체, 임의 변환 입력, 기본 심사자 추론 접근(참가자 소유의 열린 항목)이다. 답 품질의 최신 관찰은 아래 §7이다.
+
+## temperature 적용 뒤 공개 실측 (§7)
+
+`docs/demo-checklist.md` §7은 구현자가 직접 돌린 새 관찰이고 §6을 해석하지 않는다. 이 절은 위키 작성자가 라이브 세션을 본 것이 아니라 원장의 기록을 읽은 것이다. 측정 소스는 `sampling-temperature`가 착륙한 리비전이다.
+
+- **조건**: 공개 A(`https://almightie0214.github.io/agentic-web/`)와 공개 B(`https://spec-scout.pages.dev/`), Edge 157(CDP)·Firefox 160(WebDriver BiDi), 매 실행이 버리는 프로필과 새 대화 상태(빈 history)에서 시작했다. 설정 패널에는 개발용 loopback router와 가짜 sentinel 키, 명시 모델 `alibaba/qwen3.8-flash`만 넣었다. Edge는 `LocalNetworkAccessChecks` 비활성, Firefox는 임시 프로필의 `network.lna.skip-domains`(호스트 전체 예외)를 써야 했다. 기본 심사자 설정의 증거가 아니다. 변환 샘플(`site-a/converter/samples/theora/layout.json`)은 `tools/theora2hocon/theora2hocon.mjs`로 변환해 loopback에서 서빙했고 다른 출처 피어는 없다(내부 specialist 위임만).
+- **고정 질문**: A “Ask Spec Scout what MVP Profile 0.2 §3.2 requires before and while a caller loads a peer agent site.”, B “What does MVP Profile 0.2 §3.2 require before and while a caller loads a peer agent site?”, 변환 팀 “Help me plan a beginner repair workshop with a safety-focused session outline.” §3.2의 제목은 "Protocol for Loading a Peer Agent Site"라 질문도 그에 맞춘다("peer discovery"는 명세에 없는 말이다).
+- **결과**: 여덟 실행이 모두 완료됐고 실제 모델 요청 20건이 모두 모델 `alibaba/qwen3.8-flash`·temperature 0.2·`stream: true`·HTTP 200으로 기록됐다. 구현자가 읽은 완전한 에이전트 답 14개에서 깨진 문장이 관찰되지 않았다. 이는 한정된 가독성 관찰이며 정확성·인용 충실도·안전·provider 신뢰성의 증명이 아니다. 내용상의 일반 결함(예: 어느 변환 답이 "약 1시간 30분"이라고 쓰고 목록 합은 110분)은 토큰 깨짐이 아니라서 따로 적혀 있다. 실행별 경과 시간은 원장 §7 표의 `durationMs`이다(최장값만 아래 §8에 온다). 공개 배포는 변경된 사이트 파일 12개가 소스와 바이트 단위로 같음을 자격 없는 GET으로 확인했다(전체 감사는 아니다).
+- **중단된 수집 시도(실패 기록이지 PASS가 아니다)**: 최초 Edge 수집기가 CDP 콜백의 `postData` 부재 때문에 중단됐고 그 실행의 질문·답·시간은 알 수 없다. 변환 팀의 첫 서빙은 측정 서버가 생성된 `.mjs`를 `text/plain`으로 주어 부팅에서 멈췄다(모델 요청 없음). 두 경우 모두 측정 도구의 결함이고 제품 실패나 시간 한도 절단이 아니라는 사용자 결정(입력 83)으로 측정 집합에서 제외됐고 그 증거는 그대로 남아 있다. 재시도 규칙·샘플링 예외·임시 한도 상향은 더해지지 않았다.
+- **증거 위치**: git 밖 로컬 자료(프로젝트 개발 영역의 judge-facing 폴더 아래 리비전 이름이 붙은 public-check 폴더; 시작점 manifest-final.json·verification-final.json, 케이스별 result.json·answers.txt)이다. 정확한 경로는 원장 §7에 있다. 공개 다운로드가 아니다. 원장이 저장소에 남기는 것은 조건·표·판단이고 답 전문은 그 로컬 자료에 있다. Otari 피드백 후보는 운영자의 이전 런타임 밖 진단 메모(스트리밍 + temperature 없음 2회 깨짐, 스트리밍 + 0.2 1회·비스트리밍 4회 깨끗)를 근거로 하며 구현자가 실험을 반복하지 않았고 피드백은 제출되지 않았다. 이 실측은 인과 증명이나 공급자의 기본값에 대한 지식이 아니다.
+
+## 시간 한도 계산 (§8)
+
+`docs/demo-checklist.md` §8은 새 실행 없이 §7의 여덟 실행에서 세 네트워크의 `max_execution_seconds`와 runtime 상한을 계산한 근거다. 원자료는 각 실행의 result.json이고 입력은 사용자 결정(입력 83)이 승인한 집합이다. 시간 한도로 끊긴 실행은 없었다. 공식은 `30 * ceil(2 * max(durationMs) / 30000)`이고 최상위 `kind:"run"` span의 `durationMs`만 쓴다(세팅 시간이나 중첩 span 합은 쓰지 않는다).
+
+| 네트워크 | 최장 케이스 | 최장 durationMs | 결과 |
+| --- | --- | ---: | ---: |
+| review_desk | `a-edge-2` | 78037.2 | 180초 |
+| spec_scout | `b-edge-1` | 47318.2 | 120초 |
+| 변환 팀(converted_team) | `team-edge-2` | 43567.7 | 90초 |
+
+runtime 상한은 `max(90, 180, 120, 90) = 180`이다. 이 값은 고정 질문과 조건의 실측 예산이고 임의 질문이나 provider 응답 시간이 그 안에 들어오는 보장이 아니다. 새 한도의 공개 배포와 라이브 재측정은 하지 않았다. 이전 절의 옛 선언(240/180/240, 상한 300)은 그때 측정된 버전의 기록이다. 결과가 코드에 반영된 방식은 [[runtime-execution-contract]]의 "시간 상한은 실측에서 나온다"에 있다. 이 값이 `README.md`·`docs/devpost.md`의 본문에는 실리지 않는다([[deployment-and-release]]).
 
 ## 미확인으로 남은 것
 

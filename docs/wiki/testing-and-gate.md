@@ -21,7 +21,7 @@ description: theora.gate.json의 두 명령(node --test glob, 적합성 CLI)과 
 
 ## 검사 기능 테스트(Site A)
 
-- `tests/validator.test.mjs`: 픽스처 사전조건(`fixtures:`)과 규칙 판정(`rules:`), 샘플 파일이 픽스처와 같은 리포트를 내는지(`samples:`). 형식이 틀린 입력, 스키마 방언, resolved 의존, 참조 무결성, 명명된 링크, 합성·실행 상한 경계를 다룬다. [[validator-rules]], [[fixtures-and-samples]]
+- `tests/validator.test.mjs`: 픽스처 사전조건(`fixtures:`)과 규칙 판정(`rules:`), 샘플 파일이 픽스처와 같은 리포트를 내는지(`samples:`). 형식이 틀린 입력, 스키마 방언, resolved 의존, 참조 무결성, 명명된 링크, 합성·실행 상한 경계, `llm.temperature`(생략과 0·2 통과, 네트워크·에이전트 범위별 잘못된 값 실패)를 다룬다. [[validator-rules]], [[fixtures-and-samples]]
 - `tests/actions.test.mjs`: action 등록 메타데이터·입력 스키마, 영수증과 규칙 리포트의 동일성, 잘못된 인자와 JSON 오류 처리. [[validator-action]]
 - `tests/audit.test.mjs`: 대체 `fetchImpl`로 하위 경로 보존, 공개 GET 한정, 획득 실패와 규칙 위반 분리. [[url-audit]]
 - `tests/desk-ui.test.mjs`: 최소 DOM에서 실제 `site-a/site.js`를 실행해 키 없는 경로, 오래된 결과 무효화, 프리셋, 초안, 런타임 그래프를 확인. [[site-a-review-desk]]
@@ -38,9 +38,9 @@ Site B 전용(`smoke.test.mjs`의 Site B boot 검사): 실제 manifest·네트�
 
 ### 런타임 실패·한도·동의 검사 (`tests/peer.test.mjs`의 `runtime …` 테스트, A/B 각각 같은 조건)
 
-`runtime …` 이름의 테스트가 [[runtime-execution-contract]]의 계약을 실제 `Engine`·`runAgent`·`dispatchToolCall`·`executeToolCalls`로 확인한다: 한도 선언 형식의 컴파일 거부(유한 양수만, 소수 허용), 최상위 네트워크 선언이 composition deadline이 되는 것과 기본 90초·최대 300초, 피어 선언이 caller의 deadline을 늘리지 못함, 은퇴한 실행 기능 선언의 컴파일 거부, 쓸 수 없는 답의 실패와 정상 prose·유효 presentation의 수용, 모든 tool 실패가 `executeToolCalls`에서만 번역되는 것, website 실패의 receipt와 unknown 쓰기 결과 보존, ctx에서 읽은 함수형 속성과 모든 tool 종류가 abort된 scope에서 접촉 0으로 실패하는 것, 정책 뒤 동의 결정마다 이벤트 1개, 대기 중 작업이 자기·상속·composition deadline에서 끝남, 큐에 있던 입력과 commit 직전 취소의 무효화, 실제 피어 실패의 caller 전파와 자식 한도 초과 시 형제 유지. 시간 의존 검사는 실제 sleep이 아니라 mock Date·timer와 진입/완료 deferred로 제어한다(실제 시간 경과에 기대면 목표 대기 진입 전 만료도 통과할 수 있어 리뷰에서 지적됐다; [[no-compat-code-lessons]]).
+`runtime …` 이름의 테스트가 [[runtime-execution-contract]]의 계약을 실제 `Engine`·`runAgent`·`dispatchToolCall`·`executeToolCalls`로 확인한다: 한도 선언 형식의 컴파일 거부(유한 양수만, 소수 허용), 최상위 네트워크 선언이 composition deadline이 되는 것과 기본 90초·최대 180초(네트워크 선언과 단독 에이전트 선언이 모두 상한으로 줄어든다), temperature 전달(에이전트 값이 네트워크 값보다 앞서고, 없으면 네트워크 값, 둘 다 없으면 body에 키 자체가 없음, 0은 0으로 감, 피어는 자기 값, 설정 화면 모델 override가 있어도 유지)과 temperature 선언의 컴파일 거부(에이전트·네트워크 각각, 유효한 에이전트 값에 가려진 잘못된 네트워크 값 포함; 0과 2는 통과), 피어 선언이 caller의 deadline을 늘리지 못함, 은퇴한 실행 기능 선언의 컴파일 거부, 쓸 수 없는 답의 실패와 정상 prose·유효 presentation의 수용, 모든 tool 실패가 `executeToolCalls`에서만 번역되는 것, website 실패의 receipt와 unknown 쓰기 결과 보존, ctx에서 읽은 함수형 속성과 모든 tool 종류가 abort된 scope에서 접촉 0으로 실패하는 것, 정책 뒤 동의 결정마다 이벤트 1개, 대기 중 작업이 자기·상속·composition deadline에서 끝남, 큐에 있던 입력과 commit 직전 취소의 무효화, 실제 피어 실패의 caller 전파와 자식 한도 초과 시 형제 유지. 시간 의존 검사는 실제 sleep이 아니라 mock Date·timer와 진입/완료 deferred로 제어한다(실제 시간 경과에 기대면 목표 대기 진입 전 만료도 통과할 수 있어 리뷰에서 지적됐다; [[no-compat-code-lessons]]).
 
-`tests/desk-ui.test.mjs`는 trust 표시의 consent 결정 출처별 수를, `tests/smoke.test.mjs`는 boot 실패 화면의 `Loader error:`와 URL 비밀 가림을 확인한다.
+`tests/desk-ui.test.mjs`는 trust 표시의 consent 결정 출처별 수를, `tests/smoke.test.mjs`는 boot 실패 화면의 `Loader error:`와 URL 비밀 가림, 설정 화면 모델 선택이 temperature를 지우지 않는 것, 세 네트워크 선언과 두 `MAX_EXECUTION_SECONDS`가 실측 공식(`30 * ceil(2 * max / 30000)`, 상한 `max(90, …)`)과 같은 것을 확인한다. `tests/conformance.test.mjs`·`tests/converter/`·`tests/peer.test.mjs`는 세 네트워크의 temperature 0.2 선언도 단언한다.
 
 ## `tests/conformance.test.mjs` (적합성 CLI)
 

@@ -18,9 +18,9 @@ Site A는 두 파일로 네트워크를 발행한다. 런타임의 `Engine.loadT
 
 ## `site-a/review_desk.network.json`
 
-- `llm_config.model_name`: `alibaba/qwen3.8-flash`(모델 힌트).
+- `llm_config`: `model_name: alibaba/qwen3.8-flash`(모델 힌트)와 `temperature: 0.2`(샘플링 힌트). 모델은 visitor 설정이 이기지만 temperature는 설정 화면이 지우지 않는다([[runtime-execution-contract]]).
 - `link_slots: { spec_scout: {} }`와 `tools` 두 개: `review_coordinator`(front, `tools: ["conformance_reviewer", "spec_scout"]`)가 `conformance_reviewer`(`tools: []`)에 위임하고, `spec_scout`는 agent가 아니라 `links.json`으로 해석되는 심볼릭 피어 참조다([[peer-connection]]). 각 agent는 `function.parameters`에 문자열 `request`(필수)를 가진다.
-- 최상위 `max_execution_seconds: 240`: 한 질의의 composition deadline이다. 런타임이 이 선언을 읽고(없으면 90초, 상한 300초) 피어의 선언이 이를 늘리지 못한다. 원래 고정 90초였는데 Spec Scout 질문의 피어 모델 호출이 길어 최종 호출이 잘렸다([[runtime-execution-contract]]).
+- 최상위 `max_execution_seconds: 180`: 한 질의의 composition deadline이다. 런타임이 이 선언을 읽고(없으면 90초, 상한 180초) 피어의 선언이 이를 늘리지 못한다. 원래 고정 90초였는데 Spec Scout 질문의 피어 모델 호출이 길어 최종 호출이 잘렸다. 현재 180은 공개 실측에서 나온 값이다("시간 상한은 실측에서 나온다" 절의 공식; [[runtime-execution-contract]]).
 - `include`·`env`·`${...}` 같은 미해결 지시어가 없는 resolved JSON이다. `class`/`toolbox`도 없다.
 - instructions는 공개를 전제로 쓰였다: 비밀·키를 요구하거나 담지 않는다. 제출된 아티팩트는 신뢰할 수 없는 검토 대상 데이터로 취급하고, 파일 가져오기·테스트 실행·배포 인증을 한다고 주장하지 않는다. 라이브 호스팅·CORS·추론 같은 정적 텍스트로 확인할 수 없는 것은 "unverified"로 구분한다. 응답은 영어.
 - 스펙 질문은 `spec_scout` 피어로 보낸다. coordinator instructions는 런타임이 링크를 해석하고 동의를 받는다는 점, 피어 답이 발췌 기반 정보이며 적합성 보고서가 아니라는 점, 거절·불가 시 답을 지어내지 않는다는 점을 담는다.

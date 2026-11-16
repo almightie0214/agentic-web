@@ -18,6 +18,8 @@ description: 변환기 테스트(fixture·parse·emit·e2e·web), 정적 적합�
 
 출력 규칙(`CVT-NET-005`)과 형식별 설명(`CVT-META-001`)이 생기면서 `tests/converter/fixtures/`의 두 입력 디렉터리 아래 expected 스냅샷도 같이 바뀌었다. `parse.test.mjs`는 기대 instructions 원문을 산출물 snapshot이 아니라 입력(가상 파일)에서 얻는다. snapshot 산출물의 instructions에는 emitter가 붙인 규칙 문장이 섞여 있어 파서가 낸 원문의 기대값으로 쓸 수 없기 때문이다. CLI와 웹이 같은 바이트를 내는지는 `e2e.test.mjs`·`web.test.mjs`가 계속 확인한다.
 
+네트워크에 `llm_config.temperature: 0.2`가 들어가고 `max_execution_seconds`가 실측값(90)으로 바뀌면서 두 expected 스냅샷(`tests/converter/fixtures/mini-theora/expected/converted_team.network.json`, `tests/converter/fixtures/sample-agents/expected/converted_team.network.json`)과 `emit.test.mjs`의 정확한 봉투 단언이 함께 바뀌었다. `e2e.test.mjs`와 `web.test.mjs`는 산출물의 temperature를 확인하고 CLI와 웹의 바이트 동등을 이어 본다. 시간 한도 값이 실측 공식과 맞는지는 `tests/smoke.test.mjs`가 변환 샘플의 출력에서 확인한다([[runtime-execution-contract]]).
+
 e2e의 임시 입력·산출물은 OS 임시 폴더가 아니라 저장소의 개발 영역(.theora 아래 tmp/converter-e2e) `mkdtemp` 작업공간에 만들고 `t.after`로 지운다. 저장소에 실제 `.theora` 상태를 커밋하지 않고 입력용 Theora 레이아웃도 이 작업공간 안에서만 조립한다.
 
 ## AW2·AW4 정적 검증 연계
