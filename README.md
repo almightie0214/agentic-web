@@ -1,171 +1,235 @@
 # Agent Review Desk + Spec Scout
 
 An Open Agentic Web Challenge project built on the Worldwide Agentic Web MVP
-Profile 0.2. The planned deployment is two static browser-based agent sites:
-Site A (Agent Review Desk) on GitHub Pages and Site B (Spec Scout) on Cloudflare
-Pages. No application backend, database, payment, or authentication service is
-part of this project.
+Profile 0.2: inspect portable agent-network artifacts, explain deterministic
+findings, and ask a linked, excerpt-grounded specification assistant.
 
-## Current status
+Two static browser-based sites are configured for separate hosts: Site A (Agent
+Review Desk) on GitHub Pages and Site B (Spec Scout) on Cloudflare Pages. There is
+no application backend, database, payment, or authentication service. Inference
+uses an external LLM router; static inspection requires no provider key.
 
-This scaffold contains the reference specification, project metadata, license,
-smoke tests, merge gate configuration, and separately vendored runtimes for Site A
-and Site B. Site A now loads the published `review_desk` two-agent network through
-the reference runtime's built-in settings, chat, and agent inspection UI. Its
-`review_coordinator` routes conformance questions to `conformance_reviewer`, which
-uses the read-only `validate_network` site action and explains only its deterministic
-rule reports, preserving warnings and unverified observations. The manifest exposes
-the action to the reference runtime as `website_validate_network`. Static reports
-are not proof of live hosting, CORS, consent, or successful execution. Missing
-artifacts and action errors are not conformance verdicts.
-Hosted Otari (`https://api.otari.ai/api/v1`) is the default router,
-with `alibaba/qwen3.8-flash` as the network's model hint. A provider key is required
-for inference and is configured through the built-in settings.
+## Current status and verification boundary
 
-Site B (Spec Scout) loads its published `spec_scout` one-agent network through
-its own reference runtime's `boot()` and built-in AI model settings and chat UI.
-The network includes cited MVP Profile 0.2 excerpts in its instructions; the page
-does not fetch or inject `spec-excerpts.json`, the authoring source. Direct visits
-and peer loading use the same published evidence. Answers are informational, not
-conformance certification. Site A's coordinator now exposes the symbolic
-`spec_scout` peer tool, resolved through `site-a/links.json` to the reserved URL
-`https://spec-scout.invalid/spec_scout`, with a matching allowed origin in
-`site-a/agent-manifest.json`. This wiring is implemented, but actual deployment,
-CORS, consent behavior, and live interoperability remain unverified. In AW4, when
-the real Site B URL is established, update both `site-a/links.json` and
-`site-a/agent-manifest.json`'s `allowed_peers` together.
+- **Implemented:** Site A's two-agent network, read-only validation action,
+  key-free paste/sample/URL inspection, configuration and execution graphs; Site
+  B's informational one-agent network; symbolic peer wiring; a repository static
+  conformance CLI; Site A deployment workflow and Site B CORS configuration.
+- **Not a live peer URL:** `site-a/links.json` still binds `spec_scout` to
+  `https://spec-scout.invalid/spec_scout`. `site-a/agent-manifest.json` allows the
+  matching reserved origin under a closed peer policy. This is not a public
+  deployment. The linked-peer audit preset and Spec Scout explanation draft stay
+  disabled while that placeholder is configured.
+- **Unverified:** real-browser delegation/action execution, consent and exact-name
+  peer loading, denied origins, invalid networks and duplicate names, key
+  non-disclosure, caller-router retention, private-context filtering, composition
+  cycle interruption, and execution-limit enforcement. Node tests or static CLI
+  exit 0 do not complete these observations.
+- **Public release pending:** hosting activation, real HTTPS URLs, measured public
+  CORS responses, browser evidence, and judge access are not established here.
+  Do not describe the entry as submission-ready until these are confirmed.
 
-Serve the repository with a local static HTTP server and open `site-a/` (or
-`site-a/index.html`). The page, manifest, network, and runtime references work
-under a deployment subpath as well as on a local server.
+See [the English submission draft and handoff tracker](docs/devpost.md) for open
+release items. The separate demo-kit task owns real-browser procedures and evidence
+in `docs/demo-checklist.md`; that file is not yet present at this revision. A
+checklist alone is not an execution result.
 
-## Review Desk checks and explanations
+## Architecture
 
-Open `site-a/` over HTTP or HTTPS. Static checks, the four built-in samples, and
-URL audits need no provider key and remain usable while chat loads or if chat
-boot fails. Chat uses the vendored runtime and the provider settings described above.
+```text
+Site A: Agent Review Desk (GitHub Pages origin)
+  key-free editors / samples / public URL audit
+       -> validator-rules.mjs -> deterministic report
+  reference browser runtime + built-in AI model settings / chat
+       -> review_coordinator -> conformance_reviewer
+                               -> website_validate_network (local site action)
+       -> spec_scout (symbolic link in links.json)
+            -> origin policy + visitor consent -> fetch Site B's public definition
+            -> execute peer agents locally in A's browser runtime
 
-- Paste manifest and resolved network JSON in the two editors, optionally adding
-  links JSON, a publication base URL (including its path), an exact network name,
-  and known active ancestor peer URLs. Select **Validate pasted JSON**. Only known
-  context should be supplied; an omitted parameters schema uses the runtime default.
-- The four sample buttons load and immediately check valid artifacts, a missing
-  front agent, an explicitly invalid parameters schema, or a self-peer composition
-  cycle. They do not execute the sample networks or contact their synthetic peers.
-- For a live audit, enter a site base or manifest URL, inspect the destination,
-  and select **Audit URL**. The audit retrieves public manifest, network, and
-  `links.json` using credential-free GETs and reuses the same rules. Referenced
-  artifacts and redirects may use other origins. Acquisition errors are separate
-  from rule failures; a generic fetch error does not establish a CORS cause.
-  The readiness summary covers static artifacts only, never runtime safety.
-- **Audit This Site**, **Audit Linked Peer**, and **Non-CORS example** only fill
-  the URL; you still select **Audit URL** to initiate retrieval. The linked-peer
-  preset is disabled without a configured non-placeholder peer. The external
-  example uses example.com as an illustration, not a guaranteed CORS failure
-  service. Site A publishes `links.json`, but its Spec Scout destination is still
-  the reserved address above, so the linked-peer preset remains disabled. Site A's
-  own URL audit reports actual artifact acquisition and static check results; the
-  peer binding is not evidence of a reachable deployment or live interoperability.
-- Reports preserve rule IDs, pass/fail/warning/unverified statuses, JSON Pointer
-  locations, and minimal fixes or next steps as visible text. Editing the inputs
-  invalidates the old report; stale fetch results cannot replace it. The reviewed
-  configuration graph is labelled as expected configuration, not execution.
-- A failure or acquisition/input error can prepare an explanation draft in the
-  built-in chat. Review the included public artifacts and send it yourself;
-  existing drafts require replacement confirmation. Spec Scout drafting stays
-  disabled until a real Spec Scout peer is configured in the chat runtime.
-  Drafting does not contact a peer, grant consent, or bypass runtime policy.
-- The separate Review Desk execution graph reads the runtime's manifest, effective
-  link bindings, and actual trace events. Its latest-run spans show parent edges,
-  agents/tools, model router/model labels, peer activity, and recorded decisions.
-  Before a chat run it says **Not run**. Declared expectations and observed events
-  are not security certification: CORS policy, consent without a recorded event,
-  credential/private-context isolation, cycle interruption, and limit enforcement
-  remain unverified. Request summaries cannot prove these properties. The page
-  adds no probe, sentinel, report-download builder, or runtime adapter.
+Site B: Spec Scout (separate Cloudflare Pages origin)
+  agent-manifest.json -> spec_scout.network.json (embedded cited excerpts)
+  own reference runtime / settings / chat for direct visits
 
-## Repository layout
+tools/check-conformance.mjs -> imports Site A's shared validator rules
+                           -> reads both publication roots + Site B _headers
+```
 
-- `README.md`, `package.json`, `LICENSE`: project scaffold.
-- [docs/worldwide_agentic_web_mvp_spec.md](docs/worldwide_agentic_web_mvp_spec.md):
-  pinned reference specification with source and license attribution.
-- `site-a/runtime/`, `site-b/runtime/`: separate vendored browser runtimes.
-- `site-a/`: Review Desk page and boot entry, shared site styles,
-  `agent-manifest.json`, `links.json`, and resolved `review_desk.network.json`.
-- `site-b/`: independent static site bundle with `index.html`, `site.js` boot entry,
-  `agent-manifest.json`, resolved `spec_scout.network.json`, and authoring data
-  `spec-excerpts.json` (not a runtime data source).
-- `tests/`: Node.js smoke, validator, URL audit, and Review Desk UI tests.
-- `tools/`: reserved for development tools when needed.
+The agents explain evidence; they do not invent conformance verdicts. The
+coordinator delegates conformance questions to `conformance_reviewer`, which uses
+`validate_network`, exposed by the runtime as `website_validate_network`.
+Missing artifacts and action errors are not conformance verdicts. Spec Scout's
+answers preserve source sections and evidence limits; they are not certification.
+`site-b/spec-excerpts.json` is authoring data: the published network already embeds
+its excerpts and neither direct visits nor peer loading inject that file.
 
-Directories are created only when they contain files; no empty placeholders are
-tracked. Site-owned asset references must use relative paths so deployment under
-a GitHub Pages subpath works.
+Both sites use separately vendored copies of the nsDeploy reference browser
+runtime, not a new runtime. Published networks are resolved JSON with no
+include/environment dependencies. Instructions are public; never put secrets or
+provider keys in definitions, prompts, action arguments, or shared evidence.
 
-## Preview Site B
+Hosted Otari (`https://api.otari.ai/api/v1`) is the default router, with
+`alibaba/qwen3.8-flash` as the model hint. Inference requires a visitor's provider
+key. The existing runtime is intended to keep the caller's active router/model
+policy when loading peers and send the key only to that router, not Site B.
+Those security properties still require real-browser observation. BYOK does not
+isolate a key from other JavaScript on the caller origin; do not host untrusted
+scripts or combine Site B's files with Site A's publication root.
 
-Serve the files over HTTP or HTTPS rather than opening `index.html` as a file.
-For example, with Python 3 available, run from the repository root:
+## Local setup and use
+
+Use Node.js 24 for checks. There are no npm dependencies to install. With Python 3
+available, start a static preview from the repository root:
 
 ```sh
 python -m http.server 8000 --bind 127.0.0.1
 ```
 
-Open `http://127.0.0.1:8000/site-b/`. The built-in settings panel supports
-Provider URL, model entry and suggestions, BYOK, and saved profiles using the
-runtime's existing browser storage behavior. The page loads and validates the
-published network before showing the chat UI. Configure a provider key to ask
-questions; initial boot retrieves public artifacts but makes no model request.
-If the runtime or published artifacts cannot be loaded or validated, the app
-stays hidden and an error explains what to check.
+Open:
 
-For an independent Site B deployment, use `site-b/` as the static publish root:
-`index.html`, `site.js`, `agent-manifest.json`, `spec_scout.network.json`, and
-`runtime/` must stay together. The network already contains its evidence, so
-`spec-excerpts.json` is not required for execution. Site B's page styles are inline
-and its runtime and artifact references are relative, so no files from Site A are
-needed. The same files can be served beneath a URL subpath. Hosting configuration
-and deployment are not provided by this boot change.
+- Site A: `http://127.0.0.1:8000/site-a/`
+- Site B: `http://127.0.0.1:8000/site-b/`
 
-## Tests
+Serve over HTTP/HTTPS, not `file://`. Site-owned references are relative and support
+hosting beneath a URL subpath. This single-server preview is convenient for UI
+inspection, **not a two-origin isolation or deployed CORS test**. It also does not
+replace the reserved peer binding with a working local destination.
 
-Use Node.js 24 and run:
+### Key-free Review Desk
+
+- Paste manifest and resolved network JSON; optionally supply links JSON, the
+  actual publication base URL (including its path), an exact network name, and
+  known active ancestor peer URLs. Select **Validate pasted JSON**. Omit unknown
+  context rather than guessing. An omitted parameters schema uses the runtime default.
+- The four sample buttons check valid artifacts, a missing front agent, an invalid
+  parameters schema, or self-peer composition. They never execute sample networks
+  or contact synthetic peers.
+- Enter a public site base or manifest URL, inspect the destination, and select
+  **Audit URL**. Acquisition uses credential-free GETs for public artifacts and
+  shares the same rules. Referenced artifacts and redirects may cross origins.
+  Acquisition errors are separate from rule failures; a generic fetch error does
+  not establish a CORS cause.
+- **Audit This Site**, **Audit Linked Peer**, and **Non-CORS example** fill the URL
+  only; select **Audit URL** to fetch. The example.com preset is illustrative, not
+  a guaranteed CORS-failure service. The linked-peer preset needs a real configured peer.
+- Reports retain rule IDs, pass/fail/warning/unverified statuses, JSON Pointer
+  paths, and minimal fixes or next steps. Editing inputs invalidates old reports;
+  stale fetch results cannot replace them. The configuration graph shows expected
+  configuration, not execution.
+
+### Chat and runtime observations
+
+Use the built-in **AI model settings** panel to select the router/model and enter
+a key; use this same panel for model switching. Profiles and tab settings follow
+the vendored runtime's browser storage behavior. Do not put keys in URLs or public
+artifacts. Initial boot loads metadata but does not make a model request. If
+runtime/artifact loading fails, chat stays hidden with error feedback; Site A's
+key-free checks remain usable independently.
+
+A failed check or input/acquisition error can prepare a chat explanation draft.
+Review the public artifacts included in it and send it yourself. Replacing an
+existing draft requires confirmation. Drafting neither contacts a peer nor grants
+consent. Spec Scout drafting needs a real peer configured in the chat runtime.
+
+Site A's separate execution graph reads effective bindings and actual trace events,
+showing latest-run agents/tools, parent edges, router/model labels, peer activity,
+and recorded decisions. Before a run it says **Not run**. Request summaries alone
+cannot prove key isolation, filtered private context, CORS, consent without a
+recorded event, or limit/cycle enforcement. The page adds no probe, sentinel
+injection UI, evidence-download builder, or runtime adapter.
+
+## Checks and spec mapping
+
+Run the repository static check from the root:
+
+```sh
+node tools/check-conformance.mjs
+```
+
+Exit 0 means the checked local publication artifacts pass the static policy;
+warnings and `runtime.*` unverified observations remain visible. Exit 1 means
+blocking static failures. The CLI imports `site-a/validator-rules.mjs` (the AW2
+rules), rather than reimplementing manifest/network rules. CLI-only checks cover
+readable site-local files, links and local peer-name consistency, private-context
+**declarations**, and applicable Site B `_headers` rules. It does not fetch live
+URLs, execute the vendor loader, emulate DOM/storage, or invoke models. JSON
+`sly_data` properties do not inject invocation context or prove filtering.
+
+The mapping below is an implementation/check guide, not a full conformance claim.
+Section references are to the [pinned MVP Profile 0.2 specification](docs/worldwide_agentic_web_mvp_spec.md).
+
+| Spec requirement | Implementation and static checks | Remaining behavioral evidence |
+| --- | --- | --- |
+| §§2.1–2.2: portable resolved data, unique agents, front agent, schemas, references | Both manifests and `*.network.json`; shared `manifest.*`, `network.*`, `agent.*`, `tool.*` reports | Real-browser invalid-network and duplicate-agent refusal before model calls; static schema checks do not validate instances/provider compatibility |
+| §§3.1, 6: two-agent delegation and grounded capability | A coordinator → reviewer → registered read-only `validate_network` action; scripted wiring tests | Actual browser delegation, action receipt, and report-backed explanation |
+| §§3.2–3.4: exact peer resolution and public artifacts | A `links.json` + `allowed_peers`, B manifest name, CLI `publication.*`, `tests/peer.test.mjs`, B `_headers` | Public HTTPS/CORS responses; consent before contact, refusal/denial paths, wrong explicit peer-name refusal before model calls |
+| §4: pluggable inference and router-only key disclosure | Built-in settings, default Otari metadata, reference runtime; scripted router inheritance tests | Default and user-selected router/model paths, key absent from definition-fetch URL/headers/body, peer cannot override caller router |
+| §§2.1, 5, 6: private context by named exception | CLI `publication.private_context` audits per-agent allow declarations | Harmless sentinel injection via existing runtime invocation options; filtered `TraceBus` `remote_call` `requestPayload` fields and return behavior |
+| §§3.1–3.2, 5–6: cycles, finite execution and fail closed | Shared `peer.composition` diagnoses known active-chain re-entry with supplied context; `execution.limit` declaration checks/warnings | Synthetic composition cycle and exceeded execution limits must visibly stop in a real browser; internal recursion alone is not a composition cycle |
+
+For the automated test suite:
 
 ```sh
 npm test
 ```
 
-The script is `node --test "tests/**/*.test.mjs"`. The merge gate in
-`theora.gate.json` uses the same glob with a five-minute timeout. The smoke test
-currently checks the gate configuration, npm test command, and the presence of
-both sites' runtime entry points and licenses. For each runtime it also checks the
-current runner selection contract, explicit mock-router settings, and required confirmation text
-in response and welcome confirm widgets, including welcome form preservation.
-It also checks composed UI mounting without retired activity-slot handling;
-it checks Site A's published two-agent graph, default router and model hint,
-relative artifact loading and validation, and boot success/failure visibility.
-The Site A loading smoke check also exercises manifest-based loading of the real
-validator action and scripted coordinator-to-reviewer-to-action dispatch. It checks
-the assembled model instructions, returned rule reports (including warnings and
-unverified checks), malformed JSON action errors, and missing-artifact handling.
-The scripted model verifies wiring, not a live model's adherence to instructions.
-`tests/desk-ui.test.mjs` drives the real page module through a minimal DOM and
-substituted boot boundary with the real trace bus, validator, and URL audit module.
-It covers key-free sample/paste/audit paths, JSON error locations and hints,
-acquisition errors, stale input/fetch invalidation, pending/failed chat independence,
-placeholder peer presets, explanation drafts, effective links, and latest-run event
-attribution. These substitute-event checks do not verify actual browser layout,
-live peer consent, deployed CORS, a live provider, or credential isolation.
-Both sites also check that BYOK uses only current tab settings and saved
-profiles, with no obsolete standalone-key slot access, including cleanup after a
-failed tab-setting write. Site B boot checks exercise real manifest/network loading
-and UI mounting, unchanged embedded instructions, profile and tab settings
-precedence, enabled chat after successful loading, URL key removal and ignored
-URL inference settings. They check hidden UI while loading and error feedback for
-runtime, manifest, network, JSON, and graph failures. Initial metadata fetches are
-distinguished from authoring-data retrieval and model requests. These checks do
-not verify a live provider or a deployed browser session. No npm dependencies are
-required.
+This expands to `node --test "tests/**/*.test.mjs"`. The merge gate runs that
+command and `node tools/check-conformance.mjs` with a five-minute timeout. Tests
+cover publication/boot, shared validator reports, action wiring, URL acquisition,
+UI stale-result handling, peer-policy/consent dispatch with substituted fetch and
+model calls, CORS configuration, and CLI failure cases. Runtime smoke tests also
+guard the local compatibility-code removals listed below. DOM/storage/fetch
+substitutes and scripted model calls are not actual browser or provider evidence.
+
+Real-browser verification belongs to demo-kit. Record environment, tested revision,
+steps, observations, verdicts and sanitized trace/log or screen evidence, including
+all unverified cases listed above. Observe definition fetches as well as post-filter
+remote-call fields without retaining real keys. No forced vendor-loader execution
+in Node or separate evidence JSON download is required. Environment/account-blocked
+cases remain **unverified**, with the required user input recorded.
+
+## Deployment configuration and release handoff
+
+1. **Site A / GitHub Pages:** `.github/workflows/pages.yml` deploys on `main` pushes
+   or manual dispatch. It uploads **only `site-a`**, never the repository root.
+   Enable GitHub Pages with GitHub Actions and confirm the deployed URL and workflow
+   result in the repository account. Workflow presence does not prove activation.
+2. **Site B / Cloudflare Pages:** deploy `site-b/` as the independent static publish
+   root on a different origin, preserving `runtime/`, manifest, network and `_headers`.
+   No application build is needed. `site-b/_headers` declares
+   `Access-Control-Allow-Origin: *` for `/*`. That local configuration is not
+   evidence of response headers at a public URL. `spec-excerpts.json` is not needed
+   for execution, but the published network with its embedded evidence is.
+3. **Bind the actual peer:** once the Site B HTTPS base is confirmed, set
+   `site-a/links.json` → `networks.review_desk.spec_scout` to
+   `<Site B base>/spec_scout` and update `site-a/agent-manifest.json` →
+   `allowed_peers` to the matching origin **together**. Keep the closed peer policy
+   and exact published name. `tests/peer.test.mjs` checks paired declarations and
+   currently pins the reserved URL; update its expected deployment address in the
+   URL-change task too. Rerun peer tests and the static CLI, then redeploy Site A.
+4. **Measure, do not infer:** verify public HTTPS artifact responses and CORS from
+   Site A's origin, preserve sanitized response evidence with URLs/date/revision,
+   and perform the real-browser cases. A successful local CLI, hosting setting, or
+   deployment job cannot substitute for those observations or judge access.
+
+Track public URLs, screenshots, an under-two-minute public YouTube explanation by
+the entrant, English materials, Otari email/feedback, final submission, and public
+availability through **2027-01-19 10:00 KST (UTC+09:00)** in
+[docs/devpost.md](docs/devpost.md#submission-and-public-access-handoff).
+These account-owned actions remain open; no credentials should be committed.
+
+## Repository layout
+
+- `site-a/`: Review Desk page, styles, boot entry, manifest, links, resolved network,
+  validator/action/audit modules, samples and independent `runtime/`.
+- `site-b/`: Spec Scout page/boot, manifest, resolved network, excerpt authoring
+  data, `_headers` and independent `runtime/`.
+- `tools/check-conformance.mjs`: static repository publication audit.
+- `tests/`: Node smoke, validator, action, URL audit, UI, peer and CLI tests.
+- `.github/workflows/pages.yml`: Site A-only Pages deployment.
+- `docs/worldwide_agentic_web_mvp_spec.md`: attributed reference specification.
+- `docs/devpost.md`: English submission draft and release handoff tracker.
+- `LICENSE`, `package.json`: Apache-2.0 license and dependency-free check command.
 
 ## Reference and license
 
@@ -178,10 +242,9 @@ copied from `skills/agentify-website/runtime/` at the same pinned commit, with
 only the obsolete runner alias, legacy mock-router inference, legacy confirm-text
 inference, retired activity-slot handling, and obsolete standalone-key slot
 compatibility in `byok.js` removed. Both sites use only current tab settings and
-saved profiles for BYOK. Each copy preserves the
-original `LICENSE.txt` and upstream documentation; the source runtime contains no
-NOTICE file. Local changes are noted in
-[site-a/runtime/README.md](site-a/runtime/README.md) and
+saved profiles for BYOK. Each copy preserves the original `LICENSE.txt` and
+upstream documentation; the source runtime contains no NOTICE file. Local changes
+are noted in [site-a/runtime/README.md](site-a/runtime/README.md) and
 [site-b/runtime/README.md](site-b/runtime/README.md).
 
 This project and the upstream reference material are licensed under
