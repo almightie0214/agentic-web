@@ -215,6 +215,7 @@ test('peer: Site B manifest resolves to the informational one-agent network', as
   const manifest = await readJSON(new URL('agent-manifest.json', siteB));
   const [entry] = manifest.networks;
   const config = await readJSON(new URL(entry.hocon, siteB));
+  assert.equal(config.max_execution_seconds, 180);
   assert.deepEqual(config.tools.map(agent => agent.name), ['spec_scout']);
   const [scout] = config.tools;
   assert.deepEqual(scout.tools, []);
@@ -258,6 +259,106 @@ for (const site of ['site-a', 'site-b']) {
     return { engine, network, manifest, llm, ctx, chain };
   };
   const toolCall = entry => ({ id: 'call', name: 'test_tool', args: {}, entry });
+
+  test(site + ': runtime compiles only valid execution limit declarations', async t => {
+    const { validateNetwork } = await import(new URL('kernel.js', runtime));
+    const originalFetch = globalThis.fetch;
+    t.after(() => { globalThis.fetch = originalFetch; });
+    for (const key of ['max_execution_seconds', 'max_steps']) {
+      const invalid = [null, '2', 0, -1, NaN, Infinity, -Infinity, true, [], {}];
+      if (key === 'max_steps') invalid.push(1.5);
+      for (const level of ['network', 'agent']) {
+        for (const value of invalid) {
+          const config = { tools: [{ name: 'front', instructions: 'Answer.', tools: [] }] };
+          (level === 'network' ? config : config.tools[0])[key] = value;
+          // An agent override must not hide an invalid network declaration.
+          if (level === 'network') config.tools[0][key] = 2;
+          const diagnostics = validateNetwork(new RuntimeNetwork(config, 'test')).errors;
+          const message = `${level === 'network' ? 'Network' : "Agent 'front'"} ${key} must be ${key === 'max_steps' ? 'a positive integer' : 'a finite positive number'}.`;
+          assert.ok(diagnostics.includes(message), `${level} ${key}: ${String(value)}`);
+          const { engine, manifest } = fixture();
+          const text = JSON.stringify(config, (_key, v) => typeof v === 'number' && !Number.isFinite(v) ? '__NONFINITE__' : v)
+            .replace('"__NONFINITE__"', value === -Infinity ? '-1e999' : value === Infinity ? '1e999' : 'NaN');
+          globalThis.fetch = async url => new Response(String(url).endsWith('/links.json') ? '{}' : text);
+          await assert.rejects(engine._compile(base, manifest, manifest.networks[0], { isTop: true }),
+            new RegExp(`failed validation:.*${key}`), `${level} ${key}: ${String(value)}`);
+        }
+      }
+    }
+    for (const config of [
+      { max_execution_seconds: 0.125, max_steps: 1 },
+      { tools: [{ name: 'front', instructions: 'Answer.', tools: [], max_execution_seconds: 1.5, max_steps: 2 }] },
+      { max_execution_seconds: 500 }, {},
+    ]) {
+      const { engine, manifest } = fixture();
+      globalThis.fetch = async url => new Response(JSON.stringify(String(url).endsWith('/links.json') ? {}
+        : { tools: [{ name: 'front', instructions: 'Answer.', tools: [] }], ...config }));
+      await engine._compile(base, manifest, manifest.networks[0], { isTop: true });
+    }
+  });
+
+  test(site + ': runtime uses the top network query deadline with default and maximum', async t => {
+    const clock = useClock(t);
+    for (const [seconds, duration] of [[undefined, 90_000], [240, 240_000], [301, 300_000], [0.125, 125]]) {
+      const { engine, llm } = fixture({ ...(seconds === undefined ? {} : { max_execution_seconds: seconds }),
+        tools: [{ name: 'front', instructions: 'Answer.', tools: [], max_execution_seconds: 500 }] });
+      const started = Date.now();
+      const entered = deferred();
+      let modelSignal;
+      let composition;
+      const makeCtx = engine._makeCtx.bind(engine);
+      engine._makeCtx = options => { composition = options.composition; return makeCtx(options); };
+      llm.chat = ({ signal }) => { modelSignal = signal; entered.resolve(); return pending(); };
+      let settled = false;
+      const operation = engine.runTurn('question').finally(() => { settled = true; });
+      const rejected = assert.rejects(operation, error => {
+        assert.equal(error.code, 'EXECUTION_DEADLINE');
+        assert.ok(error.message.includes(new Date(started + duration).toISOString()));
+        return true;
+      });
+      await entered.promise;
+      assert.equal(composition.deadline, started + duration);
+      clock.tick(duration - 1);
+      await flush();
+      assert.equal(settled, false);
+      clock.tick(1);
+      await rejected;
+      assert.equal(modelSignal.aborted, true);
+    }
+    // The same runtime maximum applies to an agent even without a composition.
+    const scope = createCallScope({}, { max_execution_seconds: 500 });
+    try { assert.equal(scope.deadline, Date.now() + 300_000); }
+    finally { scope.dispose(); }
+  });
+
+  test(site + ': runtime peer declarations cannot extend the caller query deadline', async t => {
+    const clock = useClock(t);
+    const originalFetch = globalThis.fetch;
+    t.after(() => { globalThis.fetch = originalFetch; });
+    const { engine, llm } = fixture({ max_execution_seconds: 1,
+      tools: [{ name: 'front', instructions: 'Answer.', tools: [peerBase + '/peer'], max_execution_seconds: 500 }] });
+    globalThis.fetch = async url => new Response(JSON.stringify(String(url).endsWith('agent-manifest.json')
+      ? { networks: [{ name: 'peer', hocon: 'peer.json' }] }
+      : String(url).endsWith('peer.json') ? { max_execution_seconds: 500, tools: [{ name: 'peer', instructions: 'Answer.', tools: [] }] } : {}));
+    const entered = deferred();
+    let peerSignal;
+    const resolveRemote = engine.resolveRemote.bind(engine);
+    engine.resolveRemote = async (...args) => {
+      const session = await resolveRemote(...args);
+      session.llm.chat = ({ signal }) => { peerSignal = signal; entered.resolve(); return pending(); };
+      return session;
+    };
+    llm.chat = async () => ({ content: '', toolCalls: [{ id: 'peer', function: { name: 'peer', arguments: '{}' } }] });
+    const operation = engine.runTurn('question');
+    const rejected = assert.rejects(operation, error => error.code === 'EXECUTION_DEADLINE');
+    await entered.promise;
+    clock.tick(999);
+    await flush();
+    assert.equal(peerSignal.aborted, false);
+    clock.tick(1);
+    await rejected;
+    assert.equal(peerSignal.aborted, true);
+  });
 
   test(site + ': runtime rejects retired executable capabilities at compile time', async t => {
     const originalFetch = globalThis.fetch;

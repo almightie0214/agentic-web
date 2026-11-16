@@ -16,7 +16,7 @@ import { createTurnEventStream } from "./execution-stream.js";
 import { TurnControl } from "./turn-control.js";
 import { ActionRegistry, actionBindings, cloneData } from "./actions.js";
 import { loadActionModule } from "./action-transport.js";
-import { assertActive, scoped, bindContext } from "./scope.js";
+import { assertActive, scoped, bindContext, MAX_EXECUTION_SECONDS } from "./scope.js";
 import { randomUuid } from "./web-crypto.js";
 
 function normOrigin(url) {
@@ -534,7 +534,8 @@ export class Engine {
           maxCallsPerPeer: 1,
           agentCalls: 0,
           maxAgentCalls: 24,
-          deadline: Date.now() + 90_000,
+          // Only the top network owns the query budget. Peer sessions inherit it.
+          deadline: Date.now() + Math.min(this.top.network.config.max_execution_seconds ?? 90, MAX_EXECUTION_SECONDS) * 1000,
         },
       });
       const message = interactionMessage(userText, interaction);
