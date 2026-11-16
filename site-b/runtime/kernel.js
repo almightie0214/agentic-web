@@ -1,4 +1,5 @@
 // kernel.js — the pure, framework-free orchestration logic.
+// Changed by Agent Review Desk + Spec Scout: reject duplicate normalized agent names.
 //
 // This module is the browser-side reference for what the plan calls the
 // "cross-compilable kernel": config filter chain, AgentNetwork, the activation
@@ -178,7 +179,10 @@ export class AgentNetwork {
     this.linkLabels = { ...(this.config.link_labels || {}) };
     this.specMap = new Map();
     for (const agent of this.config.tools || []) {
-      if (agent && typeof agent.name === "string") this.specMap.set(agent.name, agent);
+      if (agent && typeof agent.name === "string") {
+        if (this.specMap.has(agent.name)) throw new Error(`Duplicate agent name '${agent.name}'.`);
+        this.specMap.set(agent.name, agent);
+      }
     }
   }
 

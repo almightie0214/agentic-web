@@ -2,7 +2,7 @@
 // Changed by agentic-web. See README.md in this folder for what changed.
 // Changed by Agent Review Desk + Spec Scout: removed legacy mock-router and
 // confirm-text inference and retired activity-slot handling; welcome widgets use
-// the shared presentation validation.
+// the shared presentation validation. Removed the BYOK cookie-sharing hint.
 //
 // Renders three surfaces from the trace bus: a chat pane, a live network/origin
 // graph, and a chronological execution log. Businesses restyle via CSS variables
@@ -11,7 +11,6 @@
 
 import { ChatMessageType } from "./kernel.js";
 import {
-  canUseByokCookie,
   deleteByokProfile,
   getSelectedByokProfile,
   guessByokProfileName,
@@ -974,9 +973,7 @@ export function mountApp(root, { engine, trace, manifest }) {
   let formProvider = providerForApiKey(keyEl.value);
   profileNameEl.value = selectedProfile?.name || "";
 
-  const profileStorageText = canUseByokCookie()
-    ? "Saved setups are kept in this browser and mirrored to a local cookie, so they follow nsDeploy across localhost ports."
-    : "Saved setups are kept in this browser for this site.";
+  const profileStorageText = "Saved setups are kept in this browser for this site.";
 
   const profileLabel = (p) => `${p.name || guessByokProfileName(p)}${p.model ? ` (${p.model})` : ""}`;
   const refreshProfileOptions = (selectedId = profileStore.selectedId) => {

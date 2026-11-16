@@ -312,6 +312,42 @@ function runtimeTest(name, check) {
   }
 }
 
+runtimeTest('network rejects duplicate names after config filtering', async (t, runtime) => {
+  const { AgentNetwork, filterConfig, validateNetwork } = await import(new URL('kernel.js', runtime));
+  const agent = name => ({ name, instructions: 'Review the supplied artifact.', tools: [] });
+  for (const [label, names, commondefs] of [
+    ['exact duplicate', ['worker', 'worker'], {}],
+    ['trimmed duplicate', [' worker ', 'worker'], {}],
+    ['replacement_strings duplicate', ['{role}', 'worker'], { replacement_strings: { role: 'worker' } }],
+    ['replacement_values duplicate', ['WORKER', 'worker'], { replacement_values: { WORKER: 'worker' } }],
+  ]) {
+    await t.test(label, () => {
+      const config = { commondefs, tools: names.map(agent) };
+      assert.deepEqual(filterConfig(config).tools.map(tool => tool.name), ['worker', 'worker'],
+        'fixture must collide after the real config filter, not an unrelated validation failure');
+      assert.throws(() => new AgentNetwork(config, 'duplicate'), {
+        name: 'Error', message: "Duplicate agent name 'worker'.",
+      });
+      assert.deepEqual(config.tools.map(tool => tool.name), names, 'caller config must not be mutated');
+    });
+  }
+  await t.test('distinct filtered names retain both agents and validate references', () => {
+    const config = {
+      commondefs: { replacement_strings: { role: 'coordinator' }, replacement_values: { WORKER: 'worker' } },
+      tools: [{ ...agent(' {role} '), tools: ['worker'] }, agent('WORKER')],
+    };
+    assert.deepEqual(filterConfig(config).tools.map(tool => tool.name), ['coordinator', 'worker']);
+    const network = new AgentNetwork(config, 'valid');
+    assert.equal(network.findFrontMan(), 'coordinator');
+    assert.equal(network.getAgentSpec('coordinator').name, 'coordinator');
+    assert.equal(network.getAgentSpec('worker').name, 'worker');
+    assert.deepEqual(validateNetwork(network), { errors: [], warnings: [], externals: [], mcps: [] });
+    config.tools[0].tools = ['missing_worker'];
+    assert.deepEqual(validateNetwork(new AgentNetwork(config, 'invalid')).errors,
+      ["Agent 'coordinator' references missing tool 'missing_worker'."]);
+  });
+});
+
 runtimeTest('runtime entry point and license are present', async (_t, runtime) => {
   for (const path of ['index.js', 'LICENSE.txt']) {
     const file = await stat(new URL(path, runtime));
@@ -545,9 +581,10 @@ runtimeTest('welcome and response widgets share confirmation validation', async 
 });
 
 runtimeTest('BYOK uses only current tab settings and saved profiles', async (t, runtime) => {
-  const { loadTabByokSetup, saveTabByokSetup, upsertByokProfile, getSelectedByokProfile } =
+  const { loadByokStore, loadTabByokSetup, saveTabByokSetup, upsertByokProfile,
+    getSelectedByokProfile, selectByokProfile, deleteByokProfile } =
     await import(new URL('byok.js', runtime));
-  const originals = new Map(['sessionStorage', 'localStorage', 'location'].map(name =>
+  const originals = new Map(['sessionStorage', 'localStorage', 'location', 'document'].map(name =>
     [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   t.after(() => {
     for (const [name, descriptor] of originals) {
@@ -609,6 +646,62 @@ runtimeTest('BYOK uses only current tab settings and saved profiles', async (t, 
     assert.deepEqual(loadTabByokSetup(), profile);
     assert.ok(sessionAccess.every(([, name]) => name !== legacySlot));
   });
+
+  for (const hostname of ['localhost', '127.0.0.1', '::1', '[::1]', 'example.test']) {
+    await t.test(`profiles stay in localStorage without cookie access on ${hostname}`, () => {
+      failWrite = '';
+      sessionItems.clear();
+      const localItems = new Map();
+      const cookieAccess = [];
+      const cookieProfile = { ...profile, id: 'cookie-only', name: 'Cookie must not be used' };
+      const cookieValue = `nsweb_byok_profiles_v1=${encodeURIComponent(JSON.stringify({
+        version: 1, selectedId: cookieProfile.id, updatedAt: '9999-01-01T00:00:00.000Z', profiles: [cookieProfile],
+      }))}`;
+      const document = Object.defineProperty({}, 'cookie', {
+        get() { cookieAccess.push('get'); return cookieValue; },
+        set(_value) { cookieAccess.push('set'); },
+      });
+      const url = new URL(`https://${hostname === '::1' ? '[::1]' : hostname}/desk/`);
+      for (const [name, value] of Object.entries({
+        localStorage: storage(localItems), document,
+        location: { hostname, origin: url.origin, protocol: url.protocol },
+      })) Object.defineProperty(globalThis, name, { configurable: true, value });
+      const noCookieAccess = () => assert.deepEqual(cookieAccess, [], 'no cookie get/set is permitted');
+      assert.equal(localItems.size, 0);
+      assert.equal(sessionItems.size, 0);
+      assert.deepEqual(loadByokStore().profiles, [], 'a cookie must never supply a saved profile');
+      noCookieAccess();
+
+      upsertByokProfile({ ...profile, id: 'first', name: 'First provider' });
+      noCookieAccess();
+      assert.equal(getSelectedByokProfile().id, 'first');
+      assert.equal(JSON.parse(localItems.get('nsweb-byok-profiles-v1')).profiles[0].key, profile.key);
+      const second = { key: 'test-second-key', router: 'https://second.example.test/v1', model: 'second-model' };
+      upsertByokProfile({ ...second, id: 'second', name: 'Second provider' }, { select: false });
+      assert.equal(getSelectedByokProfile().id, 'first', 'unselected save preserves current selection');
+      selectByokProfile('second');
+      assert.equal(getSelectedByokProfile().id, 'second');
+      assert.deepEqual(loadTabByokSetup(), second);
+      noCookieAccess();
+
+      const tab = { key: 'test-host-tab-key', router: 'https://tab.example.test/v1', model: 'tab-model' };
+      saveTabByokSetup(tab);
+      selectByokProfile('first');
+      assert.equal(getSelectedByokProfile().id, 'first');
+      assert.deepEqual(loadTabByokSetup(), tab, 'profile selection cannot override an applied tab setup');
+      deleteByokProfile('first');
+      assert.equal(getSelectedByokProfile().id, 'second', 'deleting selection selects remaining profile');
+      assert.deepEqual(loadTabByokSetup(), tab, 'deleting a profile cannot change applied tab settings');
+      saveTabByokSetup(null);
+      assert.deepEqual(loadTabByokSetup(), second, 'clearing tab restores the saved profile');
+      deleteByokProfile('second');
+      assert.equal(getSelectedByokProfile(), null);
+      assert.deepEqual(loadByokStore().profiles, []);
+      assert.deepEqual(loadTabByokSetup(), { key: '', router: '', model: '' });
+      assert.deepEqual(JSON.parse(localItems.get('nsweb-byok-profiles-v1')).profiles, []);
+      noCookieAccess();
+    });
+  }
 });
 
 runtimeTest('composed UI leaves retired activity slots untouched', async (t, runtime) => {
