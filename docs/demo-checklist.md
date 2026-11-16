@@ -879,11 +879,28 @@ not an implementer-driven browser session. No screenshot/trace export was review
 | Subcase | Actual observation / evidence | Verdict / remaining work |
 | --- | --- | --- |
 | R2-00 cleanup | Old pages/server stopped 19:15; script-free blank cleanup page, no logging. 127.0.0.1 named cookie present→absent at 19:16:37 without reading its value; absent on later checked ports. localhost:8001 had no named cookie. Test BYOK/link local/session state cleared; unrelated origins untouched. | PARTIAL: old Otari key **not revoked**, new key not issued; user account action pending. localhost:8007 top navigation refused, :8019 not directly checked (neither was opened top-level in run 1); cookie is host-scoped. No claim of full safety completion. |
-| B05-R2 top A | 19:20–19:24; :9054 exact worker duplicates, :9055 worker vs space-padded name, :9056 {alias} replacement_strings→worker all visibly refused; exported loader error Duplicate agent name 'worker'.; 0 provider requests. | PASS for these three variants. |
+| B05-R2 top A | 19:17–19:19Z (reported keyless-block interval, `R2-B05.md:2`, not separate per-variant times); :9054 exact worker duplicates, :9055 worker vs space-padded name, :9056 {alias} replacement_strings→worker all visibly refused; exported loader error Duplicate agent name 'worker'.; 0 provider requests. | PASS for these three variants. |
 | B05-R2 top A other failures/control | :9051 invalid JSON HOCON parse error 1:45; :9052 tools=[] / no front-man; :9053 missing_helper reference all refused, 0 provider requests. :9057 unique worker compiled and chat became available. | PASS for loader refusal/control; no live inference on the control. |
 | B05-R2 top B | :9064 exact, :9065 trim, :9066 {alias} duplicates all visibly refused, same duplicate error, 0 provider requests; :9067 unique worker compiled. | PASS for three duplicate variants/control. No malformed/empty/missing-reference variants were recorded for top B. |
 | B05-R2 peer | a9000-peerdup→b9002 fixture prepared, no caller model yet | UNVERIFIED, needs safe new key on A 127.0.0.1:9000 and normal consent. |
 | Panel/B01-R2; B07-R2 | No keyed execution yet | UNVERIFIED: save/select/delete/reload/model switch, cookie non-regeneration with a key, A/B non-disclosure and caller router/model on both models still needed. |
+
+**Timing provenance:** `R2-B05.md:2` reports **2026-11-15T19:17–19:19Z**
+for the keyless B05 block as a whole, including the A/B duplicate variants and
+controls; it does not supply separate per-variant diagnostic/completion times.
+The top A row now uses that reported interval rather than the unsupported range
+previously transcribed into this checklist. To cross-check the timing, the
+implementer read `I:/project/agentic-web/.theora/aw4-demo/run2/requests.jsonl`
+lines **1–40** during the documentation correction: `a9054` GET `/` (line 1)
+and `/runtime/kernel.js` (line 7) are timestamped **2026-11-15T19:17:58Z**;
+its `/review_desk.network.json` GET (line 34) is at **19:17:59Z**, another
+GET of that definition (line 36) at **19:18:12Z**, and `a9055` GET `/`
+(line 40) at **19:18:12Z**. These request timestamps fall within the reported
+block interval; they are not precise timestamps of the thrown duplicate error.
+No conflicting time was found in those inspected source fields. Individual
+refusal/completion times not supplied there remain unspecified. Other case
+records retain their own explicitly reported intervals; no new browser run,
+paid call or independent aggregate request recount was performed for this fix.
 
 Fixture source was the uncommitted demo-kit candidate atop `3e5040b`, not run 1's
 old runtime. Reported served kernel/byok/ui SHA-256 values match the full table
