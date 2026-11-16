@@ -2,10 +2,22 @@
 
 **Status: English draft, not a submitted or release-ready entry.** The
 [demo evidence ledger](demo-checklist.md) records user-supplied local browser runs,
-including failures and corrected rechecks. Missing runtime observations, public
-URLs/HTTPS/CORS, screenshots, video, Otari correspondence, final submission and
-judge access remain open. Replace open fields with verified facts before
-publishing; do not turn scoped local observations into full release acceptance.
+including failures and corrected rechecks, and 2026-11-16 public HTTPS/ACAO/404
+measurements against revision `298ce2bee1001e7186e7f5325975c063729881d5`.
+Site A and Site B are publicly hosted and the public binding is deployed. The
+user-operated public run 2 (input 61) observed consent UI→Allow→B artifact reads→
+local peer execution on the caller's Otari router→a normal §3.2-cited answer, with
+wire-level key/Cookie/Authorization absence on the three B GETs. Pre-run A links,
+manifest and review_desk bytes matched main `24395e4238994a5f76f5cd630d1aa17de4412896`
+(the same three files as binding revision 298ce2b). Input 59's failed answer remains
+historical; its WebFetch-markup failure did not recur and its cause is unknown.
+The zero Allow event count remains a defect candidate; quotation fidelity and
+attribution of a separate `lc.getunicorn.org` request are unchecked. Other missing
+runtime observations, screenshots, video, final submission and independent judge
+access remain open.
+Otari account creation/feedback is optional under Official Rules §4, not a release
+requirement. Replace open fields with verified facts before publishing; do not turn
+scoped observations into full release acceptance.
 
 ## Project name and short description
 
@@ -40,8 +52,30 @@ instructions embed cited MVP Profile 0.2 excerpts. Site A exposes a symbolic
 `spec_scout` peer tool through `links.json`. The intended flow is visitor approval,
 exact-name definition loading, then peer execution inside the caller's browser
 with the caller's router—not a server-side call to B's agent or B's site actions.
-This wiring exists, but the current target is the reserved
-`https://spec-scout.invalid/spec_scout`, not a reachable public deployment.
+The public [Site A](https://almightie0214.github.io/agentic-web/) now binds to
+`https://spec-scout.pages.dev/spec_scout`, with the matching allowed origin under
+closed policy. [Site B](https://spec-scout.pages.dev/) serves its manifest and exact
+network as JSON with ACAO `*`; absent paths return 404 rather than an SPA fallback.
+Immediately before 03:00Z on 2026-11-16, credential-free GETs of A's links,
+manifest and review_desk definition matched main 24395e4 byte-for-byte; those three
+files are unchanged from 298ce2b. In public run 2, a fresh Edge
+157.0.4341.60 (Chromium 157) temporary profile on Windows 11 x64 used CDP Network +
+ExtraInfo wire capture and the built-in panel with an Otari competition-credit key
+and `alibaba/qwen3.8-flash`. At 03:02:14.216Z the consent card was visible with zero B
+requests; Allow at 03:02:15.732Z preceded B manifest at .733Z and definition at .834Z
+(both 200, application/json, ACAO `*`) and absent links.json at .985Z (404,
+text/html;charset=utf-8, ACAO `*`). All three were GETs without redirect or body,
+Authorization or Cookie; no `otk_` marker appeared in URL/header values/body.
+The trace showed `remote_fetch`→`remote_call spec_scout`→peer agent/model, then a
+normal caller answer at 03:03:37.312Z citing §3.2 and separating requirements from
+observations. Exact quotation fidelity is unchecked. Caller/peer/caller produced
+three POST 200s, two models GET 200s and five OPTIONS 200s on `api.otari.ai`, with
+no other model host observed. The Allow event count remained zero; this is a defect
+candidate, not missing visual/wire ordering evidence. A separate `lc.getunicorn.org`
+request has unknown attribution; observed B isolation is not universal key
+non-disclosure proof. Public run 1 (input 59) returned literal WebFetch markup and
+a retry was declined; run 2 did not reproduce it, without establishing its cause.
+See [the public ledger](demo-checklist.md#4-public-deployment-measurements-and-judging-handoff).
 
 The UI distinguishes expected configuration from latest-run trace events. It is a
 review aid, not a security certificate or an automated deployment repair service.
@@ -103,8 +137,14 @@ configuration without treating it as runtime proof. Local browser records now
 support consent/refusal paths, exact-name loading, corrected duplicate rejection,
 caller-router retention, observed static-request key isolation, sentinel field
 filtering, cycle interruption and the 24-agent cap. These are bounded observations:
-provider request headers/bodies, unexercised limits and public HTTPS/CORS remain
-unverified; see the ledger for missing subcases and tested snapshot provenance.
+comprehensive provider/prompt/action/error inspection and unexercised limits remain
+unverified. Public HTTPS/ACAO/404 responses are measured. Public run 2 adds visual
+consent→Allow→B manifest/definition/links wire reads→peer/caller-router model use
+and a normal §3.2-cited answer, plus key/Cookie/Authorization absence on B GETs.
+Input 59's failed answer remains historical. The zero Allow event count remains a
+defect candidate; quotation fidelity and attribution of the separate
+`lc.getunicorn.org` request remain open. See the ledger for bounded observations,
+not a universal security claim or a substitute for independent judge access.
 
 ### 2. Design
 
@@ -118,7 +158,11 @@ than a second configuration UI. The planned demonstration will follow one proble
 through correction, delegation, consent, peer use and evidence. B01 records the
 local correction/delegation/action path with instruction deviations retained; run 2
 rechecks panel persistence, tab priority and model switching. This is not a broad
-usability study, a completed video or a demonstrated public deployment.
+usability study or a completed video. Public run 2 in §4 reached the peer and
+returned a normal answer with §3.2 attribution and requirements/observations
+separated. Public run 1's WebFetch-markup failure remains historical and unexplained;
+a successful second run does not establish universal model reliability or exact
+quotation fidelity.
 
 ### 3. Potential Impact
 
@@ -130,8 +174,9 @@ proof. Deterministic reports and section-cited peer explanations aim to make fix
 and evidence gaps explicit. The repository contains the reusable validator, static
 CLI and sample/test inputs under Apache-2.0; confirming public repository access
 and sharing these tools with the community remains a release handoff item. The
-impact case is specific to that author workflow; no adoption, measured improvement
-or completed public demonstration is claimed.
+impact case is specific to that author workflow; no adoption or measured improvement
+is claimed. Public run 2 demonstrates one bounded specification-question flow,
+not adoption or a complete submission demonstration.
 
 ### 4. Quality of the Idea
 
@@ -158,15 +203,21 @@ The CLI therefore retains runtime uncertainty even when its static checks pass.
 
 Another boundary is deployment: publishing the repository root would mix Site B
 with Site A's origin and defeat this project's two-origin demonstration. The
-workflow uploads only `site-a/`, and Site B must be deployed independently.
+workflow uploads only `site-a/`, and Site B is deployed independently to
+`https://spec-scout.pages.dev/` with `site-b/` as its publication root. Public
+responses, rather than configuration alone, now establish the measured ACAO and
+missing-path 404 behavior.
 
 ## What is implemented, and what is next
 
 The repository contains both site bundles, shared artifact checks, report-backed
 agent instructions, peer wiring, tests and deployment configuration. See the
 [README spec mapping](../README.md#checks-and-spec-mapping) for the implemented
-checks and their limits. This draft does not claim a public live demo or complete
-runtime acceptance.
+checks and their limits. Public A and B now serve the paired publication artifacts;
+the HTTP measurements alone do not establish a live peer demo. Public run 2 adds
+actual browser consent/peer/caller-router execution, B wire isolation observations
+and a normal answer after input 59's failure. Complete runtime acceptance is not
+established; retained defects, unknowns and unrelated missing cases remain explicit.
 
 The [demo checklist and execution ledger](demo-checklist.md) now contain actual
 user-supplied local browser observations, not just planned procedures. Run 1 used
@@ -211,10 +262,19 @@ Next work follows the ledger's
   Browser replacement_values duplicate handling and top B malformed, empty-graph
   and missing-reference variants were not separately recorded. Node coverage is
   not browser evidence for those subcases.
-- Activate separate public hosts, bind the real peer URL and allowed origin
-  together, measure public HTTPS/CORS, recheck the relevant public-revision browser
-  paths, and confirm independent judging access. Local CORS usability does not
-  establish public Cloudflare response headers.
+- Separate public hosts and the paired binding are deployed. Credential-free GETs
+  on 2026-11-16 measured HTTPS 200/ACAO `*` for both sites' home pages, manifests
+  and exact definitions, no redirects, and B's missing paths returning 404.
+  A links/manifest initially byte-matched 298ce2b; 02:31Z and 03:06Z HTTP probes
+  reconfirmed responses and hashes. Just before 03:00Z the operator also checked
+  A links/manifest/review_desk bytes against main 24395e4, unchanged from 298ce2b.
+  Public run 2 (input 61) then captured zero pre-Allow B requests,
+  manifest/definition 200 and links 404 with response headers, B wire
+  key/Cookie/Authorization absence, `remote_call spec_scout`, caller-router model
+  calls and a normal §3.2-cited answer. This closes input 59's missing B wire
+  observations, not every runtime case. Allow event count remains zero; quotation
+  fidelity, the first run's failure cause, separate-request attribution and
+  independent judging access remain open.
 
 Append follow-up environment/revision, steps, observations, verdicts and sanitized
 evidence to the ledger; never retain real keys. Node exit 0 or a written checklist
@@ -239,23 +299,25 @@ evidence locations as items are completed. Do not put credentials in this tracke
 
 | Done | Item | Owner / required input | Evidence or current state |
 | --- | --- | --- | --- |
-| [ ] | Finalize the four criterion responses against actual demonstration evidence | Entrant | Official Rules §6 quoted above; local run 1/run 2 evidence summarized here, public demonstration and final claims review pending |
+| [ ] | Finalize the four criterion responses against actual demonstration evidence | Entrant | Official Rules §6 quoted above; local runs and public input 61's successful bounded answer/wire observations summarized, input 59 failure retained; final claims review pending |
 | [ ] | Confirm public repository access and share the reusable tools with the community | Entrant / repository account | Public repository URL and access/sharing record pending |
-| [ ] | Activate Site A GitHub Pages and record its public HTTPS URL | Repository account owner | URL pending; workflow exists, activation unverified |
-| [ ] | Deploy Site B to Cloudflare Pages on a separate origin and record its HTTPS URL | Cloudflare account owner | URL pending; `_headers` exists, public response unverified |
-| [ ] | Replace reserved peer URL and paired allowed origin; update deployment-address test expectations and redeploy A | Maintainer, after actual B base is confirmed | Update `site-a/links.json` and `site-a/agent-manifest.json` together; `tests/peer.test.mjs` checks consistency and currently pins the placeholder |
-| [ ] | Capture public artifact HTTPS/CORS responses and verify cross-origin browser retrieval | Deployer + browser verifier | Measured URL/status/headers/date/revision pending; local configuration is insufficient |
-| [ ] | Complete missing real-browser observations and public-revision checks; resolve or explicitly retain blocked cases | Browser verifier + entrant for environment/accounts | Local run 1 and corrected run 2 observations are in the demo ledger; provider headers/bodies, unexercised limits and public acceptance remain unverified |
+| [x] | Activate Site A GitHub Pages and record its public HTTPS URL | Repository account owner; HTTP measured by implementer | https://almightie0214.github.io/agentic-web/ — 2026-11-16 public 200; §4 records artifact correspondence to 298ce2b |
+| [x] | Deploy Site B to Cloudflare Pages on a separate origin and record its HTTPS URL | Cloudflare account owner; HTTP measured by implementer | https://spec-scout.pages.dev/ — public manifest/network 200 + ACAO `*`, missing paths 404, no redirects; §4 |
+| [x] | Publish public peer URL and paired allowed origin; align production tests and redeploy A | Maintainer | Commit 298ce2bee1001e7186e7f5325975c063729881d5 binds https://spec-scout.pages.dev/spec_scout and allows https://spec-scout.pages.dev; deployed A files byte-match source; production tests derive paired settings, one assertion pins public B |
+| [x] | Capture credential-free public artifact HTTPS/ACAO/404 responses | Implementer | §4: 2026-11-16T01:41:11.454Z–01:41:12.661Z, 02:31:27.844Z–02:31:28.965Z and latest 03:06:50.606Z–03:06:51.131Z probes, Node v24.16.0/Windows x64, revision 298ce2b, URLs/status/Content-Type/ACAO/redirects and hashes recorded |
+| [x] | Observe public consent→peer→caller-router flow and B request key isolation | User / delegated browser operator | Input 61, 2026-11-16 03:02–03:03Z, Edge 157/Windows 11 x64 fresh profile, CDP Network + ExtraInfo: consent before all three B GETs, manifest/definition 200 and links 404 with ACAO `*`, no B key/Cookie/Authorization/body/redirect; caller/peer/caller Otari POST 200; normal §3.2-cited answer. Pre-run A bytes match main 24395e4 (same three source files as 298ce2b). Allow event count zero remains a defect candidate; quotation fidelity and separate-request attribution unchecked. Input 59 failure remains historical, cause unknown; §4 |
+| [ ] | Complete missing real-browser observations and public-revision checks; resolve or explicitly retain blocked cases | Browser verifier + entrant for environment/accounts | Local run 1 and corrected run 2 observations are in the demo ledger; comprehensive provider/prompt/action/error inspection and unexercised limits remain unverified; public run 2 flow is observed, not full runtime acceptance; retain zero Allow event count and other §4 limits |
 | [ ] | Capture and select English screenshots for submission | Entrant | Images pending; show actual UI and findings, remove keys/personal data |
 | [ ] | Record entrant's own English explanation, under two minutes, as a public YouTube video | Entrant / YouTube account | Public URL, duration and access check pending |
 | [ ] | Finalize all submission materials in English | Entrant | README and this draft are English; screenshots/video/final form still need review |
-| [ ] | Send the required Otari email with improvement feedback and track any response | Entrant / confirmed recipient address and email account | Recipient, sent date, improvement feedback and correspondence record pending; no email sent by this task |
-| [ ] | Verify judge access to the public sites, artifacts and video; give accurate inference setup instructions | Entrant / independent access check | Public URLs and access results pending; document visitor-key requirement without disclosing a key |
+| [ ] | Optional: create an Otari account and provide improvement feedback; email only if the entrant chooses | Entrant / account or chosen feedback channel | Official Rules §4: “Optionally create an Otari account and provide feedback”; not a mandatory email or submission blocker. No email sent by this task; any chosen correspondence remains unrecorded |
+| [ ] | Verify judge access to the public sites, artifacts and video; give accurate inference setup instructions | Entrant / independent access check | A/B URLs are recorded above, but independent judge access and video access remain unverified; live inference requires the visitor's supported router/key, never a shared published key |
 | [ ] | Complete final Devpost submission and save its confirmation/entry URL | Entrant / Devpost account | Not submitted; submission URL and timestamp pending |
 | [ ] | Keep sites, public artifacts and video accessible through judging end: **2027-01-19 10:00 KST (UTC+09:00)** | Entrant / hosting and video account owners | Availability commitment and monitoring/access records pending; equivalent UTC time is 2027-01-19 01:00 UTC |
 
-Account setup, email, publication, final submission and the availability commitment
-require the entrant's action. This document does not authorize them or establish
-competition acceptance. Do not mark the project submission-ready while public
-HTTPS/CORS or judge access is unverified. Preserve unresolved observations honestly
-rather than replacing them with static test results.
+Optional Otari account/feedback or email, video publication, final submission and
+the availability commitment require the entrant's action. This document does not
+authorize account changes or establish competition acceptance. Do not mark the
+project submission-ready while required runtime evidence, retained defect review
+or judge access remains unresolved. Preserve unresolved observations honestly rather
+than replacing them with static test results.

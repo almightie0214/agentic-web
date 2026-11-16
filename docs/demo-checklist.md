@@ -1,6 +1,6 @@
 # Demo checklist and browser evidence ledger
 
-## Status: corrected local rechecks passed; public acceptance still unverified
+## Status: public HTTP and browser peer flow measured; run 2 answer and B request isolation pass, scoped
 
 The user supplied run 1 browser records on 2026-11-16. The implementer read the
 sanitized Markdown records, not a live browser session or screenshots. Local
@@ -19,8 +19,19 @@ after 00:13Z, the user confirmed revocation of the exposed run 1 key. Input 55
 adds an approximate user-recalled revocation time of **2026-11-16 00:01Z** (not
 an exact/account-verified timestamp); no dashboard or credential was reviewed.
 **Not submission-ready.**
-Public HTTPS/CORS and judging access remain UNVERIFIED. Writing this checklist,
-passing Node checks, or merging it does not complete runtime acceptance.
+Public HTTPS/ACAO/404 responses are now measured against revision 298ce2b (§4).
+User input 59 supplies the first public-browser run (§4): peer execution reached
+the caller router, but **the requested answer failed** and wire key isolation was
+UNVERIFIED. That record is retained. Input 61 supplies a separate Edge/CDP run 2:
+zero B requests before Allow, B manifest/definition reads and links.json 404,
+`remote_call spec_scout`, caller-router inference and a completed section-cited
+answer. The three captured B GETs contain no Cookie, Authorization, body or `otk_`
+in URL/header values/body. This is a scoped wire observation, not a universal
+non-disclosure guarantee or verification of the answer's quotations. Allow still
+has no dedicated consent event; an unrelated request origin remains unexplained.
+Independent judging access, video and final submission remain incomplete. Writing
+this checklist, passing Node checks, or merging it does not complete broader
+runtime acceptance or establish submission readiness.
 
 ### Original preparation record (before user run; not browser evidence)
 
@@ -43,9 +54,10 @@ passing Node checks, or merging it does not complete runtime acceptance.
   This establishes only module availability, not whether a browser is installed.
   No browser-control tool, observed browser session, or provider access was
   supplied to this implementation session. Nothing was installed or configured.
-- Published binding still points to `https://spec-scout.invalid/spec_scout` in
-  `site-a/links.json`, with the matching reserved origin in
-  `site-a/agent-manifest.json`. It is not a reachable demonstration endpoint.
+- At that historical preparation revision, the binding pointed to
+  `https://spec-scout.invalid/spec_scout` in `site-a/links.json`, with the matching
+  reserved origin in `site-a/agent-manifest.json`. Revision 298ce2b replaced both
+  with the public B address; deployed artifact correspondence is now recorded in §4.
 - `site-b/_headers` declares `Access-Control-Allow-Origin: *`. This is a local
   configuration observation, not a measured response header.
 - At preparation time no browser run or video had occurred. The later user-run
@@ -81,11 +93,12 @@ passing Node checks, or merging it does not complete runtime acceptance.
   change account settings, activate hosting or incur unapproved charges.
 
 The user-run evidence has now arrived; see §3 for actual verdicts, failures and
-open observations. For subsequent runs use the local setup below or actual A/B
-HTTPS URLs after activation. Preserve failed attempts and distinguish earlier
+open observations. For subsequent runs use the local setup below or the public A/B
+HTTPS URLs recorded in §4. Preserve failed attempts and distinguish earlier
 runtime observations from revalidation of a corrected candidate. Request minimal
-scope approval for runtime defects and recheck after correction. Public HTTPS/CORS
-and judging access remain separate user acceptance steps after deployment activation.
+scope approval for runtime defects and recheck after correction. The public HTTP
+measurement, public-browser acceptance and independent judging access are separate
+observations; see §4 for their current status.
 
 ## 1. Common setup and evidence rules
 
@@ -515,8 +528,8 @@ Successful browser reads establish local CORS usability, not public CORS headers
 | B08 | Actual sentinel injection; explicit allow and deny-default payload comparison | PASS (field filtering) | Both invocation values supplied; actual remote_call sly_data = public_sentinel only vs {}; peer ran in both |
 | B09 | Cycle interrupted with visible result and no forbidden re-entry | PASS | composition_skip, tool excluded; 2 agents, 1 remote_call, no ancestor re-entry |
 | B10 | Over-limit attempt blocked visibly with no prohibited invocation | PASS (24-agent cap only) | 24 helper attempts; front + 23 helpers started; next helper visibly skipped; other limits UNVERIFIED |
-| P01 | Public HTTPS and CORS response measurements | UNVERIFIED | Loopback HTTP only; no public deployment |
-| P02 | Independent judging access and demonstrated public revision | UNVERIFIED | No public access handoff/check |
+| P01 | Public HTTPS and CORS response measurements | Run 1 UNVERIFIED; public HTTP follow-up PASS (§4) | Run 1 was loopback only; 2026-11-16 public GETs now measure HTTPS/ACAO/404 on artifacts matching 298ce2b. Actual public-browser CORS is tracked separately below. |
+| P02 | Demonstrated public revision and independent judging access | Public-browser flow / B request isolation PASS (run 2, scoped); judge access UNVERIFIED | Input 59's failed answer and absent wire evidence remain historical. Input 61 (§4), Edge/CDP: pre-run A links/manifest/network byte-match main 24395e4 (same peer artifacts/runtime as 298ce2b); 0 B requests before Allow; manifest/definition 200, links 404, ACAO *, no redirects; remote_call spec_scout and caller Otari model; completed cited answer. All 3 B GETs: Cookie/Authorization absent, no body or otk_ in URL/header values/body. Allow event missing; quote accuracy not checked; unrelated origin unresolved; independent judging access still open. |
 
 ### Sanitized case observations (actual, not expectations)
 
@@ -1109,10 +1122,17 @@ Definition-fetch observations (operator report):
   UNVERIFIED. Future capture is user-operated with private inspection/boolean-only
   reporting and competition credits only; do not silently replace them with Node
   results or claim them done.
-- P01 public HTTPS/CORS and P02 judging access stay UNVERIFIED until deployment
-  activation and independent access checks (§4); deployment operator and user own
-  those acceptance steps. Video remains a plan, not delivered footage. This is a
-  local browser evidence handoff, **not submission readiness**.
+- P01's public HTTPS/ACAO/404 follow-up is measured in §4 against revision
+  298ce2b, with HTTP remeasurements recorded separately. P02 input 59 retains its
+  failed answer and missing wire evidence. The separate input 61 run 2 now records
+  pre-run artifact correspondence, public consent UI/Allow before contact, exact
+  peer loading/execution, caller Otari inference, a completed cited answer and
+  B-request wire isolation for all three captured GETs (scoped PASS). Allow-event
+  observability and an unrelated request origin remain unresolved; quotation
+  accuracy and broader provider/body/limit checks are not established. The entrant
+  owns independent judging access, video and final submission, all still incomplete.
+  Video remains a plan, not delivered footage. These bounded observations do not
+  establish **submission readiness**.
 
 ### Record template for each subsequent case/control
 
@@ -1136,26 +1156,443 @@ Evidence attachment identifier or inline excerpt / capture time:
 Verdict PASS | FAIL | UNVERIFIED / limitation and next action / owner:
 ```
 
-## 4. Public deployment and judging handoff (after activation)
+## 4. Public deployment measurements and judging handoff
 
-- [ ] Deployment operator confirms A publishes only `site-a/`, B only `site-b/`,
-  and records actual public URLs, deployed commit/build and artifact correspondence.
-- [ ] Update production `site-a/links.json` and manifest `allowed_peers` together
-  through the deployment task; run the peer consistency tests and static CLI.
-  Do not treat a local fixture override as the production fix.
-- [ ] In a clean real browser load A/B over HTTPS, inspect the public manifest,
-  actual resolved definitions and links, final URLs/status/content and B response
-  `Access-Control-Allow-Origin` on every public artifact used. Confirm readable
-  cross-origin fetches from A. Record redirects and distinguish missing files,
-  TLS/DNS/network errors and actual browser CORS rejection.
-- [ ] Repeat the relevant B01–B08 path on the public revision, with private user
-  key entry and no secret capture. Local two-origin evidence cannot replace this.
+### P01 — credential-free public HTTP measurements: PASS
+
+- Operator: implementer; environment: Windows x64 (`win32`), Node.js `v24.16.0`.
+  Actual measurement interval: **2026-11-16T01:41:11.454Z–01:41:12.661Z**.
+- Inspected checkout HEAD before measurement:
+  `298ce2bee1001e7186e7f5325975c063729881d5` (`git rev-parse HEAD`, exit 0).
+  `git status --short` was empty, exit 0. No fixture or production files changed.
+  Later changes in this task affect only README/devpost/this ledger, not site assets.
+- Site A: `https://almightie0214.github.io/agentic-web/` (GitHub Pages, publication
+  root `site-a/`, GitHub Actions source). Site B: `https://spec-scout.pages.dev/`
+  (Cloudflare Pages, root `site-b/`, no build command). Hosting settings were
+  supplied by the Goal; the implementer did not change account/deployment settings
+  or independently inspect deployment-job/build IDs. Artifact hashes below, not an
+  inferred deployment timestamp or build ID, identify the measured content.
+- **Prerequisite first:** GET A `links.json` and `agent-manifest.json`, compare
+  complete response bytes to the checkout, and stop on a mismatch/non-200. Both
+  matched. The link is `https://spec-scout.pages.dev/spec_scout`; the allowed origin
+  is `["https://spec-scout.pages.dev"]` with closed policy. Only then measure the
+  remaining A/B responses. No deployment wait was necessary in this measurement.
+- All requests: GET, `credentials: 'omit'`, `redirect: 'manual'` with explicit
+  `Origin: https://almightie0214.github.io`, no key, Cookie or Authorization,
+  no request body. Node has no browser cookie session in this probe. Only public
+  response bytes are hashed; only Content-Type, ACAO and Location headers are read
+  into the evidence (no cookie/authentication response values). No inference or
+  authenticated API request was made. Command-line Origin/ACAO is **not browser
+  CORS enforcement** or evidence of browser key isolation.
+
+Actual command: `node {tmp}/public-measure.mjs` → **exit 0**. `{tmp}` was the
+implementation run's temporary directory, not a published path. The exact script
+is retained below for reproduction; the temporary executable was removed afterward.
+The following tables transcribe its output; each timestamp is when that response
+body finished reading, not a deployment time.
+
+A base = `https://almightie0214.github.io/agentic-web/`;
+B base = `https://spec-scout.pages.dev/`. Resolve each path against its named base
+(empty path = base itself). **Every requested URL was also the final URL**, with
+one response hop, no 3xx and `Location: null`. ACAO was `*` on **all ten** responses.
+
+| Base / path | UTC on 2026-11-16 | Status | Content-Type | Body bytes | Byte-equal to checkout |
+| --- | --- | --- | --- | --- | --- |
+| A / `links.json` | 01:41:11.719Z | 200 | application/json; charset=utf-8 | 129 | yes |
+| A / `agent-manifest.json` | 01:41:11.917Z | 200 | application/json; charset=utf-8 | 676 | yes |
+| A / (empty) | 01:41:12.098Z | 200 | text/html; charset=utf-8 | 6409 | yes, index.html |
+| A / `review_desk.network.json` | 01:41:12.288Z | 200 | application/json; charset=utf-8 | 5882 | yes |
+| B / (empty) | 01:41:12.369Z | 200 | text/html; charset=utf-8 | 2947 | yes, index.html |
+| B / `agent-manifest.json` | 01:41:12.403Z | 200 | application/json | 567 | yes |
+| B / `spec_scout.network.json` | 01:41:12.443Z | 200 | application/json | 10862 | yes |
+| B / `links.json` | 01:41:12.596Z | 404 | text/html; charset=utf-8 | 286 | not a source JSON file |
+| B / `review_desk.network.json` | 01:41:12.624Z | 404 | text/html; charset=utf-8 | 286 | not a source JSON file |
+| B / `public-check-missing-298ce2b` | 01:41:12.661Z | 404 | text/html; charset=utf-8 | 286 | synthetic absent path |
+
+SHA-256 (complete received bodies; each 200 hash also equals its local source hash):
+
+| Response | SHA-256 |
+| --- | --- |
+| A links.json | `d9f554715787e5c7609030bbfdc8cc983a66737a52dd4ab6ebc800300a9666b2` |
+| A agent-manifest.json | `24b112630e241f0e77ac6f3865242729e53a815eb0786c5bda6c28642b51eaad` |
+| A index.html | `a9a2645c5f071e850cdc68bfe2a06fca1a27b920c1250feb9ed3fe49715512d1` |
+| A review_desk.network.json | `258a9e2d2dea8d32ca08186283b7959cb81c6905782ed15aa8f217a36e009955` |
+| B index.html | `56b99ec12da57506de55acac2ef3fd66ed9cc17e9bfc064eb9e8300bae0b8c9d` |
+| B agent-manifest.json | `f2d71b66aa93aaba098fc651bc396bec4f33e09691da2617d1e2e4c62012df54` |
+| B spec_scout.network.json | `06b974991ec895bcf14fe42b724092d030fdcce65899b0140d498b9ffc59d91f` |
+| Each of the three B 404 responses | `da5d8407d9e184f4e7cc5e231feb6651c54bc404c7328de095a2e45ece08f5d4` |
+
+The B missing paths return an actual 404 with a shared 286-byte HTML response,
+not B's 2947-byte home page with 200. This directly rechecks the former Cloudflare
+SPA fallback defect after `site-b/404.html` was added in 298ce2b. No claim is made
+about every possible absent path or future availability.
+
+<details>
+<summary>Exact measurement script (Node.js, from repository root)</summary>
+
+```js
+import {readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+const A='https://almightie0214.github.io/agentic-web/';
+const B='https://spec-scout.pages.dev/';
+const hash=b=>createHash('sha256').update(b).digest('hex');
+console.log(JSON.stringify({start:new Date().toISOString(),node:process.version,platform:process.platform,arch:process.arch,method:'GET',credentials:'omit',origin:new URL(A).origin}));
+async function measure(base,path,local){
+ const requested=new URL(path,base).href; let url=requested; const hops=[];
+ for(let i=0;i<6;i++){
+  let r; try {r=await fetch(url,{method:'GET',credentials:'omit',redirect:'manual',headers:{Origin:new URL(A).origin},signal:AbortSignal.timeout(30000)});}catch{throw new Error('Public GET failed (transport error; no external error text retained)');}
+  const body=Buffer.from(await r.arrayBuffer());
+  const h={url,status:r.status,contentType:r.headers.get('content-type'),acao:r.headers.get('access-control-allow-origin'),location:r.headers.get('location')}; hops.push(h);
+  if(r.status>=300 && r.status<400 && h.location){url=new URL(h.location,url).href;continue;}
+  let match=null; if(local){const b=await readFile(local);match=body.equals(b);console.log(JSON.stringify({local,sha256:hash(b)}));}
+  console.log(JSON.stringify({utc:new Date().toISOString(),requested,hops,bytes:body.length,sha256:hash(body),local,byteEqual:match}));
+  return {status:r.status,match};
+ }
+ throw new Error('Redirect limit exceeded');
+}
+for(const path of ['links.json','agent-manifest.json']){
+ const r=await measure(A,path,'site-a/'+path);
+ if(r.status!==200||!r.match)throw new Error('Deployed A prerequisite mismatch; stop measurements');
+}
+for(const [base,root,paths] of [[A,'site-a',['','review_desk.network.json']],[B,'site-b',['','agent-manifest.json','spec_scout.network.json','links.json','review_desk.network.json','public-check-missing-298ce2b']]]){
+ for(const path of paths)await measure(base,path,path===''?root+'/index.html':(['links.json','review_desk.network.json','public-check-missing-298ce2b'].includes(path)&&base===B?null:root+'/'+path));
+}
+console.log(JSON.stringify({end:new Date().toISOString()}));
+```
+
+</details>
+
+### P01 follow-up — fresh HTTP remeasurement after input 59
+
+The implementer ran `node {tmp}/public-remeasure.mjs` → **exit 0** on
+**2026-11-16T02:31:27.844Z–02:31:28.965Z**, Windows x64 / Node.js v24.16.0.
+Before execution, `git rev-parse HEAD` returned
+`298ce2bee1001e7186e7f5325975c063729881d5` and
+`git diff --exit-code HEAD -- site-a site-b` exited 0 with empty output.
+Only the three allowed documentation files were dirty (`git status --short`).
+Thus the measured source assets are unchanged from that commit. This is a new
+HTTP probe, not a repeat browser run or evidence of the earlier page's loaded bytes.
+
+The script is the exact P01 script above except that `r.arrayBuffer()` is also
+caught and replaced by the fixed error `Public body read failed (no external error
+text retained)`. Same credential-free GET/Origin/manual redirect options, same
+ordered URLs and A prerequisite comparison. It first rechecked A links/manifest
+byte equality before contacting the remaining URLs. The temporary script was
+removed after execution. Every response again had **ACAO `*`, one response hop,
+no redirect and `Location: null`**; requested URLs equal final URLs. Each response's
+Content-Type, byte count and SHA-256 exactly matches its P01 table entry above;
+all seven 200 bodies again byte-match their local source files. Actual output:
+
+| Base / path | UTC on 2026-11-16 (body read complete) | Status | Content-Type | Bytes | Byte-equal to source |
+| --- | --- | --- | --- | --- | --- |
+| A / links.json | 02:31:28.098Z | 200 | application/json; charset=utf-8 | 129 | yes |
+| A / agent-manifest.json | 02:31:28.294Z | 200 | application/json; charset=utf-8 | 676 | yes |
+| A / (empty) | 02:31:28.566Z | 200 | text/html; charset=utf-8 | 6409 | yes |
+| A / review_desk.network.json | 02:31:28.743Z | 200 | application/json; charset=utf-8 | 5882 | yes |
+| B / (empty) | 02:31:28.825Z | 200 | text/html; charset=utf-8 | 2947 | yes |
+| B / agent-manifest.json | 02:31:28.846Z | 200 | application/json | 567 | yes |
+| B / spec_scout.network.json | 02:31:28.878Z | 200 | application/json | 10862 | yes |
+| B / links.json | 02:31:28.894Z | 404 | text/html; charset=utf-8 | 286 | n/a |
+| B / review_desk.network.json | 02:31:28.929Z | 404 | text/html; charset=utf-8 | 286 | n/a |
+| B / public-check-missing-298ce2b | 02:31:28.965Z | 404 | text/html; charset=utf-8 | 286 | n/a |
+
+### P01 follow-up — implementer HTTP remeasurement after input 61
+
+`node {tmp}/public-verify.mjs` → **exit 0**,
+**2026-11-16T03:06:50.606Z–03:06:51.131Z**, Windows x64 / Node.js v24.16.0.
+Before measurement `git rev-parse HEAD` returned
+`298ce2bee1001e7186e7f5325975c063729881d5`; `git diff --exit-code HEAD -- site-a site-b`
+exited 0 with empty output. Only the three allowed documentation files were dirty.
+The probe uses the P01 script with the response-body fixed-error catch described
+in the 02:31Z follow-up. It first checked A links/manifest bytes against source;
+both matched before remaining requests. The temporary executable was removed.
+No credential, browser session, provider API request or inference was used.
+
+Every response again has **ACAO `*`, no redirect, one hop and `Location: null`**;
+requested URL = final URL. Content-Type, bytes and complete body SHA-256 match
+P01's tables exactly; all seven 200 bodies byte-equal checkout source. This fresh
+HTTP evidence is separate from the operator's browser run and its pre-run check.
+
+| Base / path (same bases as P01) | UTC on 2026-11-16 (body read complete) | Status | Content-Type | Bytes | Byte-equal to source |
+| --- | --- | --- | --- | --- | --- |
+| A / links.json | 03:06:50.667Z | 200 | application/json; charset=utf-8 | 129 | yes |
+| A / agent-manifest.json | 03:06:50.676Z | 200 | application/json; charset=utf-8 | 676 | yes |
+| A / (empty) | 03:06:50.684Z | 200 | text/html; charset=utf-8 | 6409 | yes |
+| A / review_desk.network.json | 03:06:50.691Z | 200 | application/json; charset=utf-8 | 5882 | yes |
+| B / (empty) | 03:06:50.753Z | 200 | text/html; charset=utf-8 | 2947 | yes |
+| B / agent-manifest.json | 03:06:50.805Z | 200 | application/json | 567 | yes |
+| B / spec_scout.network.json | 03:06:50.858Z | 200 | application/json | 10862 | yes |
+| B / links.json | 03:06:50.918Z | 404 | text/html; charset=utf-8 | 286 | n/a |
+| B / review_desk.network.json | 03:06:50.975Z | 404 | text/html; charset=utf-8 | 286 | n/a |
+| B / public-check-missing-298ce2b | 03:06:51.131Z | 404 | text/html; charset=utf-8 | 286 | n/a |
+
+### P02 — public-browser consent, exact peer execution and key isolation
+
+**Current: run 2 public-browser flow and captured B-request isolation PASS, scoped**
+(input 61, below). Independent judge access remains UNVERIFIED. The failed first
+attempt is retained separately, not overwritten by the successful second attempt.
+
+#### Public run 1 — input 59: answer FAIL; wire key isolation UNVERIFIED
+
+Source: human answer **input 59**, received in this task, reporting
+one public run on **2026-11-16 UTC**. The implementer read that sanitized report,
+not a live browser session, screenshot, raw trace or request-header capture.
+The user alone entered the key in A's built-in panel; the delegated Claude session
+reports not reading/recording key, cookie or authentication values. Competition-
+credit-only authorization remains in force; the report does not independently
+establish a credit balance or billing record.
+
+**Environment and provenance:** Claude desktop built-in browser, Chromium 156,
+UA `Claude/5.11492.5 Chrome/156.0.8078.75`, reported **Windows 10.0 x64** (not the
+Windows 11 environment reported for local runs). No DevTools. Evidence surfaces:
+(a) `performance.getEntriesByType('resource')`, (b) page Developer execution log
+and execution-graph text, (c) operator source reading of `site-a/runtime/`.
+A/B URLs are the public URLs above, no disposable binding reported. Selected
+router `https://api.otari.ai/api/v1`, model `alibaba/qwen3.8-flash`, badge
+`real LLM (alibaba/qwen3.8-flash)`. The operator attributes the page's links/manifest
+to **298ce2b**, but **did not recompare their hashes during this browser run**.
+P01's earlier byte comparisons and the later remeasurement independently establish
+public artifact correspondence at those HTTP times, not proof of every asset
+loaded into this page or a fresh browser-run hash check.
+
+Sanitized chronology (all UTC, 2026-11-16; span IDs belong only to this run):
+
+| Time / stage | Supplied observation |
+| --- | --- |
+| 01:53:12.283 | Page load (`performance.timeOrigin`). |
+| 01:53:50.368 | GET `https://api.otari.ai/api/v1/models` 200 (catalog, not inference). |
+| 01:53:50.902–01:53:55.972 | POST to Otari `chat/completions` 200, `review_coordinator`. |
+| First consent card; exact click time not supplied | “Contact spec_scout on your behalf? spec-scout.pages.dev · est. ~294 tokens”; request asks for MVP Profile 0.2 §3.2 exact network matching and source section/edition (reported text truncated). While pending, Resource Timing contained **0 B resource entries**. |
+| After Allow: 01:54:18.372 | GET `https://spec-scout.pages.dev/agent-manifest.json` 200. |
+| 01:54:18.449 | GET `https://spec-scout.pages.dev/spec_scout.network.json` 200. No other B resource entries reported through completion. **B links.json request not observed**, despite the operator's `_compile`/`_loadPublishedLinks` source reading; reason unknown. Do not infer a browser 404 from P01. |
+| 01:54:18.635–01:54:36.094 | Otari `chat/completions` POST 200 for `spec_scout`; log says `AGENT spec_scout @ spec-scout.pages.dev`, `LLM alibaba/qwen3.8-flash via api.otari.ai · key: local BYOK (not shown)`, `REMOTE CALL Spec Scout @ spec-scout.pages.dev · via fetch-and-run-locally`. |
+| Peer result; time not separately supplied | Instead of a §3.2 explanation, RESULT contained literal `<function=WebFetch>` / `<parameter=url>` markup with three external URLs. No successful WebFetch execution is established. |
+| Retry consent; time not supplied | Coordinator asked to retry without tool-call syntax; second card estimated ~436 tokens. Operator chose **Decline** as an unplanned additional call; no subsequent B resource entries. |
+| 01:55:03.969–01:55:18.589 | Last Otari `chat/completions` POST 200; final answer: “Peer contact could not be completed — so there is no Spec Scout answer to report.” §3.2 explanation, citations and requirements/observations distinction unavailable; no invented §3.2 explanation reported. |
+
+Supplied execution-graph excerpt (not a raw trace export):
+
+```text
+s3 run -> s4 agent review_coordinator -> s5 model_call api.otari.ai ok
+s4 -> s7 tool spec_scout ok -> s9 remote_fetch ok
+                           -> s11 remote_call ok
+                              -> s12 agent spec_scout ok
+                                 -> s13 model_call api.otari.ai ok
+s4 -> s120 model_call ok
+s4 -> s122 tool spec_scout -> consent spec-scout.pages.dev declined
+s4 -> s127 model_call ok
+final run ok
+2 agent spans, 4 model-call spans, 1 peer-fetch, 1 peer-call,
+1 explicit consent-decision events
+```
+
+**Verdicts and limitations:**
+
+- Consent card before contact, Allow followed by manifest/definition reads,
+  `remote_call spec_scout` and peer model use of caller Otari were observed on the
+  supplied surfaces. Successful cross-origin peer loading supports browser CORS
+  usability for those two reads, **not** a browser response-header capture or a
+  complete network inventory. The 0/2 B counts are Resource Timing counts, not a
+  wire capture. Fresh consent/cache state was not independently verified.
+- **Answer FAIL:** the peer returned tool-call markup despite its tools-free
+  informational role. A runtime `ok` span did not mean a usable answer. The final
+  coordinator refusal accurately withheld an answer but did not fulfill the task.
+  This is an observed model/output defect candidate, not a diagnosed runtime cause.
+- **Allow event absent:** the operator saw `0 explicit consent-decision events`
+  after Allow, and only Decline counted in the final `1`; the execution log had a
+  CONSENT line only for Decline. Record this as an observability limitation/candidate,
+  not proof that Allow was skipped: UI/request ordering shows approval. Local B02
+  already noted absence of a dedicated allowed-consent note. Root cause and whether
+  a new regression exists are not established; no runtime correction made here.
+- **Wire key isolation UNVERIFIED:** no request headers/bodies were captured.
+  The operator's source observation is consistent with the implementer reading
+  `site-a/runtime/remote.js`: `fetchManifest` and `fetchText` call `fetch(url)`
+  without custom headers/options (browser defaults use same-origin credentials).
+  This code expectation is **not observation** of key/Cookie/Authorization absence
+  on B requests, nor of redirect behavior. Do not promote it to PASS.
+- B links.json request/404, browser Content-Type/ACAO/redirect inspection, full
+  response-body inspection and browser-run artifact hash correspondence remain
+  **UNVERIFIED**. P01's HTTP data do not replace these browser fields. Independent
+  judge access, video and final submission remain incomplete.
+- Additional user-operated capture with private Network inspection was requested
+  after input 59. If that environment is unavailable, a user decision is required;
+  the implementer has not waived required evidence or expanded scope to runtime fixes.
+
+#### Follow-up procedure issued after input 59 (historical; run 2 result below)
+
+Run on the public A/B URLs without disposable binding overrides or runtime stubs.
+Use a browser with private request-header/body inspection; the previous Resource
+Timing-only environment cannot complete wire key-isolation evidence.
+
+1. Record browser/version/OS, UTC times, source/artifact correspondence, selected
+   caller router/model, and fresh peer consent state. Disable cache and preserve
+   the Network log. Use only Otari competition credits; stop if insufficient.
+2. The user enters the key privately in A's **AI model settings** panel, not in
+   a reply or evidence. Ask the B02 §3.2 question. Record destination/purpose in
+   the normal consent UI, zero B requests before approval, and choose **Allow**
+   (not Always allow); record its time and the first B request afterward.
+3. Observe B manifest → exact `spec_scout.network.json` → `links.json` 404;
+   record actual browser URLs/redirects/status/Content-Type/ACAO, successful
+   cross-origin reads, `remote_fetch`, `remote_call.network=spec_scout`, descendant
+   spec_scout agent/model span, caller router/model and completed answer/limitation.
+4. Privately inspect **all B requests** for the active key in URL, header values
+   and body; record only absence/presence booleans and header names. Require no
+   Cookie or Authorization header. Never share key/storage/raw HAR/auth values.
+   Report any disclosure as FAIL and stop for user-owned key revocation.
+5. Supply sanitized ordering (seq/parent/ID/times) and Network observations for
+   this actual public run. Separate directly observed provider routing from
+   inference based only on metadata or a successful response. Do not claim
+   independent judge access, a video or final submission from this operator run.
+
+#### Public run 2 — input 61: public flow and captured B-request isolation PASS, scoped
+
+**Provenance:** human answer **input 61** supplies the user/delegated operator's
+2026-11-16 public run. The implementer read the sanitized CDP record
+`I:/project/agentic-web/.theora/aw36-public/run2-cdp.json`, lines **1–186**:
+browser/consent (1–18), execution graph/answer excerpt (19–20), all three B
+requests (21–154), Otari counts (155–173), other origins and action log (174–186).
+Essential observations are transcribed here so independent review does not depend
+on access to that local path. No live browser session, screenshot, raw HAR,
+credential, storage export or provider request body was reviewed by the implementer.
+The user alone entered the key in the new window's **AI model settings** panel;
+the operator reports not reading the key input or storage. Only Otari competition
+credits were used; no account balance/billing evidence was reviewed.
+
+**Environment:** Microsoft Edge `157.0.4341.60` (Chromium 157), windowed, Windows
+11 x64 (operator-reported OS; UA uses Windows NT 10.0). Fresh temporary profile,
+deleted after execution. CDP `Network.enable` plus `setCacheDisabled(true)`;
+`Network.requestWillBeSent` for page-sent headers, `requestWillBeSentExtraInfo`
+for actual wire header names (including possible Cookie), and `responseReceived`
+for responses. This is a wire-capable capture, unlike run 1 Resource Timing.
+Public A/B URLs above, no disposable binding override reported. Panel-selected
+router `https://api.otari.ai/api/v1`, model `alibaba/qwen3.8-flash`.
+
+**Pre-run revision check:** input 61 reports credential-free GETs just before
+**03:00Z** (individual times not supplied): public A `links.json`,
+`agent-manifest.json` and `review_desk.network.json` byte-equal main
+`24395e4238994a5f76f5cd630d1aa17de4412896`. Reported SHA-256 prefixes
+`d9f554715787e5c7…`, `24b112630e241f0e…`, `258a9e2d2dea8d32…` match the full P01
+hashes above. This prerequisite comparison is operator-reported, not in the CDP
+JSON and not a hash of every asset loaded by the browser. On receipt the
+implementer ran:
+
+```text
+git diff --exit-code 298ce2bee1001e7186e7f5325975c063729881d5 24395e4238994a5f76f5cd630d1aa17de4412896 -- site-a/links.json site-a/agent-manifest.json site-a/review_desk.network.json site-a/runtime site-b
+exit 0; empty output
+```
+
+Thus the three A peer artifacts, caller runtime and B publication files are
+unchanged between that reported main revision and this task's base. A broader
+`git diff --exit-code` over all `site-a site-b` exited **1**, showing only
+`site-a/converter.js` BOM-decoding changes: the whole publication trees are **not**
+claimed identical. This task does not change or revalidate converter behavior.
+
+Sanitized chronology (UTC 2026-11-16; IDs belong only to this run):
+
+| Time / stage | Observed result / evidence source |
+| --- | --- |
+| 03:01:09.760 | Navigated to public A; waiting for private user panel setup (CDP record action log). |
+| 03:02:08.179 | Badge `LLM configured — awaiting verification` after user saved key. |
+| 03:02:08.184 | Sent: “Ask the linked Spec Scout to explain MVP Profile 0.2 §3.2 exact network matching; cite its source and distinguish requirements from observed evidence.” |
+| 03:02:14.215 consent field / .216 action log | One consent card: “Contact spec_scout on your behalf? spec-scout.pages.dev · est. ~310 tokens”; request asks for §3.2 exact network matching and cited source/edition (recorded card text truncated). **0 B requests** both when shown and just before Allow. These are two record timestamps, not an inferred click time. |
+| 03:02:15.732 | **Allow** clicked, not Always allow; no second consent card reported. |
+| 03:02:15.733 | First B GET: `https://spec-scout.pages.dev/agent-manifest.json`, 200, `application/json`, ACAO `*`. |
+| 03:02:15.834 | GET `https://spec-scout.pages.dev/spec_scout.network.json`, 200, `application/json`, ACAO `*`. |
+| 03:02:15.985 | GET `https://spec-scout.pages.dev/links.json`, **404**, `text/html; charset=utf-8`, ACAO `*`. This missing-file request is directly captured in run 2, not inferred from HTTP probes. |
+| 03:03:37.312 | Run finished with a completed answer citing §3.2; no retry/second consent. |
+
+**All three B requests:** type Fetch, protocol h2, GET, `hops: []` (no redirects),
+`failed: null`, `hasBody: false`, `authorization: false`, `cookie: false`,
+`otk_anywhere: false`. No other B requests reported. The operator's key check
+records absence of the Otari `otk_` marker in URL, header values and body; no secret
+value is retained. Wire header names on each were exactly:
+
+```text
+:authority :method :path :scheme accept accept-encoding accept-language
+cache-control origin pragma priority referer sec-ch-ua sec-ch-ua-mobile
+sec-ch-ua-platform sec-fetch-dest sec-fetch-mode sec-fetch-site user-agent
+```
+
+Page-sent header names were `referer`, `sec-ch-ua`, `sec-ch-ua-mobile`,
+`sec-ch-ua-platform`, `user-agent`. Cache-Control/Pragma reflect CDP cache disabling.
+The Cookie/Authorization check uses wire headers, not only page-sent headers.
+This establishes non-transmission on the **three captured B requests**, not on
+all origins, all possible credentials, future runs or uninspected provider bodies.
+
+Supplied execution graph, independently present in the sanitized CDP record:
+
+```text
+s3 run ok -> s4 agent review_coordinator ok -> s5 model_call api.otari.ai ok
+s4 -> s7 tool spec_scout ok -> s9 remote_fetch spec_scout ok
+                           -> s11 remote_call spec_scout ok
+                              -> s12 agent spec_scout ok
+                                 -> s13 model_call api.otari.ai ok
+s4 -> s228 model_call api.otari.ai ok
+2 agent spans, 3 model-call spans, 1 peer-fetch, 1 peer-call,
+0 explicit consent-decision events
+```
+
+All three graph model calls report non-mock `alibaba/qwen3.8-flash`. The network
+record contains **10 Otari requests**: two GET `/api/v1/models` 200, three POST
+`/api/v1/chat/completions` 200, and five OPTIONS preflights 200; model host list
+contains only `api.otari.ai`. This correlates caller/peer/caller spans with the
+caller router rather than a B-side inference endpoint. Provider header/body values
+were not inspected here; `authorizationOnAll: false` in the aggregate includes
+preflights and is not proof of missing/present authentication on any individual POST.
+
+**Answer PASS (completion/citation structure, not certified accuracy):** the
+answer names Cognizant AI Lab, *Minimum Viable Specification for a Worldwide
+Agentic Web*, MVP Profile 0.2, 6 November 2026,
+`docs/worldwide_agentic_web_mvp_spec.md`, linking commit
+`63a956cf4653f610b1c238c70946f4d7647d17a8`. It cites §3.2 labels
+`exact-network-resolution` and `peer-url`, quotes “If no exact match exists, it
+MUST fail rather than select another published network.” as a requirement, and
+separately marks runtime implementation, live deployment and conformance evidence
+as not provided. The CDP answer excerpt is truncated; input 61 supplies the
+completion verdict. Neither the operator nor implementer checked quotation
+accuracy against the specification during this execution. This is not a runtime
+conformance verdict.
+
+**Retained limitations / follow-up candidates:**
+
+- Allow still produces **0 explicit consent-decision events**. UI and first-request
+  ordering demonstrate approval in this run; the graph alone does not. Run 1
+  counted only Decline. Root cause is not established and no runtime fix is made.
+- Run 1's literal `<function=WebFetch>` output was **not reproduced** in run 2.
+  Do not claim a source correction or diagnosed cause; model variability is only
+  a hypothesis. Run 1 remains FAIL for its answer.
+- Input 61 reports an unrelated page-target request to `https://lc.getunicorn.org`
+  and no matching string in site-a/site-b. The CDP record lists that origin and
+  `null`, but contains no request details for them. Request initiator/cause and
+  its credential properties are **UNVERIFIED**; this observation neither proves
+  B leakage nor supports universal key non-disclosure. Further diagnosis requires
+  the user/operator and separate scope if code/environment changes are needed.
+- Complete definition-response-body inspection, provider request headers/bodies,
+  other local runtime subcases and unexercised limits are not newly completed.
+  Independent judge access, video and final submission remain outside this Goal
+  and incomplete. No third paid run is requested to replace these stated limits.
+
+### Remaining handoff
+
+- [x] Public A/B artifact responses measured and tied to source as above; production
+  binding and allowed origin deployed together. No deployment configuration changed.
+- [x] First user-operated public-browser report received and transcribed (input 59):
+  consent/peer/caller-router observations, answer failure and missing fields retained.
+- [x] P02 run 2 user-operated Edge/CDP capture received and transcribed (input 61):
+  pre-run artifact correspondence, consent before B contact, exact peer execution,
+  caller router, completed answer and all-three-B-GET wire key/Cookie/Authorization
+  absence observed. Run 1 failure retained; quotation accuracy not verified.
+- [ ] Diagnose Allow-event observability, run 1's non-reproduced tool-call markup
+  and the unrelated request origin if pursued. Root causes remain unconfirmed;
+  runtime or environment changes require separate scope/approval, not this document task.
+- [ ] Any further required B01–B08/public runtime observations not covered by P02
+  remain with the browser verifier and entrant; local cases are not silently rerun.
 - [ ] A separate judging visitor can reach A and inspect public artifacts without
-  publisher account access. Explain honestly that live inference needs the
-  visitor's supported provider/key and any costs; do not distribute a shared key.
-  Record the visitor's actual access result, remaining restrictions and owner.
-- [ ] Mark submission-ready only after required runtime evidence is recorded and
-  public HTTPS/CORS and judging access are accepted. Otherwise retain blockers.
+  publisher account access. Live inference requires the visitor's supported
+  provider/key and any applicable costs; never distribute a shared key. Owner: entrant.
+- [ ] Video and final submission remain incomplete, outside this Goal. Owner: entrant.
+- [ ] Mark submission-ready only after required runtime evidence and independent
+  judging access are accepted. HTTP measurements alone do not establish readiness.
 
 ## 5. Focused video plan (not recorded)
 
