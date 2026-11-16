@@ -63,9 +63,12 @@ when an agent overrides the network value.
 
 Peer references now resolve once against the immediate caller's publication base,
 including its path prefix. Policy, consent, cycle detection, cache, budget and reads
-share that canonical network target. Relative peers have no implicit page-location
-fallback. Published manifests, definitions and links are fetched only from that
-publication's origin, with redirects forbidden (including same-origin redirects).
+share that canonical network target. Published network names are separate from
+path-based model tool aliases; collisions after sanitization or truncation receive
+unique aliases without replacing targets or native runtime tool names.
+Relative peers have no implicit page-location fallback. Published manifests,
+definitions and links are fetched only from that publication's origin, with
+redirects forbidden (including same-origin redirects).
 Cross-origin definition URLs are rejected before any request; optional links do not
 swallow publication-policy or redirect failures. Existing same-origin relative
 artifact paths and peer policy modes are unchanged.

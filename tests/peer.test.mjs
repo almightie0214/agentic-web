@@ -234,7 +234,7 @@ for (const site of ['site-a', 'site-b']) {
   const runtime = new URL('../' + site + '/runtime/', import.meta.url);
   const { Engine: RuntimeEngine } = await import(new URL('engine.js', runtime));
   const { AgentNetwork: RuntimeNetwork } = await import(new URL('kernel.js', runtime));
-  const { runAgent, dispatchToolCall: dispatch, executeToolCalls } = await import(new URL('runner.js', runtime));
+  const { runAgent, buildToolTable: buildTable, dispatchToolCall: dispatch, executeToolCalls } = await import(new URL('runner.js', runtime));
   const { createCallScope, bindContext } = await import(new URL('scope.js', runtime));
   const base = 'https://caller.invalid';
   const peerBase = 'https://peer.invalid';
@@ -425,6 +425,86 @@ for (const site of ['site-a', 'site-b']) {
     await assert.rejects(dispatch(branchCtx, { kind: 'remote', url: '/./leaf' }, {}, null, branchChain), /per-peer limit/);
     await assert.rejects(dispatch(branchCtx, { kind: 'remote', url: '/./branch' }, {}, null, branchChain), error => error.code === 'COMPOSITION_CYCLE');
     assert.equal(requests.length, count, 'cache, per-peer limit and cycle use the same canonical address');
+  });
+
+  test(site + ': runtime keeps peer tool aliases distinct from published network names', async t => {
+    const originalFetch = globalThis.fetch;
+    t.after(() => { globalThis.fetch = originalFetch; });
+    for (const [label, refs, expectedTargets, expectedNames] of [
+      ['separate publication paths', [peerBase + '/team1/helper', peerBase + '/team2/helper'],
+        [peerBase + '/team1/helper', peerBase + '/team2/helper'], ['team1_helper', 'team2_helper']],
+      ['relative publication paths', ['/team1/helper', '/team2/helper'],
+        [base + '/team1/helper', base + '/team2/helper'], ['team1_helper', 'team2_helper']],
+      ['sanitized path collision', [peerBase + '/team-one/helper', peerBase + '/team_one/helper'],
+        [peerBase + '/team-one/helper', peerBase + '/team_one/helper']],
+      ['same path on separate hosts', [peerBase + '/team/helper', 'https://other.invalid/team/helper'],
+        [peerBase + '/team/helper', 'https://other.invalid/team/helper']],
+      ['truncated path collision', [peerBase + '/' + 'x'.repeat(60) + '1/helper', peerBase + '/' + 'x'.repeat(60) + '2/helper'],
+        [peerBase + '/' + 'x'.repeat(60) + '1/helper', peerBase + '/' + 'x'.repeat(60) + '2/helper']],
+    ]) {
+      const { engine, llm } = fixture({ tools: [{ name: 'front', instructions: 'Caller.', tools: refs }] },
+        { peer_policy: { mode: 'open' } });
+      const documents = new Map();
+      const answers = expectedTargets.map((target, index) => {
+        const publication = new URL('./', target).href.replace(/\/$/, '');
+        const answer = `Answer from peer ${index + 1}.`;
+        documents.set(publication + '/agent-manifest.json', { networks: [{ name: 'helper', hocon: './helper.json' }] });
+        documents.set(publication + '/helper.json', { tools: [{ name: 'helper', instructions: answer, tools: [] }] });
+        documents.set(publication + '/links.json', {});
+        return answer;
+      });
+      const requests = [];
+      globalThis.fetch = async url => {
+        url = String(url);
+        requests.push(url);
+        assert.ok(documents.has(url), label + ': unexpected publication read ' + url);
+        return new Response(JSON.stringify(documents.get(url)));
+      };
+      const consentTargets = [];
+      engine.onConsent = info => { consentTargets.push(info.targetUrl); return 'allow'; };
+      const resolve = engine.resolveRemote.bind(engine);
+      const resolved = [];
+      engine.resolveRemote = async (target, ...args) => {
+        resolved.push(target);
+        const session = await resolve(target, ...args);
+        assert.equal(session.network.name, 'helper', 'the published name is independent of the model alias');
+        session.llm.chat = async ({ messages }) => ({ content: messages[0].content, toolCalls: [] });
+        return session;
+      };
+      llm.chat = async ({ messages, tools }) => {
+        const names = tools.map(tool => tool.function.name);
+        assert.equal(names.length, 2, label);
+        assert.equal(new Set(names).size, names.length, label + ': model tool names must be unique');
+        for (const name of names) assert.match(name, /^[A-Za-z0-9_]{1,60}$/);
+        if (expectedNames) assert.deepEqual(names, expectedNames, label);
+        const results = messages.filter(message => message.role === 'tool');
+        if (!results.length) return { content: '', toolCalls: names.map((name, index) => ({
+          id: 'peer-' + index, function: { name, arguments: '{"request":"question"}' },
+        })) };
+        assert.deepEqual(results.map(result => JSON.parse(result.content).text), answers, label);
+        return { content: 'Both intended peers answered.', toolCalls: [] };
+      };
+      assert.equal((await engine.runTurn('Ask both helpers.')).text, 'Both intended peers answered.', label);
+      assert.deepEqual(resolved, expectedTargets, label + ': each alias must retain its target');
+      assert.deepEqual(consentTargets, expectedTargets.filter(target => new URL(target).origin !== base), label);
+      assert.equal(requests.length, 6, label);
+      assert.equal(engine.registry.cache.size, 2, label);
+    }
+    // The common namespace must also keep runtime prompt names attached to the
+    // native tools, rather than letting a peer shadow render_cruse/website_*.
+    const { engine, ctx, network } = fixture({ cruse: true, tools: [{ name: 'front', instructions: 'Caller.',
+      tools: [peerBase + '/render_cruse', peerBase + '/website_check'] }] }, { actions: { agentTools: ['check'] } });
+    engine.actions.register({ base, network: network.name }, {
+      name: 'check', description: 'Check.', effect: 'read', inputSchema: { type: 'object', properties: {} }, outputSchema: { type: 'string' },
+    }, async () => 'Checked.');
+    globalThis.fetch = async () => { assert.fail('advertising aliases must not contact a peer'); };
+    const { toolByName, toolSchemas } = await buildTable(ctx, network.getAgentSpec('front'));
+    assert.equal(toolByName.get('render_cruse').kind, 'presentation');
+    assert.equal(toolByName.get('website_check').kind, 'website');
+    assert.equal(toolByName.size, 4);
+    assert.equal(new Set(toolSchemas.map(tool => tool.function.name)).size, 4);
+    assert.deepEqual([...toolByName.values()].filter(entry => entry.kind === 'remote').map(entry => entry.url),
+      [peerBase + '/render_cruse', peerBase + '/website_check']);
   });
 
   test(site + ': runtime rejects foreign definition origins before contact', async t => {

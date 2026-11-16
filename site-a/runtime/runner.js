@@ -76,6 +76,24 @@ export async function buildToolTable(ctx, spec) {
   const { network } = ctx;
   const toolByName = new Map();
   const toolSchemas = [];
+  // Runtime prompt instructions use these exact native tool names.
+  const nativeNames = new Set([
+    ...(network.config?.cruse ? ["render_cruse"] : []),
+    ...(ctx.isTop ? ctx.manifest?.actions?.agentTools || [] : []).map(name => `website_${name}`),
+  ]);
+  // Sanitizing/truncating a reference is not injective. Allocate aliases in the
+  // shared model namespace instead of silently replacing an earlier target.
+  const addTool = (preferredName, entry, fn) => {
+    const stem = safeName(preferredName);
+    let name = stem;
+    const isNative = entry.kind === "website" || entry.kind === "presentation";
+    for (let index = 2; toolByName.has(name) || (!isNative && nativeNames.has(name)); index++) {
+      const suffix = `_${index}`;
+      name = stem.slice(0, 60 - suffix.length) + suffix;
+    }
+    toolByName.set(name, entry);
+    toolSchemas.push(schemaFor(name, fn));
+  };
   for (const ref of spec.tools || []) {
     const c = network.classifyTool(ref);
     if (c.kind === "missing") continue;
@@ -84,22 +102,20 @@ export async function buildToolTable(ctx, spec) {
       // Do NOT contact the peer here. Advertise a generic schema and defer the
       // fetch-and-run (manifest + network definition) until the user consents at
       // call time — so consent truly precedes any contact with the partner origin.
-      const name = safeName(parseExternalAgent(ref, ctx.baseOrigin).agentName);
+      const parsed = parseExternalAgent(ref, ctx.baseOrigin);
+      const name = safeName(parsed.toolPath);
       const label = ctx.network.linkLabels?.[ref] || name;
-      toolByName.set(name, { kind: "remote", url: ref, label });
-      toolSchemas.push(schemaFor(name, { description: `Hand off to the ${label} network. Provide a natural-language request.` }));
+      addTool(name, { kind: "remote", url: ref, label }, {
+        description: `Hand off to the ${label} network (${parsed.url}). Provide a natural-language request.`,
+      });
     } else if (c.kind === "link") {
       // A dangling HOCON reference remains callable. Resolution is deferred until
       // the model actually selects it, at which point the UI asks for a peer URL.
-      const name = safeName(ref);
-      toolByName.set(name, { kind: "link", reference: ref });
-      toolSchemas.push(schemaFor(name, {
+      addTool(ref, { kind: "link", reference: ref }, {
         description: `Hand off to the linked agent network "${ref}". If it is not linked yet, ask the developer for its nsDeploy site URL.`,
-      }));
+      });
     } else {
-      const name = safeName(c.ref);
-      toolByName.set(name, c);
-      toolSchemas.push(schemaFor(name, c.spec.function));
+      addTool(c.ref, c, c.spec.function);
     }
   }
   // Publisher opt-in: expose selected local website actions as model tools.
@@ -110,14 +126,11 @@ export async function buildToolTable(ctx, spec) {
   for (const action of ctx.actions?.catalog({ base: ctx.baseOrigin, network: network.name }) || []) {
     if (!callable.has(action.name) || action.availability !== "local-only"
       || (action.effect === "irreversible" && typeof ctx.confirmWebsiteActions !== "function")) continue;
-    const name = `website_${action.name}`;
-    if (toolByName.has(name)) throw new Error(`Duplicate website tool: ${name}`);
-    toolByName.set(name, { kind: "website", ref: action.ref, parallelSafe: false });
-    toolSchemas.push(schemaFor(name, { description: action.description, parameters: action.inputSchema }));
+    addTool(`website_${action.name}`, { kind: "website", ref: action.ref, parallelSafe: false },
+      { description: action.description, parameters: action.inputSchema });
   }
   if (network.config?.cruse) {
-    toolByName.set("render_cruse", { kind: "presentation", parallelSafe: false });
-    toolSchemas.push(schemaFor("render_cruse", {
+    addTool("render_cruse", { kind: "presentation", parallelSafe: false }, {
       description: "Create the CRUSE widgets for this response. Use this to show a consolidated form when several answers are needed, or a table, choice, report or other supported component. Widgets are preserved even if your final answer is plain text. This collects input or presents information; it does not execute website operations.",
       parameters: {
         type: "object", required: ["presentation"], additionalProperties: false,
@@ -131,7 +144,7 @@ export async function buildToolTable(ctx, spec) {
           },
         },
       },
-    }));
+    });
   }
   return { toolByName, toolSchemas };
 }

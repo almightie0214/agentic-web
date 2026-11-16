@@ -97,7 +97,10 @@ export function parseExternalAgent(ref, baseOrigin) {
   const agentName = u.pathname.slice(slash + 1);
   if (!agentName) throw new Error("Peer reference must name a network.");
   const origin = u.origin + u.pathname.slice(0, slash);
-  return { origin, agentName, url: u.href };
+  // A model tool alias is not the published network name: retain the path so
+  // sibling publications such as /team1/helper and /team2/helper stay distinct.
+  const toolPath = relative ? ref.split(/[?#]/, 1)[0] : u.pathname;
+  return { origin, agentName, url: u.href, toolPath };
 }
 
 // --- config filter chain (mirrors the *ConfigFilter classes) -----------------
