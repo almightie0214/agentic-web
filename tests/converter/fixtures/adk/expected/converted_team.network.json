@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "description": "Converted Google ADK agent network."
+  },
+  "llm_config": {
+    "model_name": "alibaba/qwen3.8-flash",
+    "temperature": 0.2
+  },
+  "max_steps": 12,
+  "max_execution_seconds": 90,
+  "tools": [
+    {
+      "name": "coordinator",
+      "function": {
+        "description": "Coordinate a fictional museum route using the specialist team.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "inquiry": {
+              "type": "string",
+              "description": "The request to handle."
+            }
+          },
+          "required": [
+            "inquiry"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "instructions": "Help the visitor plan the fictional Cedar Museum visit. For every route question, call specialist with the visitor's question and wait for its answer before replying. Only specialist can obtain the route facts. Present the returned route and route code concisely. Do not invent facts or claim live access.\n\n## Converter-owned output rule\nReturn only the final answer intended for the visitor. Do not include drafts, plans, process notes, or messages addressed to other roles.",
+      "tools": [
+        "specialist"
+      ]
+    },
+    {
+      "name": "researcher",
+      "function": {
+        "description": "Supply the fictional Cedar Museum route facts.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "inquiry": {
+              "type": "string",
+              "description": "The request to handle."
+            }
+          },
+          "required": [
+            "inquiry"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "instructions": "You hold the facts for this fictional demonstration, not a real venue. The calm route is Courtyard, Cedar Gallery, then the Window Bench for a rest. The route code is CEDAR-27. The route takes 25 minutes. Return these facts when asked about the museum route and clearly call the venue fictional. You have no live information or booking ability.\n\n## Converter-owned output rule\nReturn only the answer to the inquiry you received. Do not include drafts, plans, process notes, or messages addressed to other roles.",
+      "tools": []
+    },
+    {
+      "name": "specialist",
+      "function": {
+        "description": "Obtain the fictional route facts from the researcher.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "inquiry": {
+              "type": "string",
+              "description": "The request to handle."
+            }
+          },
+          "required": [
+            "inquiry"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "instructions": "For every inquiry, call researcher with the inquiry and wait for its answer. Use only the returned museum facts to recommend the route, and include the exact route code. Do not guess facts or answer before the researcher returns.\n\n## Converter-owned output rule\nReturn only the answer to the inquiry you received. Do not include drafts, plans, process notes, or messages addressed to other roles.",
+      "tools": [
+        "researcher"
+      ]
+    }
+  ]
+}

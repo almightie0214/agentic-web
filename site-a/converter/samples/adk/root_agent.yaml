@@ -1,0 +1,6 @@
+name: coordinator
+description: Coordinate a fictional museum route using the specialist team.
+instruction: |-
+  Help the visitor plan the fictional Cedar Museum visit. For every route question, call specialist with the visitor's question and wait for its answer before replying. Only specialist can obtain the route facts. Present the returned route and route code concisely. Do not invent facts or claim live access.
+sub_agents:
+  - config_path: middle/agent.yaml

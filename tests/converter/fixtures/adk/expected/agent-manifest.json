@@ -1,0 +1,23 @@
+{
+  "brand": "Converted Role Team",
+  "networks": [
+    {
+      "name": "converted_team",
+      "front_man": "coordinator",
+      "hocon": "./converted_team.network.json",
+      "description": "Converted Google ADK agent network."
+    }
+  ],
+  "llm_router": {
+    "base_url": "https://api.otari.ai/api/v1",
+    "mock": false,
+    "byok_router": "https://api.otari.ai/api/v1"
+  },
+  "allowed_peers": [],
+  "peer_policy": {
+    "mode": "closed"
+  },
+  "deployment": {
+    "mode": "static"
+  }
+}

@@ -1,10 +1,10 @@
 import { lstat, readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join, parse, sep } from 'node:path';
-import { parseRoles } from '../../site-a/converter/parse-roles.mjs';
+import { parseRoles, adkReferences } from '../../site-a/converter/parse-roles.mjs';
 import { emitNetwork } from '../../site-a/converter/emit-network.mjs';
 import { emitManifest } from '../../site-a/converter/emit-manifest.mjs';
 
-const usage = 'Usage: node tools/theora2hocon/theora2hocon.mjs <input-dir> <out-dir> [--front <role>] [--layout theora|markdown]';
+const usage = 'Usage: node tools/theora2hocon/theora2hocon.mjs <input-dir> <out-dir> [--front <role>] [--layout theora|adk|markdown]';
 
 function argumentsFor(argv) {
   const directories = [];
@@ -23,7 +23,7 @@ function argumentsFor(argv) {
       directories.push(arg);
     }
   }
-  if (directories.length !== 2 || (options.layout !== undefined && !['theora', 'markdown'].includes(options.layout))) {
+  if (directories.length !== 2 || (options.layout !== undefined && !['theora', 'adk', 'markdown'].includes(options.layout))) {
     throw new Error('Invalid arguments.');
   }
   return { input: resolve(directories[0]), output: resolve(directories[1]), options };
@@ -67,7 +67,7 @@ async function acquire(input, requestedLayout) {
   };
 
   // Discover only exact role paths, without reading their content or any state.
-  const theora = requestedLayout === 'markdown' ? undefined : await directory(root, '.theora');
+  const theora = requestedLayout && requestedLayout !== 'theora' ? undefined : await directory(root, '.theora');
   const rolesDir = theora && await directory(theora, 'roles');
   const roleFiles = [];
   for (const entry of await filesIn(rolesDir)) {
@@ -75,12 +75,30 @@ async function acquire(input, requestedLayout) {
     const path = await file(join(rolesDir, entry.name), 'agent.md');
     if (path) roleFiles.push({ path, name: entry.name });
   }
-  const layout = requestedLayout ?? (roleFiles.length ? 'theora' : 'markdown');
+  const layout = requestedLayout ?? (roleFiles.length ? 'theora' : await file(root, 'root_agent.yaml') ? 'adk' : 'markdown');
   if (layout === 'theora') {
     for (const { path, name } of roleFiles) await read(path, `.theora/roles/${name}/agent.md`);
     const configDir = theora && await directory(theora, 'config');
     const config = await file(configDir, 'theora.json');
     if (config) await read(config, '.theora/config/theora.json');
+  } else if (layout === 'adk') {
+    const seen = new Set();
+    const visit = async virtualPath => {
+      if (seen.has(virtualPath)) throw new Error('Repeated ADK reference.');
+      seen.add(virtualPath);
+      const parts = virtualPath.split('/');
+      let parent = root;
+      for (const part of parts.slice(0, -1)) {
+        parent = await directory(parent, part);
+        if (!parent) throw new Error('Missing ADK directory.');
+      }
+      const target = await file(parent, parts.at(-1));
+      if (!target) throw new Error('Missing ADK file.');
+      const content = decoder.decode(await readFile(target));
+      files.push({ path: virtualPath, content });
+      for (const reference of adkReferences(virtualPath, content)) await visit(reference);
+    };
+    await visit('root_agent.yaml');
   } else {
     const claude = await directory(root, '.claude');
     const agents = claude && await directory(claude, 'agents');
@@ -108,6 +126,9 @@ try {
   ].map(([name, value]) => [name, JSON.stringify(value, null, 2) + '\n']);
   await mkdir(output, { recursive: true });
   for (const [name, content] of artifacts) await writeFile(join(output, name), content, 'utf8');
+  for (const notice of parsed.notices) {
+    console.log(`Not converted for ${notice.role}: ${notice.keys.join(', ')}${notice.hiddenKeyCount ? ` (${notice.hiddenKeyCount} additional key names withheld)` : ''}.`);
+  }
   console.log('Wrote converted_team.network.json, agent-manifest.json, and links.json. Review all artifacts before publication; deployment and browser behavior are not verified.');
 } catch {
   // Native filesystem and decoder errors can disclose host paths or source text.

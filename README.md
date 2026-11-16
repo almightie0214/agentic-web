@@ -20,9 +20,10 @@ agents delegate and load a peer with your approval.
 2. Select **Audit Linked Peer**, inspect the filled destination, then select
    **Audit URL** to inspect Spec Scout's public artifacts. This is a public-file
    fetch, not a model request or permission to run the peer.
-3. Open **Role Converter**, choose **Theora role team** or **Claude agents team**,
-   and inspect/download the three JSON artifacts. **Open artifacts in Review Desk**
-   transfers them for static inspection, not execution.
+3. Open **Role Converter**, choose **Claude agents team**, **Google ADK team**, or
+   **Theora role team**, and inspect the unmapped-key notices and three downloadable
+   JSON artifacts. **Open artifacts in Review Desk** transfers them for static
+   inspection, not execution.
 
 You can also paste your own public manifest and resolved network JSON into Review
 Desk. Do not include credentials or private context. Static checks, URL audits and
@@ -99,6 +100,12 @@ Try the included Markdown sample:
 node tools/theora2hocon/theora2hocon.mjs site-a/converter/samples/claude-agents .theora/tmp/role-demo --layout markdown --front coordinator
 ```
 
+Try the included three-level Google ADK Agent Config sample:
+
+```sh
+node tools/theora2hocon/theora2hocon.mjs site-a/converter/samples/adk .theora/tmp/adk-demo --layout adk
+```
+
 For your own Theora project:
 
 ```sh
@@ -108,15 +115,23 @@ node tools/theora2hocon/theora2hocon.mjs ./my-role-project .theora/tmp/theora-de
 The command writes `converted_team.network.json`, `agent-manifest.json` and
 `links.json`. Exit 0 means the files were written, not deployed or executed. CLI
 and web use the same parser and emitters. Theora input is selected from
-`.theora/roles/<role>/agent.md`; Markdown input uses immediate `.claude/agents/*.md`
-when present, otherwise immediate `*.md`. Explicit `--front` wins over Theora's
-config, then the first name-sorted role is the default front.
+`.theora/roles/<role>/agent.md`; ADK starts at the input root's `root_agent.yaml`
+and reads only its reachable `sub_agents` config files. Markdown uses immediate
+`.claude/agents/*.md` when present, otherwise immediate `*.md`. Automatic selection
+prefers Theora, then ADK, then Markdown. Explicit `--front` wins over Theora's
+config, then the first name-sorted role is the default; ADK always uses its root
+agent and refuses a different explicit front.
 
-Only sanitized role text and a default front-to-specialist conversation graph are
-exported—not the source harness, shell access, tools, permissions or scheduling.
-Review every artifact before sharing: pattern removal is not a complete secret
-detector. To run a converted team, publish the files separately with the reference
-browser runtime and its settings; importing them into Review Desk only reviews data.
+Theora and Markdown export sanitized role text with a default front-to-specialist
+graph. ADK preserves its multi-level `sub_agents` edges and their order, but maps
+control transfer to call-and-answer delegation—not equivalent ADK execution.
+Unmapped ADK and Markdown frontmatter keys, such as `tools` and `model`, appear as
+sanitized key-name notices (unsafe names only as counts), never with their values
+or inside the three artifacts. Source tools, model choices, permissions,
+scheduling and the source harness are not exported. Review every artifact before
+sharing: pattern removal is not a complete secret detector. To run a converted
+team, publish the files separately with the reference browser runtime and its
+settings; importing them into Review Desk only reviews data.
 See the [converter mapping contract](docs/converter.md) for input rules and semantics.
 
 ## Architecture in brief

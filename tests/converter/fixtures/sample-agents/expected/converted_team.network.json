@@ -50,7 +50,7 @@
           "additionalProperties": false
         }
       },
-      "instructions": "# Writing specialist\n\nReview only the text provided in the inquiry. Identify ambiguous wording and unsupported claims, quote the relevant passages, and propose concise revisions. Distinguish observations from advice; do not invent external evidence.\n\n## Converter-owned output rule\nReturn only the answer to the inquiry sent by the front agent. Do not include drafts, plans, process notes, or messages addressed to other roles.",
+      "instructions": "# Writing specialist\n\nReview only the text provided in the inquiry. Identify ambiguous wording and unsupported claims, quote the relevant passages, and propose concise revisions. Distinguish observations from advice; do not invent external evidence.\n\n## Converter-owned output rule\nReturn only the answer to the inquiry you received. Do not include drafts, plans, process notes, or messages addressed to other roles.",
       "tools": []
     }
   ]

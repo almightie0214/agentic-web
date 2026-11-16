@@ -50,7 +50,7 @@
           "additionalProperties": false
         }
       },
-      "instructions": "# Text review specialist\n\nReview the supplied text for ambiguous wording and unsupported claims. Return a short list of findings with quoted evidence and suggested revisions. Do not claim to have inspected files or run external tools.\n\n## Converter-owned output rule\nReturn only the answer to the inquiry sent by the front agent. Do not include drafts, plans, process notes, or messages addressed to other roles.",
+      "instructions": "# Text review specialist\n\nReview the supplied text for ambiguous wording and unsupported claims. Return a short list of findings with quoted evidence and suggested revisions. Do not claim to have inspected files or run external tools.\n\n## Converter-owned output rule\nReturn only the answer to the inquiry you received. Do not include drafts, plans, process notes, or messages addressed to other roles.",
       "tools": []
     }
   ]

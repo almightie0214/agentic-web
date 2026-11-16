@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'none'; connect-src 'self' https: http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Convert public Markdown roles into resolved Agentic Web JSON without a key.">
+  <meta name="description" content="Convert public Markdown roles or Google ADK Agent Config into resolved Agentic Web JSON without a key.">
   <title>Role Converter · Agent Review Desk</title>
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./converter.js"></script>
@@ -14,7 +14,7 @@
     <header class="site-heading">
       <p class="site-eyebrow">Agent Review Desk · Site A</p>
       <h1>Role Converter</h1>
-      <p>Deterministic Markdown to resolved Agentic Web JSON. No inference key, uploads, or source execution.</p>
+      <p>Deterministic Markdown / Google ADK Agent Config to resolved Agentic Web JSON. No inference key, uploads, or source execution.</p>
       <nav class="desk-actions" aria-label="Site tools">
         <a href="./index.html">Review Desk</a>
         <a href="./converter.html" aria-current="page">Role Converter</a>
@@ -22,10 +22,11 @@
     </header>
     <section class="desk-panel" aria-labelledby="convert-heading">
       <h2 id="convert-heading">Choose public role instructions</h2>
-      <p>Choose a project directory containing Theora roles or Claude agents, or select immediate Markdown files from one agents directory. For Theora, select the project root, not the roles directory. Your browser must include hidden directories such as .theora or .claude; if it omits them, conversion cannot discover those roles.</p>
-      <p>Files stay in this tab. Do not select private projects or credentials. Pattern removal is not a complete secret detector: inspect every artifact before sharing. Shell, git, gates, permissions, source tools, and other harness capabilities are not converted. Only role text and a default front-to-specialist conversation graph are exported.</p>
+      <p>Choose a project directory containing Theora roles, Google ADK root_agent.yaml, or Claude agents, or select immediate Markdown files from one agents directory. For Theora, select the project root, not the roles directory. Your browser must include hidden directories such as .theora or .claude; if it omits them, conversion cannot discover those roles.</p>
+      <p>Files stay in this tab. Do not select private projects or credentials. Pattern removal is not a complete secret detector: inspect every artifact before sharing. Shell, git, gates, permissions, source tools, and other harness capabilities are not converted. Role text and a default front-to-specialist graph are exported for Markdown and Theora. ADK preserves the sub_agents graph as call-and-reply delegation, not ADK control-transfer behavior. Source tools and models are not converted; omitted key names appear below.</p>
       <div class="desk-actions" aria-label="Converter samples">
         <button type="button" data-converter-sample="claude">Claude agents team</button>
+        <button type="button" data-converter-sample="adk">Google ADK team</button>
         <button type="button" data-converter-sample="theora">Theora role team</button>
       </div>
       <form id="convert-form">
@@ -35,18 +36,22 @@
         <label>Input layout<select id="convert-layout">
           <option value="">Auto-detect</option>
           <option value="theora">Theora</option>
+          <option value="adk">Google ADK Agent Config</option>
           <option value="markdown">Markdown / Claude agents</option>
         </select></label>
         <label>Front role (optional, exact name)<input id="convert-front" type="text" autocomplete="off" placeholder="Use config, then first sorted role"></label>
-        <p>Front precedence: explicit name, then Theora config front_man, then first sorted role. Unrecognized names fail; source tool lists do not define the wiring.</p>
+        <p>ADK always uses the root agent as front; a different explicit front fails. Other formats: explicit name, then Theora config front_man, then first sorted role. Auto-detect prefers Theora, then root_agent.yaml, then Markdown.</p>
         <button id="convert-submit" type="submit" disabled>Convert and check</button>
       </form>
-      <p id="convert-status" class="site-status" role="status" aria-live="polite">Choose files or load a two-role sample.</p>
+      <p id="convert-status" class="site-status" role="status" aria-live="polite">Choose files or load a public team sample.</p>
       <noscript><p>JavaScript is required for local conversion.</p></noscript>
     </section>
     <section class="desk-panel" aria-labelledby="converter-report-heading">
       <h2 id="converter-report-heading">AW2 static rule report</h2>
       <p>Static checks are not certification or evidence of runtime delegation, consent, or limit enforcement.</p>
+      <h3>Source keys not converted</h3>
+      <p>Only sanitized key names or a count are shown, never their values. These notices are outside the three artifacts.</p>
+      <div id="converter-notices" aria-live="polite"></div>
       <div id="converter-report"></div>
     </section>
     <section id="converter-output" class="desk-panel" aria-labelledby="output-heading" hidden>
