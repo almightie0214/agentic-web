@@ -336,6 +336,33 @@ async function main() {
     await desk.evaluate(`document.querySelector('[data-sample="valid"]').click()`);
     await desk.until(`document.querySelectorAll('#rule-report .desk-check').length > 0
       && document.querySelector('#review-status').textContent.includes('passed')`, '키 없는 정상 샘플 검사');
+    async function checkSameDocumentStages(page) {
+      await page.evaluate('window.__workflowDocument = document');
+      const snapshot = `(() => ({
+        inputs: Object.fromEntries(['manifest-json', 'network-json', 'links-json', 'review-base', 'network-name', 'peer-chain', 'test-run-message']
+          .map(id => [id, document.getElementById(id).value])),
+        downloads: Array.from(document.querySelectorAll('#review-downloads a'), link => [link.download, link.href]),
+        report: document.querySelector('#rule-report').textContent,
+        reviewStatus: document.querySelector('#review-status').textContent,
+        answer: document.querySelector('#test-run-answer').textContent,
+        runStatus: document.querySelector('#test-run-status').textContent,
+        graph: document.querySelector('#runtime-events').textContent
+      }))()`;
+      const before = await page.evaluate(snapshot);
+      assert.ok(before.inputs['network-json'].length > 0);
+      assert.equal(before.downloads.length, 3);
+      assert.ok(before.downloads.every(([, href]) => href.startsWith('blob:')));
+      for (const [hash, label] of [['#test-run', 'Test run'], ['#download', 'Download']]) {
+        await page.evaluate(`Array.from(document.querySelectorAll('nav[aria-label="Team workflow"] a'))
+          .find(link => new URL(link.href).hash === ${JSON.stringify(hash)}).click()`);
+        await page.until(`location.hash === ${JSON.stringify(hash)}
+          && document.querySelector('nav a[aria-current="location"]')?.textContent === ${JSON.stringify(label)}`, `${label} 단계 이동`);
+        assert.equal(await page.evaluate('window.__workflowDocument === document'), true, `${label}: 새 document가 로드됐습니다.`);
+        assert.equal(await page.evaluate('location.pathname'), '/', `${label}: 디렉터리 URL을 떠났습니다.`);
+        assert.deepEqual(await page.evaluate(snapshot), before, `${label}: 현재 입력·다운로드·실행 결과가 바뀌었습니다.`);
+      }
+    }
+    await checkSameDocumentStages(desk);
     await desk.evaluate(`document.querySelector('#audit-this').click(); document.querySelector('#audit-form').requestSubmit()`);
     await desk.until(`document.querySelector('#review-status').textContent.includes('public JSON retrieved and static checks passed')`, '자기 URL 감사');
     assert.equal(report.modelRequests, 0);
@@ -373,15 +400,33 @@ async function main() {
     assert.ok(report.peerFetches.includes('/spec_scout.network.json'));
     desk.page.flows.push('boot/render', 'key-free sample validation', 'self URL audit', 'BYOK apply/reload',
       'local website action receipt', 'Allow before peer manifest/definition fetch', 'peer reply and final chat render');
+    await desk.evaluate(`document.querySelector('[data-sample="valid"]').click()`);
+    await desk.until(`document.querySelector('#review-status').textContent.startsWith('Sample: Valid sample.')
+      && document.querySelector('#review-status').textContent.includes('Static checks passed')`, '디렉터리 URL 샘플 재검사');
+    await desk.evaluate(`document.querySelector('#test-run-message').value = 'Inspect this public sample.';
+      document.querySelector('#test-run-message').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#test-run-start').click()`);
+    await desk.until(`document.querySelector('#test-run-answer').textContent === ${JSON.stringify(peerText)}
+      && document.querySelector('#test-run-status').textContent.startsWith('Test run completed.')
+      && !window.__nsweb.engine.running`, '디렉터리 URL 시험 실행 결과');
+    await checkSameDocumentStages(desk);
+    desk.page.flows.push('directory URL: Test run/Download preserve document, checked bytes, blob links and completed editor answer/graph');
     await desk.probe();
 
     const converter = await openPage(aOrigin + '/converter.html', 'Site A converter');
     const workflow = ['Import', 'Check', 'Ask the spec', 'Test run', 'Download'];
     for (const page of [desk, converter]) {
       assert.deepEqual(await page.evaluate(`Array.from(document.querySelectorAll('nav[aria-label="Team workflow"] a'), link => link.textContent)`), workflow);
-      assert.equal(await page.evaluate(`Array.from(document.querySelectorAll('nav[aria-label="Team workflow"] a')).every(link => {
-        const target = new URL(link.href); return target.pathname.endsWith('/converter.html') || target.hash.length > 1;
-      })`), true);
+      const destinations = await page.evaluate(`Array.from(document.querySelectorAll('nav[aria-label="Team workflow"] a'), link => {
+        const target = new URL(link.href); return { origin: target.origin, path: target.pathname, hash: target.hash };
+      })`);
+      assert.ok(destinations.every(target => target.origin === aOrigin));
+      assert.deepEqual(destinations.map(target => target.hash), ['', '#review-tools', '#chat-heading', '#test-run', '#download']);
+      assert.equal(destinations[0].path, '/converter.html');
+      assert.ok(destinations.slice(1).every(target => ['/', '/index.html'].includes(target.path)));
+      for (const { hash } of destinations.slice(1)) {
+        assert.equal(await desk.evaluate(`!!document.getElementById(${JSON.stringify(hash.slice(1))})`), true, `${hash}: 대상 구역 없음`);
+      }
     }
     for (const layout of ['claude', 'adk', 'theora']) {
       await converter.evaluate(`document.querySelector('[data-converter-sample="${layout}"]').click()`);
@@ -430,7 +475,8 @@ async function main() {
       assert.equal(await readFile(path.join(downloadPath, filename), 'utf8'), checked[key]);
       await rm(path.join(downloadPath, filename));
     }
-    await editor.evaluate(`document.querySelector('nav a[href="./index.html#test-run"]').click()`);
+    await editor.evaluate(`Array.from(document.querySelectorAll('nav[aria-label="Team workflow"] a'))
+      .find(link => new URL(link.href).hash === '#test-run').click()`);
     await editor.until(`document.querySelector('nav a[aria-current="location"]')?.textContent === 'Test run'`, '현재 단계 표시');
     // The rest of this flow uses the same controls and imported artifacts as a visitor.
     await editor.evaluate(`document.querySelector('#test-run-message').value = 'What is the fictional Cedar Museum route and exact route code?';

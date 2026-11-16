@@ -243,6 +243,61 @@ test('desk UI: editor test run requires current checks and a click, renders full
   assert.equal($('#test-run-status').dataset.state, 'error');
 });
 
+test('desk UI: editor displays complete structured runtime answers and display errors', async t => {
+  const { $, runtime, trace, paste } = await mount(t);
+  const { Engine } = await import('../site-a/runtime/engine.js');
+  const router = 'https://display-router.invalid/v1';
+  const base = 'https://desk.invalid';
+  const manifest = { networks: [{ name: 'desk', hocon: './desk.json' }], llm_router: { base_url: router, byok_router: router } };
+  const engine = new Engine({ originUrl: base, trace, byokKey: 'display-test-key', modelOverride: 'display-model' });
+  engine.top = { ...engine._compileDefinition({ tools: [{ name: 'desk', instructions: 'Answer.', tools: [] }] },
+    manifest, manifest.networks[0], { base, isTop: true }), base, manifest };
+  runtime.engine = engine;
+  paste(fixtures.valid);
+  await $('#validate-form').fire('submit');
+  $('#test-run-message').value = 'Show the complete answer.';
+  await $('#test-run-message').fire('input');
+  const report = { kind: 'report', markdown: 'Actual structured answer.\n\nSecond paragraph.' };
+  const html = { kind: 'html', html: '<img src=x onerror="alert(1)">Literal untrusted answer.' };
+  const cases = [
+    { raw: JSON.stringify({ version: 1, components: [report] }), text: '', components: [report] },
+    { raw: 'Introductory prose.\n```cruse-ui\n' + JSON.stringify({ version: 1, components: [report, html] }) + '\n```',
+      text: 'Introductory prose.', components: [report, html] },
+    { raw: 'Remaining answer.\n```cruse-ui\n' + JSON.stringify({ version: 1, components: [report, { kind: 'confirm' }] }) + '\n```',
+      text: 'Remaining answer.', components: [report], issue: 'Invalid confirm component.' },
+  ];
+  const requests = [];
+  for (const scenario of cases) {
+    globalThis.fetch = async (url, options) => {
+      requests.push(url);
+      assert.equal(url, router + '/chat/completions');
+      assert.equal(options.headers.Authorization, 'Bearer display-test-key');
+      return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: scenario.raw }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`,
+        { headers: { 'Content-Type': 'text/event-stream' } });
+    };
+    await $('#test-run-form').fire('submit');
+    const output = $('#test-run-answer');
+    if (scenario.text) assert.ok(output.children.some(child => child.textContent === scenario.text));
+    const structured = output.children.find(child => child.textContent.startsWith('{'));
+    assert.ok(structured, 'the parsed presentation must remain visible even without prose');
+    const displayed = JSON.parse(structured.textContent);
+    assert.equal(displayed.version, 1);
+    assert.deepEqual(displayed.components.map(({ id, ...component }) => component), scenario.components);
+    assert.ok(output.children.some(child => child.textContent.includes('read-only')));
+    if (scenario.issue) {
+      assert.match($('#test-run-status').textContent, /display errors/);
+      assert.equal($('#test-run-status').dataset.state, 'error');
+      assert.ok(output.textContent.includes(scenario.issue));
+    } else {
+      assert.match($('#test-run-status').textContent, /completed/);
+      assert.equal($('#test-run-status').dataset.state, '');
+    }
+  }
+  assert.equal(requests.length, cases.length);
+  assert.equal(trace.events.filter(event => event.kind === 'agent_result').length, cases.length,
+    'each screen result must come through the real runner and response parser');
+});
+
 test('desk UI: downloads preserve checked editor bytes and release stale artifacts', async t => {
   const { $, paste } = await mount(t);
   paste(fixtures.valid);
@@ -268,9 +323,20 @@ test('desk UI: workflow navigation has the same five destinations and live secti
   const converter = await readFile(new URL('site-a/converter.html', root), 'utf8');
   const links = source => [...source.matchAll(/<nav[^>]*>([\s\S]*?)<\/nav>/g)][0][1]
     .match(/<a\b[^>]*>[\s\S]*?<\/a>/g).map(link => ({ href: link.match(/href="([^"]+)"/)[1], text: link.match(/>([^<]+)</)[1] }));
-  assert.deepEqual(links(html), links(converter));
+  const destination = (link, documentURL) => {
+    const url = new URL(link.href, documentURL);
+    url.pathname = url.pathname.replace(/\/index\.html$/, '/');
+    return { href: url.href, text: link.text };
+  };
+  const deskURL = 'https://desk.invalid/nested/';
+  const converterURL = 'https://desk.invalid/nested/converter.html';
+  assert.deepEqual(links(html).map(link => destination(link, deskURL)),
+    links(converter).map(link => destination(link, converterURL)));
   assert.deepEqual(links(html).map(link => link.text), ['Import', 'Check', 'Ask the spec', 'Test run', 'Download']);
-  for (const link of links(html).slice(1)) assert.ok(html.includes(`id="${link.href.split('#')[1]}"`));
+  for (const link of links(html).slice(1)) {
+    assert.ok(link.href.startsWith('#'), 'desk steps must stay in the current document at directory and explicit index URLs');
+    assert.ok(html.includes(`id="${link.href.slice(1)}"`));
+  }
 });
 
 test('desk UI: pending chat boot and stale sample loads cannot replace the current report', async t => {

@@ -63,8 +63,24 @@ $('#test-run-form').addEventListener('submit', async event => {
   try {
     const result = await runtime.engine.runEditor(reviewed, $('#test-run-message').value.trim(), { signal: active.signal });
     if (active.signal.aborted) throw active.signal.reason;
-    $('#test-run-answer').textContent = result.text;
-    $('#test-run-status').textContent = 'Test run completed. This answer belongs to one message, without previous conversation history.';
+    const answer = [];
+    if (result.text) answer.push(node('div', result.text));
+    if (result.presentation) {
+      answer.push(node('p', 'Structured answer (read-only JSON):'),
+        node('pre', JSON.stringify(result.presentation, null, 2), 'desk-answer'));
+    }
+    if (!answer.length) throw new Error('The runtime returned no displayable answer.');
+    const issues = result.presentationIssues || [];
+    if (issues.length) {
+      const diagnostic = node('p', `Some response content could not be displayed: ${issues.join(' ')}`, 'site-status');
+      diagnostic.dataset.state = 'error';
+      answer.push(diagnostic);
+    }
+    $('#test-run-answer').replaceChildren(...answer);
+    $('#test-run-status').textContent = issues.length
+      ? 'Test run finished with display errors. Review the answer and diagnostics below.'
+      : 'Test run completed. This answer belongs to one message, without previous conversation history.';
+    $('#test-run-status').dataset.state = issues.length ? 'error' : '';
   } catch (error) {
     const message = active.signal.aborted ? 'Test run cancelled.' : `Test run failed: ${bootError(error)}`;
     $('#test-run-answer').textContent = message;
