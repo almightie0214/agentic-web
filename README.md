@@ -18,11 +18,13 @@ uses an external LLM router; static inspection requires no provider key.
   conformance CLI; Site A deployment workflow and Site B CORS configuration;
   a deterministic Theora / Markdown role converter with Node CLI and key-free
   browser UI, sharing pure parsing and emission modules.
-- **Not a live peer URL:** `site-a/links.json` still binds `spec_scout` to
-  `https://spec-scout.invalid/spec_scout`. `site-a/agent-manifest.json` allows the
-  matching reserved origin under a closed peer policy. This is not a public
-  deployment. The linked-peer audit preset and Spec Scout explanation draft stay
-  disabled while that placeholder is configured.
+- **Peer address configured; public access unverified:** `site-a/links.json` binds
+  `spec_scout` to `https://spec-scout.pages.dev/spec_scout`.
+  `site-a/agent-manifest.json` allows the matching `https://spec-scout.pages.dev`
+  origin under a closed peer policy. After normal runtime boot, this non-placeholder
+  binding enables the linked-peer audit preset and makes Spec Scout explanation
+  drafting available when chat is ready. Configuration does not prove public
+  availability, HTTPS/CORS behavior or successful peer execution.
 - **Observed locally:** user-supplied real-browser records in the
   [demo checklist and evidence ledger](docs/demo-checklist.md) cover delegation and
   the site action, panel model switching, consent approval/decline, exact-name peer
@@ -55,9 +57,10 @@ uses an external LLM router; static inspection requires no provider key.
   [AW5 converter dogfooding](docs/demo-checklist.md#aw5-converter-dogfooding).
   This scoped evidence is separate from AW4, not a guarantee of model-output
   quality or public acceptance.
-- **Public release pending:** hosting activation, real HTTPS URLs, measured public
-  CORS responses, public-revision browser checks, and judge access are not established
-  here. Do not describe the entry as submission-ready until these are confirmed.
+- **Public release pending:** a peer HTTPS address is configured, but hosting
+  activation, deployed URL/revision correspondence, measured public CORS responses,
+  public-revision browser checks and judge access are not established here.
+  Do not describe the entry as submission-ready until these are confirmed.
 
 See [the English submission draft and handoff tracker](docs/devpost.md) for open
 release items. The demo checklist contains procedures, sanitized observations and
@@ -130,7 +133,8 @@ Open:
 Serve over HTTP/HTTPS, not `file://`. Site-owned references are relative and support
 hosting beneath a URL subpath. This single-server preview is convenient for UI
 inspection, **not a two-origin isolation or deployed CORS test**. It also does not
-replace the reserved peer binding with a working local destination.
+replace the configured public peer binding with a local destination; use disposable
+copies with paired link/allowed-origin changes for local peer scenarios.
 
 ### Key-free Review Desk
 
@@ -148,7 +152,9 @@ replace the reserved peer binding with a working local destination.
   not establish a CORS cause.
 - **Audit This Site**, **Audit Linked Peer**, and **Non-CORS example** fill the URL
   only; select **Audit URL** to fetch. The example.com preset is illustrative, not
-  a guaranteed CORS-failure service. The linked-peer preset needs a real configured peer.
+  a guaranteed CORS-failure service. After normal runtime boot, the linked-peer
+  preset uses the configured `https://spec-scout.pages.dev/spec_scout` binding;
+  enabling the preset does not establish that the destination is reachable.
 - Reports retain rule IDs, pass/fail/warning/unverified statuses, JSON Pointer
   paths, and minimal fixes or next steps. Editing inputs invalidates old reports;
   stale fetch results cannot replace them. The configuration graph shows expected
@@ -211,9 +217,11 @@ records two successful local delegations for the Theora sample, with answer-qual
 failures both times; it does not establish arbitrary inputs' behavior or quality.
 The supplied run used revision `298ce2bee1001e7186e7f5325975c063729881d5` on
 Windows 11 in Claude desktop's built-in browser (version not captured), not a
-fresh run of this candidate. Converter/runtime paths match base
-`27c293226bb67d7efae2429610060a79c352f324`; Review Desk peer bindings differ,
-whereas this generated manifest has empty allowed peers under a closed policy.
+fresh run of this candidate. Converter/runtime paths match the original Task base
+`27c293226bb67d7efae2429610060a79c352f324`. That base still used the reserved
+Review Desk peer binding; the reported source and current checkout use the
+`pages.dev` binding. The generated manifest instead has empty allowed peers under
+a closed policy.
 
 ### Chat and runtime observations
 
@@ -306,13 +314,15 @@ environment/accounts remain **unverified**, with the required user input recorde
    `Access-Control-Allow-Origin: *` for `/*`. That local configuration is not
    evidence of response headers at a public URL. `spec-excerpts.json` is not needed
    for execution, but the published network with its embedded evidence is.
-3. **Bind the actual peer:** once the Site B HTTPS base is confirmed, set
-   `site-a/links.json` → `networks.review_desk.spec_scout` to
-   `<Site B base>/spec_scout` and update `site-a/agent-manifest.json` →
-   `allowed_peers` to the matching origin **together**. Keep the closed peer policy
-   and exact published name. `tests/peer.test.mjs` checks paired declarations and
-   currently pins the reserved URL; update its expected deployment address in the
-   URL-change task too. Rerun peer tests and the static CLI, then redeploy Site A.
+3. **Verify the configured peer deployment:** `site-a/links.json` →
+   `networks.review_desk.spec_scout` already points to
+   `https://spec-scout.pages.dev/spec_scout`, paired with the matching origin in
+   `site-a/agent-manifest.json` → `allowed_peers` under a closed policy.
+   `tests/peer.test.mjs` pins this URL and checks paired declarations and the exact
+   published name. Confirm the deployed B base and A artifacts match these settings;
+   the address change is not an open placeholder-replacement task. If the actual
+   destination changes, update the link, allowed origin and test expectations
+   **together**, rerun peer tests and the static CLI, then redeploy Site A.
 4. **Measure, do not infer:** verify public HTTPS artifact responses and CORS from
    Site A's origin, preserve sanitized response evidence with URLs/date/revision,
    and perform the real-browser cases. A successful local CLI, hosting setting, or

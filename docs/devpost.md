@@ -11,8 +11,8 @@ evidence of converter/runtime corruption. The user withdrew the requested
 prompt/runtime correction and required no new paid run; answer quality is not
 claimed to be fixed. See
 [AW5 converter dogfooding](demo-checklist.md#aw5-converter-dogfooding).
-Missing runtime observations, public
-URLs/HTTPS/CORS, screenshots, video, Otari correspondence, final submission and
+Missing runtime observations, deployed URL/revision confirmation and measured
+public HTTPS/CORS, screenshots, video, Otari correspondence, final submission and
 judge access remain open. Replace open fields with verified facts before
 publishing; do not turn scoped local observations into full release acceptance.
 
@@ -50,8 +50,11 @@ instructions embed cited MVP Profile 0.2 excerpts. Site A exposes a symbolic
 `spec_scout` peer tool through `links.json`. The intended flow is visitor approval,
 exact-name definition loading, then peer execution inside the caller's browser
 with the caller's router—not a server-side call to B's agent or B's site actions.
-This wiring exists, but the current target is the reserved
-`https://spec-scout.invalid/spec_scout`, not a reachable public deployment.
+The current binding is `https://spec-scout.pages.dev/spec_scout`, paired with
+`https://spec-scout.pages.dev` in Site A's allowed origins under a closed policy.
+After normal runtime boot, the linked-peer audit preset is enabled and Spec Scout
+explanation drafting is available when chat is ready. These configuration/UI facts
+do not establish public availability, HTTPS/CORS or a successful live peer run.
 
 The key-free **Role Converter** at `site-a/converter.html` accepts Theora project
 files, generic Markdown / `.claude/agents` roles, or two-role **Claude agents team**
@@ -290,10 +293,11 @@ finish without another paid run; the quality FAIL remains recorded, not repaired
 
 The source run used revision `298ce2bee1001e7186e7f5325975c063729881d5`; it is
 supplied evidence, not a fresh run by this draft's implementer. Converter/runtime
-paths match base `27c293226bb67d7efae2429610060a79c352f324`, but Review Desk's peer
-bindings changed. The generated manifest instead used empty allowed peers with a
-closed policy. This run does not verify CORS, consent, limits, private-context
-isolation, cycles or public HTTPS. Static snapshots/AW2 reports/AW4 CLI checks and
+paths match the original Task base `27c293226bb67d7efae2429610060a79c352f324`.
+That base still used the reserved Review Desk binding; the reported source and
+current checkout use the `pages.dev` binding. The generated manifest instead used
+empty allowed peers with a closed policy. This run does not verify CORS, consent,
+limits, private-context isolation, cycles or public HTTPS. Static snapshots/AW2 reports/AW4 CLI checks and
 the AW4 browser runs cannot replace missing AW5 observations or establish quality.
 
 Next work follows the ledger's
@@ -307,10 +311,11 @@ Next work follows the ledger's
   Browser replacement_values duplicate handling and top B malformed, empty-graph
   and missing-reference variants were not separately recorded. Node coverage is
   not browser evidence for those subcases.
-- Activate separate public hosts, bind the real peer URL and allowed origin
-  together, measure public HTTPS/CORS, recheck the relevant public-revision browser
-  paths, and confirm independent judging access. Local CORS usability does not
-  establish public Cloudflare response headers.
+- Confirm separate public hosts and deployed revisions match the configured
+  `https://spec-scout.pages.dev/spec_scout` binding and paired allowed origin;
+  measure public HTTPS/CORS, recheck the relevant public-revision browser paths,
+  and confirm independent judging access. The binding is already configured;
+  local CORS usability does not establish public Cloudflare response headers.
 
 Append follow-up environment/revision, steps, observations, verdicts and sanitized
 evidence to the ledger; never retain real keys. Node exit 0 or a written checklist
@@ -339,7 +344,7 @@ evidence locations as items are completed. Do not put credentials in this tracke
 | [ ] | Confirm public repository access and share the reusable tools, including the converter CLI/web core, with the community | Entrant / repository account | Public repository URL and access/sharing record pending; repository implementation is not a sharing/adoption result |
 | [ ] | Activate Site A GitHub Pages and record its public HTTPS URL | Repository account owner | URL pending; workflow exists, activation unverified |
 | [ ] | Deploy Site B to Cloudflare Pages on a separate origin and record its HTTPS URL | Cloudflare account owner | URL pending; `_headers` exists, public response unverified |
-| [ ] | Replace reserved peer URL and paired allowed origin; update deployment-address test expectations and redeploy A | Maintainer, after actual B base is confirmed | Update `site-a/links.json` and `site-a/agent-manifest.json` together; `tests/peer.test.mjs` checks consistency and currently pins the placeholder |
+| [ ] | Verify deployed peer address and A's published binding/allowed origin match the configured values | Deployer + maintainer | `site-a/links.json` already binds `https://spec-scout.pages.dev/spec_scout`; `site-a/agent-manifest.json` allows the matching origin under closed policy, and `tests/peer.test.mjs` pins this URL. Placeholder replacement is complete as configuration, not proof of deployment/access. Confirm deployed revision/artifact correspondence; if the destination changes, update link, allowed origin and test expectations together and redeploy A |
 | [ ] | Capture public artifact HTTPS/CORS responses and verify cross-origin browser retrieval | Deployer + browser verifier | Measured URL/status/headers/date/revision pending; local configuration is insufficient |
 | [ ] | Complete missing real-browser observations and public-revision checks; resolve or explicitly retain blocked cases | Browser verifier + entrant for environment/accounts | Local run 1 and corrected run 2 observations are in the demo ledger; provider headers/bodies, unexercised limits and public acceptance remain unverified |
 | [x] | Observe a converted bundle's real-browser load/delegation and record the answer-quality diagnosis | User-authorized browser operator; user decision received 2026-11-16 | [AW5 dogfooding record](demo-checklist.md#aw5-converter-dogfooding): Theora sample load/delegation PASS in `s3`/`s300` (2 agent / 3 model-call spans each); model-output quality FAIL twice. Trace/history locate drafts and garbled text in model content, without converter/runtime corruption evidence. User withdrew the prompt/runtime fix request; no new paid run required. Quality resolution and public acceptance are not claimed |

@@ -1169,7 +1169,7 @@ operator-reported browser results, not implementer-run inference. AW4 B01/run 1
 and run 2 used different networks and are not substitutes for these AW5 runs.
 
 Reported source revision: `298ce2bee1001e7186e7f5325975c063729881d5` (main).
-Implementation base/HEAD: `27c293226bb67d7efae2429610060a79c352f324` (CLI dependency
+Original implementation preparation base: `27c293226bb67d7efae2429610060a79c352f324` (CLI dependency
 `1ec1422467b79765d468b5d0491e604858cd68bf`, web dependency at that HEAD).
 The implementer ran:
 
@@ -1183,7 +1183,9 @@ the reported source and this Task base. A broader diff of `site-a` and
 and allowed origin changing from `https://spec-scout.invalid` to
 `https://spec-scout.pages.dev`. The generated manifest replaces those declarations
 with `allowed_peers: []` and closed policy, and its links stub has no binding.
-This is source correspondence, not a new browser run on this uncommitted candidate.
+This is source correspondence checked during preparation, not a new browser run.
+The current checkout also uses the `pages.dev` peer binding and paired allowed
+origin; its public availability and deployed HTTPS/CORS remain UNVERIFIED.
 The served JSON hashes below were independently recomputed and match the report.
 The later supplied runtime hashes also match the six corresponding served/current
 source files (see diagnostics below); browser-fetched response-byte correspondence
@@ -1459,9 +1461,13 @@ unexercised protections remain separate open items.
 
 - [ ] Deployment operator confirms A publishes only `site-a/`, B only `site-b/`,
   and records actual public URLs, deployed commit/build and artifact correspondence.
-- [ ] Update production `site-a/links.json` and manifest `allowed_peers` together
-  through the deployment task; run the peer consistency tests and static CLI.
-  Do not treat a local fixture override as the production fix.
+- [ ] Verify the deployed A artifacts match the configured
+  `https://spec-scout.pages.dev/spec_scout` link and paired allowed origin, and
+  confirm the deployed B base/revision. The source binding and peer-test expectation
+  are already updated. If the destination changes, update `site-a/links.json`,
+  manifest `allowed_peers` and test expectations together, run the peer consistency
+  tests and static CLI, then redeploy. A local fixture override is not deployment
+  evidence.
 - [ ] In a clean real browser load A/B over HTTPS, inspect the public manifest,
   actual resolved definitions and links, final URLs/status/content and B response
   `Access-Control-Allow-Origin` on every public artifact used. Confirm readable
