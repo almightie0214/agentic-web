@@ -27,7 +27,7 @@ agents delegate and load a peer with your approval.
 
 You can also paste your own public manifest and resolved network JSON into Review
 Desk. Do not include credentials or private context. Static checks, URL audits and
-conversion need no key; chat uses visitor-provided inference.
+conversion need no key; chat and explicit test runs use visitor-provided inference.
 
 ## Chat with your Otari key
 
@@ -129,9 +129,15 @@ Unmapped ADK and Markdown frontmatter keys, such as `tools` and `model`, appear 
 sanitized key-name notices (unsafe names only as counts), never with their values
 or inside the three artifacts. Source tools, model choices, permissions,
 scheduling and the source harness are not exported. Review every artifact before
-sharing: pattern removal is not a complete secret detector. To run a converted
-team, publish the files separately with the reference browser runtime and its
-settings; importing them into Review Desk only reviews data.
+sharing: pattern removal is not a complete secret detector. Importing into Review
+Desk performs static inspection only; after checks have no failures, explicitly
+select **Run** in **Test run** to send one message using your Review Desk provider
+settings. The imported network runs as an unpublished peer, without this site's
+actions or stored links. Other-site calls still require policy and consent;
+relative peer references have no publication base and are refused. **Stop** cancels
+the test, and chat and test runs cannot overlap. Inspect the full answer or error
+and latest execution graph, then download the current checked artifacts. Separate
+publication is needed only to host the team as its own site.
 See the [converter mapping contract](docs/converter.md) for input rules and semantics.
 
 ## Architecture in brief

@@ -15,9 +15,12 @@
       <p class="site-eyebrow">Agent Review Desk · Site A</p>
       <h1>Role Converter</h1>
       <p>Deterministic Markdown / Google ADK Agent Config to resolved Agentic Web JSON. No inference key, uploads, or source execution.</p>
-      <nav class="desk-actions" aria-label="Site tools">
-        <a href="./index.html">Review Desk</a>
-        <a href="./converter.html" aria-current="page">Role Converter</a>
+      <nav class="desk-actions" aria-label="Team workflow">
+        <a href="./converter.html" aria-current="page">Import</a>
+        <a href="./index.html#review-tools">Check</a>
+        <a href="./index.html#chat-heading">Ask the spec</a>
+        <a href="./index.html#test-run">Test run</a>
+        <a href="./index.html#download">Download</a>
       </nav>
     </header>
     <section class="desk-panel" aria-labelledby="convert-heading">
@@ -56,7 +59,7 @@
     </section>
     <section id="converter-output" class="desk-panel" aria-labelledby="output-heading" hidden>
       <h2 id="output-heading">Inspect and download</h2>
-      <p>These three data files are not a hosted application. Serve them separately with the reference browser runtime and its existing settings. Opening Review Desk only reviews data; it never runs this network or approves peer contact.</p>
+      <p>These three data files are not a hosted application. Open them in Review Desk to check, ask the spec, and explicitly test run with your own provider key and model. Opening Review Desk only checks data: it does not start a run or approve peer contact. For publication, serve the files with the reference browser runtime.</p>
       <div id="converter-downloads" class="desk-actions"></div>
       <button id="open-review" type="button" disabled>Open artifacts in Review Desk</button>
       <label>converted_team.network.json<textarea id="converted-network" rows="16" readonly spellcheck="false"></textarea></label>

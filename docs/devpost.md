@@ -36,8 +36,15 @@ links file for download. Unmapped ADK and Markdown frontmatter keys such as
 `tools` and `model` produce sanitized key-name notices outside the artifacts;
 unsafe key names appear only as counts, and values are never included. Files are
 processed in the browser; the same modules power the Node CLI. Opening artifacts
-in Review Desk transfers data for static inspection, not execution. The converter
-exports sanitized instructions and edges, not source-harness permissions, tools,
+in Review Desk transfers data for static inspection, without automatically running
+it. After checks have no failures, the visitor can explicitly **Run** one message
+in the same tab using Review Desk's provider settings, inspect the answer and
+delegation spans, and download the checked artifacts. **Stop** cancels a test;
+chat and test runs cannot overlap. The imported network is an unpublished peer:
+it inherits neither this site's actions nor stored links, cannot select the key's
+router or increase the caller's budgets, and needs policy and consent for any
+other-site call. Relative peer references are refused without a publication base.
+The converter exports sanitized instructions and edges, not source-harness permissions, tools,
 model choices, scheduling or filesystem access. ADK control transfer becomes
 call-and-answer delegation, not equivalent ADK execution.
 

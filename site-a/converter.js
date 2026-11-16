@@ -2,6 +2,7 @@ import { parseRoles, adkReferences } from './converter/parse-roles.mjs';
 import { emitNetwork } from './converter/emit-network.mjs';
 import { emitManifest } from './converter/emit-manifest.mjs';
 import { validateNetwork } from './validator-rules.mjs';
+import { artifactDownloads } from './artifact-download.js';
 
 // Preserve BOMs during acquisition; the shared parser owns single-BOM normalization.
 const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
@@ -10,7 +11,8 @@ let files;
 let localFiles;
 let acquisition = 0;
 let result;
-const downloads = [];
+let releaseDownloads;
+window.addEventListener?.('pagehide', event => { if (!event.persisted) releaseDownloads?.(); });
 
 function status(message, error = false) {
   $('#convert-status').textContent = message;
@@ -19,7 +21,8 @@ function status(message, error = false) {
 
 function invalidate() {
   result = undefined;
-  for (const url of downloads.splice(0)) URL.revokeObjectURL(url);
+  releaseDownloads?.();
+  releaseDownloads = undefined;
   $('#converter-downloads').replaceChildren();
   $('#converter-report').replaceChildren();
   $('#converter-notices').replaceChildren();
@@ -54,16 +57,10 @@ function convert() {
       if (check.hint) row.append(element('p', `Next step: ${check.hint}`));
       $('#converter-report').append(row);
     }
-    for (const [key, filename] of [['network', 'converted_team.network.json'], ['manifest', 'agent-manifest.json'], ['links', 'links.json']]) {
-      const text = JSON.stringify(input[key], null, 2) + '\n';
-      $(`#converted-${key}`).value = text;
-      const url = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
-      downloads.push(url);
-      const link = element('a', `Download ${filename}`);
-      link.href = url;
-      link.download = filename;
-      $('#converter-downloads').append(link);
+    for (const key of ['network', 'manifest', 'links']) {
+      $(`#converted-${key}`).value = JSON.stringify(input[key], null, 2) + '\n';
     }
+    releaseDownloads = artifactDownloads($('#converter-downloads'), input);
     for (const notice of parsed.notices) {
       $('#converter-notices').append(element('p', `Not converted for ${notice.role}: ${notice.keys.join(', ')}${notice.hiddenKeyCount ? ` (${notice.hiddenKeyCount} additional key names withheld)` : ''}.`));
     }

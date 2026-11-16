@@ -108,6 +108,7 @@ export class Engine {
     this.onLinkRequired = null; // UI hook: async ({reference,...}) => peer URL|null
     this.runtimeAllowedPeers = new Set(); // user-entered, validated link origins
     this.streamSequence = 0;
+    this.running = false;
     this.actions = new ActionRegistry();
     this.actionPresentations = new Map();
     this.actionSubmissions = new Map();
@@ -143,10 +144,11 @@ export class Engine {
   }
 
   // Compile the origin's own published front network.
-  async loadTop() {
+  async loadTop({ signal } = {}) {
     const span = this.trace.start("compile", { origin: hostOf(this.originUrl), what: "top network" });
     try {
-      const { manifest, base } = await fetchManifest(this.originUrl);
+      const { manifest, base } = await scoped(signal, () => fetchManifest(this.originUrl, { signal }));
+      assertActive(signal);
       const entry = manifest.networks[0];
       // Set manifest early so resolveRemote policy checks have it.
       this.top = { manifest, base };
@@ -162,9 +164,9 @@ export class Engine {
           reason: "saved router is another nsDeploy site's published mock endpoint",
         });
       }
-      const { network, llm, validation: v } = await this._compile(base, manifest, entry, { isTop: true });
+      const { network, llm, validation: v } = await this._compile(base, manifest, entry, { isTop: true, signal });
       this.top = { network, base, manifest, llm };
-      await loadActionModule(this.actions, { base, network: network.name }, manifest);
+      await scoped(signal, () => loadActionModule(this.actions, { base, network: network.name }, manifest));
       this.trace.note("action_catalog", { count: this.actions.catalog({ base, network: network.name }).length,
         issues: this.actions.discoveryIssues });
       this.mockLLM = llm.mock; // true when using the deterministic mock router
@@ -189,8 +191,12 @@ export class Engine {
     assertActive(signal);
     const config = parseHocon(text);
     const publishedLinks = await this._loadPublishedLinks(base, entry.name || entry.hocon, { signal });
-    config.links = { ...(config.links || {}), ...publishedLinks };
-    const network = new AgentNetwork(config, entry.name || entry.hocon);
+    return { ...this._compileDefinition(config, manifest, entry, { base, isTop, signal, links: publishedLinks }), hoconUrl };
+  }
+
+  // Publication acquisition and editor input share the same construction gate.
+  _compileDefinition(config, manifest, entry, { base, isTop = false, signal, links = {} } = {}) {
+    const network = new AgentNetwork({ ...config, links: { ...(config.links || {}), ...links } }, entry.name || entry.hocon);
     assertActive(signal);
     const unsupported = new Set();
     if (manifest.coded_tools) unsupported.add("coded tools");
@@ -232,7 +238,7 @@ export class Engine {
       mock = selected.mock;
     }
     const llm = new LlmClient({ baseUrl: routerBase, apiKey: this.byokKey, trace: this.trace, mock });
-    return { network, llm, hoconUrl, validation };
+    return { network, llm, validation };
   }
 
   // Every hop is constrained by the immediate caller's published manifest. The
@@ -266,12 +272,14 @@ export class Engine {
   }
 
   _storedLink(base, networkName, reference) {
+    if (!base) return "";
     try { return localStorage.getItem(this._linkKey(base, networkName, reference)) || ""; }
     catch { return ""; }
   }
 
   async _persistLink(base, networkName, reference, target, { signal } = {}) {
     assertActive(signal);
+    if (!base) return;
     try { localStorage.setItem(this._linkKey(base, networkName, reference), target); } catch {}
     if (this.top?.manifest?.deployment?.mode === "static") return;
     try {
@@ -514,52 +522,80 @@ export class Engine {
     return stream;
   }
 
-  async runTurn(userText, { slyData, interaction, _streamToken, _turnControl } = {}) {
-    if (!this.top) await this.loadTop();
-    const runSpan = this.trace.start("run", { origin: hostOf(this.top.base), input: userText, streamToken: _streamToken });
-    _turnControl?.attach(this.trace, runSpan);
+  _turnBudget() {
+    return {
+      remoteCalls: 0, peerCalls: new Map(), maxRemoteCalls: 4, maxCallsPerPeer: 1,
+      agentCalls: 0, maxAgentCalls: 24,
+      deadline: Date.now() + Math.min(this.top.network.config.max_execution_seconds ?? 90, MAX_EXECUTION_SECONDS) * 1000,
+    };
+  }
+
+  async _executeRun(userText, { signal, streamToken, editor = false }, execute) {
+    if (this.running) throw new Error("Another run is already active. Wait for it to finish or stop it first.");
+    this.running = true;
+    let runSpan;
     try {
-      const chain = [`${this.top.base}::${this.top.network.name}`];
-      const ctx = this._makeCtx({
-        network: this.top.network,
-        base: this.top.base,
-        manifest: this.top.manifest,
-        llm: this.top.llm,
-        slyData: { ...(slyData || {}) },
-        chain,
-        isTop: true,
-        history: this.history,
-        turnControl: _turnControl,
-        composition: {
-          remoteCalls: 0,
-          peerCalls: new Map(),
-          maxRemoteCalls: 4,
-          maxCallsPerPeer: 1,
-          agentCalls: 0,
-          maxAgentCalls: 24,
-          // Only the top network owns the query budget. Peer sessions inherit it.
-          deadline: Date.now() + Math.min(this.top.network.config.max_execution_seconds ?? 90, MAX_EXECUTION_SECONDS) * 1000,
-        },
-      });
-      const message = interactionMessage(userText, interaction);
-      const result = await runAgent(ctx, this.top.network.findFrontMan(), message, runSpan, chain);
-      _turnControl?.close();
+      assertActive(signal);
+      if (!this.top?.network) await scoped(signal, () => this.loadTop({ signal }));
+      assertActive(signal);
+      runSpan = this.trace.start("run", { origin: editor ? "editor" : hostOf(this.top.base), input: userText, streamToken });
+      const result = await execute(runSpan, this._turnBudget());
+      assertActive(signal);
       result.turnId = runSpan;
-      this.rememberActionPresentation(result);
-      // Persist this turn so the next turn has conversation context.
-      this.history.push({ role: "user", content: message });
-      for (const input of _turnControl?.accepted || []) {
-        this.history.push({ role: "user", content: input.text });
-      }
-      this.history.push({ role: "assistant", content: result.text + (result.presentation ? `\n\nCRUSE presentation turn: ${runSpan}\n\`\`\`cruse-ui\n${JSON.stringify(result.presentation)}\n\`\`\`` : "") });
-      if (this.history.length > 24) this.history = this.history.slice(-24); // bound tokens
+      this.running = false;
       this.trace.end(runSpan, { answerPreview: result.text.slice(0, 300) });
       return result;
     } catch (err) {
-      _turnControl?.close();
-      this.trace.fail(runSpan, err);
+      this.running = false;
+      if (runSpan) this.trace.fail(runSpan, err);
       throw err;
     }
+  }
+
+  async runEditor(input, userText, { signal } = {}) {
+    return this._executeRun(userText, { signal, editor: true }, async (runSpan, composition) => {
+      const { manifest, network: config, links = {}, networkName } = input;
+      const entry = networkName === undefined ? manifest?.networks?.[0]
+        : manifest?.networks?.find(item => item.name === networkName);
+      if (!entry) throw new Error("Select a network declared in the editor manifest.");
+      const { network, llm } = this._compileDefinition(config, manifest, entry, { links: links.networks?.[entry.name] || {}, signal });
+      const session = new Session(this, { network, manifest, llm });
+      return session.invoke({ user_message: { text: userText } }, { parentSpan: runSpan, composition, signal });
+    });
+  }
+
+  async runTurn(userText, { slyData, interaction, signal, _streamToken, _turnControl } = {}) {
+    return this._executeRun(userText, { signal, streamToken: _streamToken }, async (runSpan, composition) => {
+      _turnControl?.attach(this.trace, runSpan);
+      try {
+        const chain = [`${this.top.base}::${this.top.network.name}`];
+        const ctx = this._makeCtx({
+          network: this.top.network,
+          base: this.top.base,
+          manifest: this.top.manifest,
+          llm: this.top.llm,
+          slyData: { ...(slyData || {}) },
+          chain,
+          isTop: true,
+          history: this.history,
+          turnControl: _turnControl,
+          composition, signal,
+        });
+        const message = interactionMessage(userText, interaction);
+        const result = await runAgent(ctx, this.top.network.findFrontMan(), message, runSpan, chain);
+        _turnControl?.close();
+        result.turnId = runSpan;
+        this.rememberActionPresentation(result);
+        // Persist this turn so the next turn has conversation context.
+        this.history.push({ role: "user", content: message });
+        for (const input of _turnControl?.accepted || []) {
+          this.history.push({ role: "user", content: input.text });
+        }
+        this.history.push({ role: "assistant", content: result.text + (result.presentation ? `\n\nCRUSE presentation turn: ${runSpan}\n\`\`\`cruse-ui\n${JSON.stringify(result.presentation)}\n\`\`\`` : "") });
+        if (this.history.length > 24) this.history = this.history.slice(-24); // bound tokens
+        return result;
+      } finally { _turnControl?.close(); }
+    });
   }
 }
 
@@ -610,6 +646,7 @@ class Session {
 }
 
 function hostOf(url) {
+  if (!url) return "editor";
   try {
     return new URL(url).host;
   } catch {

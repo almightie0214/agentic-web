@@ -115,7 +115,7 @@ function output($) {
 test('converter web: public samples use shared emitters, format metadata, AW2 reports and CLI-identical downloadable bytes', async t => {
   const { $, samples, requests, bootCalls, html } = await mount(t);
   assert.match(html, /href="\.\/styles.css"/);
-  assert.match(html, /href="\.\/index.html"/);
+  assert.match(html, /href="\.\/index.html#review-tools"/);
   assert.deepEqual(samples.map(sample => sample.dataset.converterSample), ['claude', 'adk', 'theora']);
   assert.equal($('#convert-submit').disabled, true);
   for (const sample of samples) {
@@ -473,6 +473,13 @@ test('converter handoff: Review Desk consumes valid data once, checks it without
     assert.deepEqual(store.events.slice(0, 2), [['get', handoffKey], ['remove', handoffKey]]);
     assert.equal(requests.length, 0);
     assert.equal(bootCalls.length, 1, 'only the normal Review Desk shell boots, not the converted network');
+    assert.equal($('#test-run-start').disabled, true, 'transfer cannot run without runtime and an explicit message');
+    const downloads = $('#review-downloads').children;
+    assert.equal(downloads.length, 3);
+    for (const [index, key] of ['network', 'manifest', 'links'].entries()) {
+      const bytes = await (await originalFetch(downloads[index].href)).text();
+      assert.equal(bytes, $(`#${key}-json`).value);
+    }
     await t.test('reload has no remaining transfer', async t => {
       const again = await mount(t, 'site', { store });
       assert.equal(again.$('#network-json').value, '');

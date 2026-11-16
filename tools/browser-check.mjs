@@ -18,6 +18,7 @@ const model = 'csp-check-model';
 const sentinel = 'csp-check-not-a-real-key';
 const peerText = 'Spec Scout loopback answer: published network names must match exactly.';
 const finalText = 'CSP browser check complete: local validation and peer reply received.';
+const editorText = 'Fictional Cedar Museum route: Courtyard, Cedar Gallery, Window Bench; CEDAR-27; 25 minutes.';
 const probeSource = `
 window.__cspProbe = { loaded: true, inlineRan: false, evalRan: false, evalBlocked: false };
 const inline = document.createElement('script');
@@ -150,9 +151,12 @@ async function main() {
       } else if (names.includes('website_validate_network') && !called.has('website_validate_network')) {
         name = 'website_validate_network';
         args = { manifest: JSON.stringify(sample.manifest), network: JSON.stringify(sample.network) };
+      } else if (names.includes('specialist') || names.includes('researcher')) {
+        name = ['specialist', 'researcher'].find(tool => names.includes(tool) && !called.has(tool));
+        args = { inquiry: 'Ask the researcher for the fictional Cedar Museum route and exact route code.' };
       }
-      // A peer has no tools; reviewer and coordinator get distinct final prose.
-      const content = names.includes('conformance_reviewer') ? `## Result\n\n${finalText}`
+      const editor = names.includes('researcher') || request.messages[0]?.content.includes('fictional');
+      const content = editor ? editorText : names.includes('conformance_reviewer') ? `## Result\n\n${finalText}`
         : names.includes('website_validate_network') ? 'The local validation receipt was received.' : peerText;
       const delta = name ? { tool_calls: [{ index: 0, id: `call_${modelCalls.length}`, type: 'function',
         function: { name, arguments: JSON.stringify(args) } }] } : { content };
@@ -372,6 +376,13 @@ async function main() {
     await desk.probe();
 
     const converter = await openPage(aOrigin + '/converter.html', 'Site A converter');
+    const workflow = ['Import', 'Check', 'Ask the spec', 'Test run', 'Download'];
+    for (const page of [desk, converter]) {
+      assert.deepEqual(await page.evaluate(`Array.from(document.querySelectorAll('nav[aria-label="Team workflow"] a'), link => link.textContent)`), workflow);
+      assert.equal(await page.evaluate(`Array.from(document.querySelectorAll('nav[aria-label="Team workflow"] a')).every(link => {
+        const target = new URL(link.href); return target.pathname.endsWith('/converter.html') || target.hash.length > 1;
+      })`), true);
+    }
     for (const layout of ['claude', 'adk', 'theora']) {
       await converter.evaluate(`document.querySelector('[data-converter-sample="${layout}"]').click()`);
       await converter.until(`!document.querySelector('#converter-output').hidden
@@ -396,6 +407,55 @@ async function main() {
       converter.page.flows.push(`${layout}: conversion/static validation, 3 completed byte-identical downloads`);
     }
     await converter.probe();
+
+    const editor = await openPage(aOrigin + '/converter.html', 'ADK same-tab test run');
+    await editor.evaluate(`document.querySelector('[data-converter-sample="adk"]').click()`);
+    await editor.until(`!document.querySelector('#converter-output').hidden
+      && !document.querySelector('#open-review').disabled`, 'ADK 변환');
+    const transferred = await editor.evaluate(`Object.fromEntries(['network', 'manifest', 'links'].map(key =>
+      [key, document.querySelector('#converted-' + key).value]))`);
+    const beforeImport = report.modelRequests;
+    await editor.evaluate(`document.querySelector('#open-review').click()`);
+    await booted(editor);
+    await editor.until(`document.querySelector('#review-status').textContent.includes('Converted artifacts received')`, '같은 탭 정적 검사');
+    assert.equal(report.modelRequests, beforeImport, '넘겨받기만으로 모델이 실행됐습니다.');
+    const checked = await editor.evaluate(`Object.fromEntries(['network', 'manifest', 'links'].map(key =>
+      [key, document.querySelector('#' + key + '-json').value]))`);
+    for (const key of ['network', 'manifest', 'links']) assert.deepEqual(JSON.parse(checked[key]), JSON.parse(transferred[key]));
+    for (const [key, filename] of [['network', 'converted_team.network.json'], ['manifest', 'agent-manifest.json'], ['links', 'links.json']]) {
+      const before = downloads.size;
+      await editor.evaluate(`document.querySelector('#review-downloads a[download="${filename}"]').click()`);
+      const completed = await waitFor(() => [...downloads.values()].slice(before).find(item => item.state === 'completed'), `Review Desk: ${filename} 다운로드`);
+      assert.equal(completed.suggestedFilename, filename);
+      assert.equal(await readFile(path.join(downloadPath, filename), 'utf8'), checked[key]);
+      await rm(path.join(downloadPath, filename));
+    }
+    await editor.evaluate(`document.querySelector('nav a[href="./index.html#test-run"]').click()`);
+    await editor.until(`document.querySelector('nav a[aria-current="location"]')?.textContent === 'Test run'`, '현재 단계 표시');
+    // The rest of this flow uses the same controls and imported artifacts as a visitor.
+    await editor.evaluate(`document.querySelector('#test-run-message').value = 'What is the fictional Cedar Museum route and exact route code?';
+      document.querySelector('#test-run-message').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#test-run-start').click()`);
+    await editor.until(`document.querySelector('#test-run-answer').textContent.includes(${JSON.stringify(editorText)})
+      && !window.__nsweb.engine.running`, '시험 답 렌더');
+    const editorEvents = await editor.evaluate('window.__nsweb.trace.events');
+    assert.ok(editorEvents.some(event => event.kind === 'run' && event.phase === 'end' && event.status === 'ok'));
+    for (const agent of ['coordinator', 'specialist', 'researcher']) {
+      assert.ok(editorEvents.some(event => event.kind === 'agent' && event.agent === agent
+        && event.origin === 'editor' && event.phase === 'end' && event.status === 'ok'), `${agent}: editor 성공 span 없음`);
+      assert.ok(editorEvents.some(event => event.kind === 'agent_result' && event.agent === agent
+        && event.text === editorText), `${agent}: 답 없음`);
+    }
+    for (const tool of ['specialist', 'researcher']) {
+      assert.ok(editorEvents.some(event => event.kind === 'tool' && event.tool === tool
+        && event.phase === 'end' && event.status === 'ok'), `${tool}: 위임 성공 없음`);
+      assert.ok(modelCalls.flatMap(call => call.messages).some(message => message.role === 'tool'
+        && message.name === tool && JSON.parse(message.content).text === editorText), `${tool}: 답의 tool 결과 반환 없음`);
+    }
+    assert.ok((await editor.evaluate(`document.querySelector('#runtime-events').textContent`)).includes('researcher'));
+    editor.page.flows.push('ADK conversion → same-tab Review Desk handoff without execution',
+      'explicit test run, coordinator → specialist → researcher success, full answer and graph render');
+    await editor.probe();
     const scout = await openPage(peerOrigin + '/', 'Site B');
     await booted(scout);
     scout.page.flows.push('boot/render');

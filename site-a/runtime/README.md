@@ -73,6 +73,20 @@ Cross-origin definition URLs are rejected before any request; optional links do 
 swallow publication-policy or redirect failures. Existing same-origin relative
 artifact paths and peer policy modes are unchanged.
 
+`Engine.runEditor(input, userText, {signal})` runs an editor JSON definition as a
+peer without a publication base. Publication loading and editor definitions share
+`_compileDefinition`, including capability rejection, validation and caller-only
+router selection. The editor manifest cannot choose the router or receive a key.
+Editor agents use the visitor's model (or the top front's model), the top step
+limit and the same query budget factory as chat; their own temperature remains.
+They inherit cancellation, have no website tools or action catalog, and neither
+read nor persist stored links. Link choices last only within that editor run.
+Every absolute peer call, even back to this site's origin, passes policy and
+consent; relative peers are rejected because no publication base exists. Traces
+label the definition `editor`. Editor runs do not receive or append chat history.
+`running` guards both entry points against overlap, is true at run-start events,
+and is false before run-end events. Chat also accepts an external abort signal.
+
 These are local corrections to the copied reference runtime, not a replacement runtime. The license and upstream documentation below are
 preserved; runtime claims there do not replace the local browser evidence ledger.
 

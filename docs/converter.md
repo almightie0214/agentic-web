@@ -462,9 +462,29 @@ Google ADK team, Theora role team. Inspection and downloads need no inference ke
 The one-time same-origin sessionStorage handoff opens artifacts in Review Desk
 for static inspection. Validate it as untrusted input and remove it on receipt,
 including invalid payloads. Importing or reviewing never automatically executes
-a network, contacts peers, supplies credentials, or bypasses consent. At this
-stage, converted-team execution requires separate publication with the reference
-runtime; the existing reference runtime and settings remain the execution path.
+a network, contacts peers, supplies credentials, or bypasses consent.
+
+After a current report has no failures or acquisition/input errors, the visitor
+may explicitly select **Run** in Review Desk's **Test run** section. Editing the
+inputs invalidates that eligibility until they are checked again. Each run sends
+one message, without previous conversation history, to the imported network's
+front as an unpublished peer. It has no publication base, site actions, or stored
+links; the review-only Publication base URL is not an execution origin. Its
+manifest cannot choose the inference router or increase Review Desk's model,
+step, or shared turn budgets. The existing Review Desk settings provide the
+visitor's router, key and model; the imported network retains its temperature.
+Unsupported executable features and runtime validation errors refuse execution.
+Absolute peer references require the imported manifest's policy and normal
+visitor consent, including references to Review Desk's own site. Relative peer
+references are refused because there is no publication base. Published manifest,
+definition and links reads stay on the resolved peer's origin without redirects.
+Run and chat cannot overlap; **Stop** cancels the active test run. Its full answer
+or error and the latest execution graph remain visible. Static inspection and
+artifact downloads still need no inference key, and no backend is added.
+
+Both pages show Import → Check → Ask the spec → Test run → Download. Review Desk
+also downloads the current checked manifest, network and optional links through
+the same artifact-download module used by the converter.
 
 **CVT-ERR-001 — Fail closed.** A malformed selected/reachable role, invalid config,
 reference or class, duplicate/invalid name, empty instruction, unsupported read

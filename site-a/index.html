@@ -15,15 +15,18 @@
       <p class="site-eyebrow">Agent Review Desk · Site A</p>
       <h1>Agent Review Desk</h1>
       <p>Rules decide. Agents explain. Review public, resolved agent-network JSON without a provider key.</p>
-      <nav class="desk-actions" aria-label="Site tools">
-        <a href="./index.html" aria-current="page">Review Desk</a>
-        <a href="./converter.html">Role Converter</a>
+      <nav class="desk-actions" aria-label="Team workflow">
+        <a href="./converter.html">Import</a>
+        <a href="./index.html#review-tools" aria-current="page">Check</a>
+        <a href="./index.html#chat-heading">Ask the spec</a>
+        <a href="./index.html#test-run">Test run</a>
+        <a href="./index.html#download">Download</a>
       </nav>
     </header>
 
     <section id="review-tools" class="desk-panel" aria-labelledby="review-heading">
       <h2 id="review-heading">Check a network</h2>
-      <p>Paste public artifacts or try a sample. Nothing pasted here runs as code. Do not include secrets, credentials, or private context.</p>
+      <p>Paste public artifacts or try a sample. Loading or checking data never starts a run. Test run is a separate, explicit action using your own provider key. Do not include secrets, credentials, or private context.</p>
       <div class="desk-actions" aria-label="Built-in samples">
         <button type="button" data-sample="valid">Valid sample</button>
         <button type="button" data-sample="bad-frontman">Missing front_man</button>
@@ -68,16 +71,37 @@
       <div id="review-graph">No artifacts reviewed.</div>
     </section>
 
+    <section id="test-run" class="desk-panel" aria-labelledby="test-run-heading">
+      <h2 id="test-run-heading">Test run the checked network</h2>
+      <p>Run one message with your Review Desk router, key, model, and turn budget. The imported network is a peer without a publication origin: no site actions or stored links, and other sites require policy checks and consent. Publication base URL is not used. Edit any review input and check again before running.</p>
+      <form id="test-run-form">
+        <label>Message<textarea id="test-run-message" rows="3" required></textarea></label>
+        <div class="desk-actions">
+          <button id="test-run-start" type="submit" disabled>Run</button>
+          <button id="test-run-stop" type="button" disabled>Stop</button>
+        </div>
+      </form>
+      <p id="test-run-status" class="site-status" role="status" aria-live="polite">Check the current inputs without failures, then enter a message. Nothing runs automatically.</p>
+      <h3>Answer</h3>
+      <div id="test-run-answer" class="desk-answer" aria-live="polite"></div>
+    </section>
+
+    <section id="download" class="desk-panel" aria-labelledby="download-heading">
+      <h2 id="download-heading">Download checked artifacts</h2>
+      <p>These files are the current checked editor input, including any reported issues. Inspect the report before sharing or publishing.</p>
+      <div id="review-downloads" class="desk-actions"></div>
+    </section>
+
     <section class="desk-panel" aria-labelledby="execution-heading">
       <h2 id="execution-heading">Review Desk execution graph</h2>
-      <p>This graph belongs to this page's chat runtime, not the network under review. Configuration comes from its manifest and effective links (published bindings plus runtime overrides). Observations below come only from runtime events in the latest chat run.</p>
+      <p>Observations below show the latest chat or editor test run, one at a time. Editor networks are labeled editor, not a published host. The configuration below describes Review Desk's own chat network and its effective links; the checked network's configuration is shown in the rule report above.</p>
       <div id="runtime-config">Runtime configuration not loaded.</div>
-      <div id="trust-state" class="desk-trust" aria-live="polite">Not run — no chat execution observed. Consent, CORS, credential isolation, private-context isolation, and limit enforcement are unverified.</div>
+      <div id="trust-state" class="desk-trust" aria-live="polite">Not run — no chat or editor execution observed. Consent, CORS, credential isolation, private-context isolation, and limit enforcement are unverified.</div>
       <ol id="runtime-events" class="desk-graph" aria-label="Observed runtime spans and decisions"></ol>
       <p>Events and request summaries are not wire-level security evidence. No security guarantee is inferred from a declared policy, successful call, or filtered request summary.</p>
     </section>
 
-    <h2 id="chat-heading">Ask for an explanation</h2>
+    <h2 id="chat-heading">Ask the spec</h2>
     <p>Failure rows can prepare a chat draft. Inspect it and select Send yourself; inference uses your configured provider. Spec Scout explanations require a configured peer and the runtime's normal consent flow. Drafting never contacts a peer.</p>
     <p id="draft-status" role="status" aria-live="polite"></p>
     <p id="site-status" class="site-status" role="status">Loading the settings and chat interface…</p>

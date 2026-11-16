@@ -123,7 +123,7 @@ export async function buildToolTable(ctx, spec) {
   // Only the visitor's own site gets them. A partner network runs on this page, and a
   // partner's actions would reach this page's confirmation dialog.
   const callable = new Set(ctx.isTop ? ctx.manifest?.actions?.agentTools || [] : []);
-  for (const action of ctx.actions?.catalog({ base: ctx.baseOrigin, network: network.name }) || []) {
+  for (const action of (ctx.baseOrigin ? ctx.actions?.catalog({ base: ctx.baseOrigin, network: network.name }) : []) || []) {
     if (!callable.has(action.name) || action.availability !== "local-only"
       || (action.effect === "irreversible" && typeof ctx.confirmWebsiteActions !== "function")) continue;
     addTool(`website_${action.name}`, { kind: "website", ref: action.ref, parallelSafe: false },
@@ -383,7 +383,7 @@ export async function runAgent(ctx, agentName, userText, parentSpan, chain) {
       }
       // Scope prompt context to this invocation. Never mutate a shared agent spec or
       // ctx: siblings and remote networks can be running concurrently.
-      const catalog = ctx.actions?.catalog({ base: ctx.baseOrigin, network: ctx.network.name }) || [];
+      const catalog = (ctx.baseOrigin ? ctx.actions?.catalog({ base: ctx.baseOrigin, network: ctx.network.name }) : []) || [];
       const presentationContext = agentPresentationContext(ctx, agentName);
       const nativeTools = new Set(ctx.manifest?.actions?.agentTools || []);
       const proposalCatalog = catalog.filter(action => !nativeTools.has(action.name)

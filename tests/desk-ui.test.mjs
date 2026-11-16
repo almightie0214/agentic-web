@@ -51,7 +51,9 @@ async function mount(t, { fail = false, config = fixtures.valid, deferBoot } = {
   $('#agent-app').hidden = true;
   $('#audit-peer').disabled = true;
   const chat = new Element();
-  $('#agent-app').querySelector = selector => selector === '#ns-input' ? chat : null;
+  const send = new Element();
+  const newChat = new Element();
+  $('#agent-app').querySelector = selector => ({ '#ns-input': chat, '#ns-send': send, '#ns-newchat': newChat })[selector] ?? null;
   const trace = new TraceBus();
   const input = structuredClone(config);
   const runtime = { engine: { top: {
@@ -103,7 +105,7 @@ async function mount(t, { fail = false, config = fixtures.valid, deferBoot } = {
     }
   };
   const failureRows = () => $('#rule-report').children.filter(item => item.dataset.state === 'fail');
-  return { $, samples, trace, runtime, requests, chat, paste, failureRows, ready, html };
+  return { $, samples, trace, runtime, requests, chat, send, newChat, paste, failureRows, ready, html };
 }
 
 test('desk UI: key-free samples and paste retain rule statuses, paths, hints and invalidate edited reports', async t => {
@@ -176,6 +178,99 @@ test('desk UI: key-free samples and paste retain rule statuses, paths, hints and
     }
   }
   assert.ok($('#review-graph').textContent.includes('{"toString":null} → (no calls declared)'));
+});
+
+test('desk UI: editor test run requires current checks and a click, renders full answers, cancels and excludes chat', async t => {
+  const { $, runtime, trace, chat, send, newChat, paste, samples } = await mount(t);
+  const calls = [];
+  let pending;
+  runtime.engine.runEditor = (input, message, options) => {
+    calls.push({ input, message, options });
+    pending = Promise.withResolvers();
+    options.signal.addEventListener('abort', () => pending.reject(options.signal.reason), { once: true });
+    return pending.promise;
+  };
+  $('#test-run-message').value = 'Delegate this request.';
+  await $('#test-run-message').fire('input');
+  assert.equal($('#test-run-start').disabled, true);
+  await samples[1].fire('click');
+  assert.equal($('#test-run-start').disabled, true, 'failed checks cannot run');
+  await $('#test-run-form').fire('submit');
+  assert.equal(calls.length, 0);
+  paste(fixtures.valid);
+  await $('#validate-form').fire('submit');
+  assert.equal(calls.length, 0, 'checking never executes');
+  assert.equal($('#test-run-start').disabled, false);
+  await $('#network-json').fire('input');
+  assert.equal($('#test-run-start').disabled, true, 'edits invalidate permission to run');
+  await $('#test-run-form').fire('submit');
+  assert.equal(calls.length, 0);
+  await $('#validate-form').fire('submit');
+  const chatRun = trace.start('run');
+  assert.equal($('#test-run-start').disabled, true, 'chat and editor runs cannot overlap');
+  await $('#test-run-form').fire('submit');
+  assert.equal(calls.length, 0);
+  trace.end(chatRun);
+  await Promise.resolve();
+  runtime.engine.running = true;
+  await $('#test-run-form').fire('submit');
+  assert.equal(calls.length, 0, 'engine busy state also blocks start');
+  runtime.engine.running = false;
+  const running = $('#test-run-form').fire('submit');
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].input, fixtures.valid);
+  assert.equal(calls[0].message, 'Delegate this request.');
+  assert.ok(calls[0].options.signal instanceof AbortSignal);
+  for (const control of [chat, send, newChat, $('#test-run-start')]) assert.equal(control.disabled, true);
+  assert.equal($('#test-run-stop').disabled, false);
+  const answer = 'Full answer.\n\n<literal markup>\nFinal paragraph.';
+  pending.resolve({ text: answer });
+  await running;
+  assert.equal($('#test-run-answer').textContent, answer);
+  assert.match($('#test-run-status').textContent, /completed/);
+  for (const control of [chat, send, newChat, $('#test-run-start')]) assert.equal(control.disabled, false);
+  assert.equal($('#test-run-stop').disabled, true);
+  const cancelled = $('#test-run-form').fire('submit');
+  await $('#test-run-stop').fire('click');
+  await cancelled;
+  assert.equal(calls[1].options.signal.aborted, true);
+  assert.match($('#test-run-answer').textContent, /cancelled/);
+  assert.equal(send.disabled, false);
+  const failed = $('#test-run-form').fire('submit');
+  pending.reject(new Error('Configure your provider API key.'));
+  await failed;
+  assert.match($('#test-run-answer').textContent, /Configure your provider API key/);
+  assert.equal($('#test-run-status').dataset.state, 'error');
+});
+
+test('desk UI: downloads preserve checked editor bytes and release stale artifacts', async t => {
+  const { $, paste } = await mount(t);
+  paste(fixtures.valid);
+  $('#manifest-json').value = '\n' + JSON.stringify(fixtures.valid.manifest, null, 4) + '\n\n';
+  await $('#validate-form').fire('submit');
+  const links = $('#review-downloads').children;
+  assert.deepEqual(links.map(link => link.download), ['artifact_review.network.json', 'agent-manifest.json', 'links.json']);
+  for (const [index, id] of ['network-json', 'manifest-json', 'links-json'].entries()) {
+    const text = await (await import('node:buffer')).resolveObjectURL(links[index].href).text();
+    assert.equal(text, $(`#${id}`).value);
+  }
+  const old = links[0].href;
+  await $('#network-json').fire('input');
+  assert.equal($('#review-downloads').children.length, 0);
+  assert.equal((await import('node:buffer')).resolveObjectURL(old), undefined);
+  $('#links-json').value = '';
+  await $('#validate-form').fire('submit');
+  assert.equal($('#review-downloads').children.length, 2, 'links are optional');
+});
+
+test('desk UI: workflow navigation has the same five destinations and live section anchors', async t => {
+  const { html } = await mount(t);
+  const converter = await readFile(new URL('site-a/converter.html', root), 'utf8');
+  const links = source => [...source.matchAll(/<nav[^>]*>([\s\S]*?)<\/nav>/g)][0][1]
+    .match(/<a\b[^>]*>[\s\S]*?<\/a>/g).map(link => ({ href: link.match(/href="([^"]+)"/)[1], text: link.match(/>([^<]+)</)[1] }));
+  assert.deepEqual(links(html), links(converter));
+  assert.deepEqual(links(html).map(link => link.text), ['Import', 'Check', 'Ask the spec', 'Test run', 'Download']);
+  for (const link of links(html).slice(1)) assert.ok(html.includes(`id="${link.href.split('#')[1]}"`));
 });
 
 test('desk UI: pending chat boot and stale sample loads cannot replace the current report', async t => {

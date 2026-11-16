@@ -1,6 +1,7 @@
 import { validateNetwork } from './validator-rules.mjs';
 import { auditUrl } from './audit.js';
 import { is_mcp_ref } from './runtime/generated/graph.gen.mjs';
+import { artifactDownloads } from './artifact-download.js';
 
 const $ = selector => document.querySelector(selector);
 const root = $('#agent-app');
@@ -15,6 +16,70 @@ let controller;
 let latestRun = null;
 const spans = new Map();
 const decisions = [];
+
+function updateWorkflow() {
+  const current = window.location?.hash || '#review-tools';
+  for (const link of document.querySelectorAll('nav[aria-label="Team workflow"] a')) {
+    if (new URL(link.href).hash === current) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  }
+}
+window.addEventListener?.('hashchange', updateWorkflow);
+updateWorkflow();
+
+let releaseDownloads;
+let testController;
+let observedRunActive = false;
+window.addEventListener?.('pagehide', event => {
+  if (!event.persisted) releaseDownloads?.();
+  testController?.abort();
+});
+
+function canTestRun() {
+  return !!reviewed && !currentChecks.some(check => ['fail', 'error'].includes(check.status));
+}
+
+function updateRunControls() {
+  $('#test-run-start').disabled = !runtime || !canTestRun() || !!testController
+    || observedRunActive || !!runtime.engine.running || !$('#test-run-message').value.trim();
+  $('#test-run-stop').disabled = !testController || testController.signal.aborted;
+  $('#test-run-message').disabled = !!testController;
+}
+
+$('#test-run-message').addEventListener('input', updateRunControls);
+$('#test-run-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  updateRunControls();
+  if ($('#test-run-start').disabled) return;
+  const active = new AbortController();
+  testController = active;
+  const chatControls = ['#ns-input', '#ns-send', '#ns-newchat'].map(selector => root.querySelector(selector)).filter(Boolean);
+  const disabledStates = chatControls.map(control => control.disabled);
+  for (const control of chatControls) control.disabled = true;
+  $('#test-run-answer').textContent = '';
+  $('#test-run-status').textContent = 'Running the checked editor definition. Stop cancels this run.';
+  $('#test-run-status').dataset.state = '';
+  updateRunControls();
+  try {
+    const result = await runtime.engine.runEditor(reviewed, $('#test-run-message').value.trim(), { signal: active.signal });
+    if (active.signal.aborted) throw active.signal.reason;
+    $('#test-run-answer').textContent = result.text;
+    $('#test-run-status').textContent = 'Test run completed. This answer belongs to one message, without previous conversation history.';
+  } catch (error) {
+    const message = active.signal.aborted ? 'Test run cancelled.' : `Test run failed: ${bootError(error)}`;
+    $('#test-run-answer').textContent = message;
+    $('#test-run-status').textContent = message;
+    $('#test-run-status').dataset.state = 'error';
+  } finally {
+    testController = undefined;
+    chatControls.forEach((control, index) => { control.disabled = disabledStates[index]; });
+    updateRunControls();
+  }
+});
+$('#test-run-stop').addEventListener('click', () => {
+  testController?.abort();
+  updateRunControls();
+});
 
 function jsonText(value, missing = '(not declared)') {
   return value === undefined ? missing : typeof value === 'string' ? value : JSON.stringify(value);
@@ -37,6 +102,9 @@ function clearReview(message) {
   controller?.abort();
   reviewed = null;
   currentChecks = [];
+  releaseDownloads?.();
+  releaseDownloads = undefined;
+  updateRunControls();
   $('#rule-report').replaceChildren();
   $('#review-graph').textContent = 'No current report. Validate the current inputs.';
   reviewStatus(message);
@@ -157,6 +225,7 @@ function draftExplanation(check, scout) {
 
 function renderChecks(checks) {
   currentChecks = checks;
+  updateRunControls();
   const container = $('#rule-report');
   container.replaceChildren();
   for (const check of checks) {
@@ -186,6 +255,12 @@ function showReport(input, report, errors = []) {
   reviewed = input;
   renderChecks([...errors.map(error => ({ ...error, status: 'error', ruleId: `acquisition.${error.kind}` })), ...(report?.checks ?? [])]);
   configurationGraph($('#review-graph'), input);
+  if (input?.manifest !== undefined && input?.network !== undefined) {
+    const sources = Object.fromEntries(['manifest', 'network', 'links']
+      .filter(key => input[key] !== undefined).map(key => [key, fields[key].value]));
+    releaseDownloads?.();
+    releaseDownloads = artifactDownloads($('#review-downloads'), input, { sources, networkName: input.networkName });
+  }
 }
 
 $('#validate-form').addEventListener('submit', event => {
@@ -251,6 +326,11 @@ $('#audit-form').addEventListener('submit', async event => {
 });
 
 function observe(event) {
+  if (event.kind === 'run' && ['start', 'end'].includes(event.phase)) {
+    observedRunActive = event.phase === 'start';
+    updateRunControls();
+    if (!observedRunActive) queueMicrotask(updateRunControls);
+  }
   if (event.kind === 'run' && event.phase === 'start') {
     latestRun = event.id;
     spans.clear();
@@ -280,7 +360,7 @@ function observe(event) {
     ['remembered_always', 'Remembered always allow'], ['decline', 'Decline'],
     ['headless_default', 'No UI hook default allow'],
   ].map(([source, label]) => `${label}: ${consent.filter(item => item.source === source).length}`).join('; ');
-  $('#trust-state').textContent = `Observed in latest chat run ${latestRun}: ${spans.get(latestRun)?.status ?? 'running'}; ${counts('agent')} agent spans, ${counts('model_call')} model-call spans, ${counts('remote_fetch')} peer-fetch spans, ${counts('remote_call')} peer-call spans, ${consent.length} explicit consent-decision events (${consentCounts}). These are runtime reports, not proof of credential or private-context isolation. CORS policy, cycle interruption, and limit enforcement remain unverified.`;
+  $('#trust-state').textContent = `Observed in latest run ${latestRun}: ${spans.get(latestRun)?.status ?? 'running'}; ${counts('agent')} agent spans, ${counts('model_call')} model-call spans, ${counts('remote_fetch')} peer-fetch spans, ${counts('remote_call')} peer-call spans, ${consent.length} explicit consent-decision events (${consentCounts}). These are runtime reports, not proof of credential or private-context isolation. CORS policy, cycle interruption, and limit enforcement remain unverified.`;
 }
 
 const urlSecrets = [...new URLSearchParams(globalThis.location?.search || "")]
@@ -310,6 +390,7 @@ async function mountDesk() {
     runtime.trace.addEventListener('event', event => observe(event.detail));
     for (const event of runtime.trace.events) observe(event);
     renderChecks(currentChecks);
+    updateRunControls();
   } catch (error) {
     root.hidden = true;
     status.setAttribute('role', 'alert');
@@ -343,5 +424,6 @@ function receiveConvertedInput() {
   }
 }
 
+updateRunControls();
 receiveConvertedInput();
 await mountDesk();
