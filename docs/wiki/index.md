@@ -4,14 +4,14 @@ description: Agent Review Desk + Spec Scout 위키의 진입점. 프로젝트 �
 
 # 위키 목차
 
-Open Agentic Web Challenge 출품작(Agent Review Desk + Spec Scout)의 현재 코드 구조를 설명한다. 구현된 범위는 기반 골격·런타임·Site A 네트워크 발행과 검사 기능(규칙·action·URL 감사·UI), Site B의 Spec Scout 네트워크, Site A에서 Site B로 가는 피어 배선, 저장소 정적 적합성 CLI, Theora/Markdown 역할을 네트워크로 내보내는 결정적 변환기(Node CLI와 Site A 변환 탭), 배포 설정(Pages 워크플로·`_headers`)과 영문 README·제출 초안, 사용자가 실행한 로컬 브라우저 검증 원장이다. 피어 대상 주소(`https://spec-scout.pages.dev/spec_scout`)는 설정되어 있지만 공개 배포·공개 HTTPS/CORS·심사 접근은 확인되지 않았다.
+Open Agentic Web Challenge 출품작(Agent Review Desk + Spec Scout)의 현재 코드 구조를 설명한다. 구현된 범위는 기반 골격·런타임·Site A 네트워크 발행과 검사 기능(규칙·action·URL 감사·UI), Site B의 Spec Scout 네트워크, Site A에서 Site B로 가는 피어 배선, 저장소 정적 적합성 CLI, Theora/Markdown 역할을 네트워크로 내보내는 결정적 변환기(Node CLI와 Site A 변환 탭), 배포 설정(Pages 워크플로·`_headers`)과 영문 README·제출 초안, 사용자가 실행한 로컬 브라우저 검증 원장이다. 피어 대상은 공개 B 주소(`https://spec-scout.pages.dev/spec_scout`)이고, 공개 A·B의 HTTPS/ACAO/404 응답과 브라우저 동의 → 피어 호출 흐름이 원장에 범위가 한정된 실측으로 기록돼 있다. 독립 심사자 접근·영상·최종 제출은 미완료다.
 
 ## 지도와 사이트
 
 - [[project-overview]] — 목표, 제약, 디렉터리 지도, 아직 없는 것
 - [[site-a-review-desk]] — Site A 페이지: 키 없는 검사·샘플·URL 감사 UI, 채팅 연결, 실행 그래프, 변환 탭에서 온 입력 받기
 - [[site-b-spec-scout]] — Site B: 발췌 근거를 담은 1-agent 네트워크, 저작 원본과 배포본, boot 구조
-- [[peer-connection]] — Site A coordinator → Site B 피어: links.json·allowed_peers 한 쌍, 동의 후 로컬 실행, 설정된 주소와 미확인 범위
+- [[peer-connection]] — Site A coordinator → Site B 피어: links.json·allowed_peers 한 쌍, 동의 후 로컬 실행, 공개 주소, 공개 실측 결과와 한계, 주소를 한 곳에서만 단언하는 테스트
 - [[vendored-runtime]] — 사이트별로 복사한 nsDeploy 런타임과 로컬 변경(호환 코드 제거, 중복 이름 거부, 쿠키 미러링 제거)
 - [[network-publication]] — manifest, resolved 네트워크 JSON, 라우터 기본값, action·링크 선언
 
@@ -31,8 +31,8 @@ Open Agentic Web Challenge 출품작(Agent Review Desk + Spec Scout)의 현재 �
 ## 적합성·배포·검증 근거
 
 - [[conformance-cli]] — `tools/check-conformance.mjs`: 공유 규칙 재사용, `publication.*` 검사, private-context 선언·CORS 설정 감사
-- [[deployment-and-release]] — `pages.yml`(site-a만 배포), `site-b/_headers`, 피어 URL 설정·변경 절차, README·devpost 인계, 공개 배포 미확인
-- [[browser-evidence-ledger]] — `docs/demo-checklist.md`: 실제 브라우저 검증 시나리오·증거 규칙·run 1 실패와 보정·run 2 재확인·AW5 변환 번들 기록·미확인
+- [[deployment-and-release]] — `pages.yml`(site-a만 배포), `site-b/_headers`, `site-b/404.html`, 피어 URL 변경 절차, 공개 실측, README·devpost 인계, 남은 미완료
+- [[browser-evidence-ledger]] — `docs/demo-checklist.md`: 실제 브라우저 검증 시나리오·증거 규칙·run 1 실패와 보정·run 2 재확인·공개 HTTP 측정과 공개 브라우저 피어 흐름·AW5 변환 번들 기록·미확인
 
 ## 검사와 교훈
 

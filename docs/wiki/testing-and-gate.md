@@ -17,7 +17,7 @@ description: theora.gate.json의 두 명령(node --test glob, 적합성 CLI)과 
 사이트 A 전용:
 - manifest·네트워크: 2-agent 구성, `front_man ∈ tools`, 위임 관계, resolved(미해결 지시어 없음), 라우터·모델 기본값, `actions` 선언(`validate_network`), `AgentNetwork`/`validateNetwork` 통과. 스크립트된 모델로 coordinator → reviewer → action 배선도 확인한다. [[network-publication]], [[validator-action]]
 - `Engine`이 하위 경로(`https://example.test/agentic-web/site-a`)에서 상대 아티팩트만 가져오는지, manifest/네트워크 404·잘못된 JSON·잘못된 그래프에서 거부하는지.
-- `site.js` boot 중 숨김 유지, 성공 시 표시, 실패 시 alert. 2-agent 구성은 coordinator `tools`에 `spec_scout` 링크 참조가 더해진 `['conformance_reviewer', 'spec_scout']`를 단언하고 manifest `allowed_peers`도 확인한다. [[site-a-review-desk]], [[peer-connection]]
+- `site.js` boot 중 숨김 유지, 성공 시 표시, 실패 시 alert. 2-agent 구성은 coordinator `tools`에 `spec_scout` 링크 참조가 더해진 `['conformance_reviewer', 'spec_scout']`를 단언하고 manifest `allowed_peers`가 `links.json` 피어 URL의 origin과 같은지도 확인한다(주소 문자열을 따로 박지 않는다). [[site-a-review-desk]], [[peer-connection]]
 
 ## 검사 기능 테스트(Site A)
 
@@ -34,7 +34,7 @@ Site B 전용(`smoke.test.mjs`의 Site B boot 검사): 실제 manifest·네트�
 
 ## `tests/peer.test.mjs` (피어 연결)
 
-`node --test` glob에 포함되는 테스트로, 두 사이트의 실제 JSON 산출물과 레퍼런스 런타임을 읽는다. 검사 범위: A의 `links.json`·`allowed_peers`·`peer_policy` 정합, 닫힌 정책의 origin 판정, 동의가 선행하는 허용·거절·이름 불일치 시나리오(모델 호출만 스크립트), B manifest의 정확한 네트워크 이름·action 부재, 발췌 저작 원본과 네트워크 instructions의 포함 검사, B 네트워크의 1-agent 구조. [[peer-connection]], [[site-b-spec-scout]]
+`node --test` glob에 포함되는 테스트로, 두 사이트의 실제 JSON 산출물과 레퍼런스 런타임을 읽는다. 검사 범위: A의 `links.json`·`allowed_peers`·`peer_policy` 정합(공개 B 주소 문자열은 production binding 테스트 한 곳에서만 단언하고 나머지 production 설정 테스트는 주소를 `links.json`에서 읽는다), 닫힌 정책의 origin 판정, 동의가 선행하는 허용·거절·이름 불일치 시나리오(모델 호출만 스크립트), B manifest의 정확한 네트워크 이름·action 부재, 발췌 저작 원본과 네트워크 instructions의 포함 검사, B 네트워크의 1-agent 구조. [[peer-connection]], [[site-b-spec-scout]]
 
 ## `tests/conformance.test.mjs` (적합성 CLI)
 

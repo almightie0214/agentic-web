@@ -6,7 +6,7 @@ description: 프로젝트의 목표·고정 제약·디렉터리 책임·현재 
 
 Agent Review Desk(Site A)와 Spec Scout(Site B)는 Worldwide Agentic Web MVP Profile 0.2를 따르는 정적 브라우저 에이전트 사이트 두 개다. 애플리케이션 백엔드·DB·결제·인증은 두지 않는다. 근거: `README.md`, `docs/worldwide_agentic_web_mvp_spec.md`.
 
-배포 계획은 Site A = GitHub Pages(`.github/workflows/pages.yml`, 아티팩트는 `site-a/`만), Site B = Cloudflare Pages(`site-b/_headers`로 CORS)이다. 설정 파일은 저장소에 있지만 실제 활성화·공개 URL·공개 CORS 응답은 확인되지 않았다([[deployment-and-release]]). 아래 [[vendored-runtime]] 등 세부 페이지와 [[testing-and-gate]]도 참고한다.
+배포 계획은 Site A = GitHub Pages(`.github/workflows/pages.yml`, 아티팩트는 `site-a/`만), Site B = Cloudflare Pages(`site-b/_headers`로 CORS)이다. 공개 A(`https://almightie0214.github.io/agentic-web/`)와 공개 B(`https://spec-scout.pages.dev/`)의 HTTPS·ACAO·404 응답은 실측돼 원장에 있다([[deployment-and-release]]). 아래 [[vendored-runtime]] 등 세부 페이지와 [[testing-and-gate]]도 참고한다.
 
 ## 현재 구현된 것
 
@@ -15,9 +15,9 @@ Agent Review Desk(Site A)와 Spec Scout(Site B)는 Worldwide Agentic Web MVP Pro
 - Site A: 런타임이 발행된 2-agent 네트워크를 불러와 설정·채팅·에이전트 점검 UI를 띄운다. [[site-a-review-desk]], [[network-publication]].
 - Site A 검사 기능: manifest + resolved network JSON을 결정적 규칙으로 판정하는 [[validator-rules]], 이를 에이전트에 읽기 전용 도구로 제공하는 [[validator-action]], 공개 URL의 JSON을 같은 규칙으로 판정하는 [[url-audit]], 정상/실패 데모 입력인 [[fixtures-and-samples]]. 판정은 규칙이 하고 에이전트는 설명만 한다.
 - Site B: 발췌 근거를 instructions에 직접 담은 1-agent `spec_scout` 네트워크를 `boot()`로 로드하는 정보 제공 전용 사이트. [[site-b-spec-scout]].
-- 피어 연결: Site A coordinator가 `links.json`의 심볼릭 `spec_scout`를 해석해 동의 후 B의 네트워크를 A의 브라우저 런타임에서 실행하는 배선. 설정된 목적지는 `https://spec-scout.pages.dev/spec_scout`이며 공개 접근은 확인되지 않았다. [[peer-connection]].
+- 피어 연결: Site A coordinator가 `links.json`의 심볼릭 `spec_scout`를 해석해 동의 후 B의 네트워크를 A의 브라우저 런타임에서 실행하는 배선. 목적지는 공개 B `https://spec-scout.pages.dev/spec_scout`이며 공개 응답과 브라우저 피어 흐름이 범위가 한정된 실측으로 기록돼 있다. [[peer-connection]].
 - 저장소 정적 적합성 CLI `tools/check-conformance.mjs`: 공유 규칙을 재사용하고 발행 파일·링크·private-context 선언·CORS 설정을 감사한다. [[conformance-cli]].
-- 실제 브라우저 검증 원장 `docs/demo-checklist.md`: 사용자가 실행한 로컬 관찰과 미확인 항목. [[browser-evidence-ledger]].
+- 실제 브라우저 검증 원장 `docs/demo-checklist.md`: 사용자가 실행한 로컬·공개 브라우저 관찰, 공개 HTTP 측정, 미확인 항목. [[browser-evidence-ledger]].
 - 역할 변환기(AW5): Theora 역할 지시문이나 범용 Markdown 에이전트 파일을 결정적으로 이 사이트의 런타임이 실행하는 resolved JSON 네트워크·manifest·links로 내보낸다. 규칙 명세 [[converter-mapping-contract]], 순수 코어·Node CLI·웹 탭 구조 [[converter-code-structure]], 테스트와 교훈 [[converter-verification]]. 쉘·git·gate 같은 하네스 기능은 변환하지 않는다.
 - 영문 `README.md`, 제출 초안 `docs/devpost.md`: [[deployment-and-release]].
 - 검사: [[testing-and-gate]].
@@ -46,6 +46,5 @@ Agent Review Desk(Site A)와 Spec Scout(Site B)는 Worldwide Agentic Web MVP Pro
 
 ## 아직 없는 것
 
-- 설정된 Site B 주소(`https://spec-scout.pages.dev`)의 실제 배포·공개 응답. 링크와 허용 출처는 설정되어 있지만 접근성은 검증되지 않았다([[deployment-and-release]]).
 - 정적 검사가 증명하지 못하는 실행 동작(브라우저의 피어 순환 중단, 동의, CORS, 상한 집행). 규칙 리포트와 CLI는 이를 `runtime.*` 미확인으로 표시한다. 일부는 사용자가 실행한 로컬 브라우저 관찰로 기록돼 있다. 변환 번들은 로드·위임이 반복 관찰됐지만 답변 품질은 FAIL로 남아 있다([[browser-evidence-ledger]]).
-- 공개 배포에 대한 검증(공개 HTTPS/CORS, 공개 리비전의 브라우저 확인, 심사자 접근)과 provider 요청 헤더·본문 직접 관찰. 이 상태에서는 출품 준비 완료로 표시하지 않는다.
+- 독립 심사자 본인의 공개 사이트 접근 확인, 영상, 최종 제출, provider 요청 헤더·본문 직접 관찰. 공개 HTTP·브라우저 측정은 특정 리비전·시각의 스냅샷이며 이 상태에서는 출품 준비 완료로 표시하지 않는다.

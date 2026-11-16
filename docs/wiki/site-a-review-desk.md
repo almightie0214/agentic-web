@@ -24,7 +24,7 @@ description: Site A(Agent Review Desk)의 페이지 구성, 키 없이 쓰는 �
 
 ## 채팅 연결
 
-실패/오류 행에는 "Explain in Review Desk"와 "Ask Spec Scout about the clause" 버튼이 붙는다(`draftExplanation`). 둘 다 채팅 입력창에 **초안만** 채우고(기존 초안은 `window.confirm` 확인 후 교체) 전송은 사용자가 한다. 초안에는 해당 발견과 공개 아티팩트가 "신뢰할 수 없는 데이터"로 담긴다. Spec Scout 버튼은 유효 링크에 `spec_scout`라는 이름의 실제 피어가 설정되어 있을 때만 활성이다. `peerTargets`는 `test`·`invalid`·`example` 호스트 같은 placeholder를 걸러내는데, 현재 발행된 바인딩(`https://spec-scout.pages.dev/spec_scout`)은 걸러지지 않아 boot 뒤 활성 조건을 충족한다. 이는 설정 때문이며 공개 접근의 증거가 아니다([[peer-connection]]). 활성 상태에서도 초안은 피어 접촉을 허가하지 않고 런타임의 평소 동의 흐름을 우회하지 않는다. 채팅을 쓸 수 없으면 안내만 보이고 리포트는 유지된다.
+실패/오류 행에는 "Explain in Review Desk"와 "Ask Spec Scout about the clause" 버튼이 붙는다(`draftExplanation`). 둘 다 채팅 입력창에 **초안만** 채우고(기존 초안은 `window.confirm` 확인 후 교체) 전송은 사용자가 한다. 초안에는 해당 발견과 공개 아티팩트가 "신뢰할 수 없는 데이터"로 담긴다. Spec Scout 버튼은 유효 링크에 `spec_scout`라는 이름의 실제 피어가 설정되어 있을 때만 활성이다. `peerTargets`는 `test`·`invalid`·`example` 호스트 같은 placeholder를 걸러내는데, 현재 발행된 바인딩(`https://spec-scout.pages.dev/spec_scout`)은 걸러지지 않아 boot 뒤 활성 조건을 충족한다. 이 판정은 호스트 이름 규칙이라 예약 주소를 공개 주소로 바꿀 때 코드 변경 없이 켜졌고, 접근 가능하다는 증거는 따로 공개 실측에 있다([[peer-connection]]). 활성 상태에서도 초안은 피어 접촉을 허가하지 않고 런타임의 평소 동의 흐름을 우회하지 않는다. 채팅을 쓸 수 없으면 안내만 보이고 리포트는 유지된다.
 
 ## 실행 그래프와 신뢰 배지
 
