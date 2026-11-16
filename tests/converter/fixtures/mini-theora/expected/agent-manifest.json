@@ -5,7 +5,7 @@
       "name": "converted_team",
       "front_man": "coordinator",
       "hocon": "./converted_team.network.json",
-      "description": "Converted Markdown role conversation network."
+      "description": "Converted Theora role conversation network."
     }
   ],
   "llm_router": {

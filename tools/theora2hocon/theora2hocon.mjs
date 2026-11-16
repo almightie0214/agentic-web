@@ -99,7 +99,7 @@ try {
   const { files, layout } = await acquire(input, options.layout);
   const parsed = parseRoles(files, { layout });
   const { network, frontMan } = emitNetwork(parsed, { front: options.front });
-  const { manifest, links } = emitManifest(frontMan);
+  const { manifest, links } = emitManifest(frontMan, parsed.layout);
   // Complete parsing, mapping and serialization before creating output files.
   const artifacts = [
     ['converted_team.network.json', network],

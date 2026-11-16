@@ -21,6 +21,7 @@ and tests together; there is no old-format reader or compatibility mode.
 
 **CVT-CORE-001 — Pure shared core.** Parsing and emission live in
 `site-a/converter/parse-roles.mjs`, `emit-network.mjs`, and `emit-manifest.mjs`.
+두 emitter는 `describe-layout.mjs`의 공용 입력 형식 설명 규칙을 사용한다.
 They consume in-memory values and return data without DOM, storage, network,
 filesystem, `node:*` imports, environment variables, clock, randomness, or LLMs.
 The Node adapter at `tools/theora2hocon/theora2hocon.mjs` imports them from
@@ -185,6 +186,8 @@ translation: authors supply English roles for the English examples and demo.
 `description`, and `instructions` as sanitized nonempty strings, sorted by name
 using ascending JavaScript string comparison (`a < b`), not locale-dependent
 sorting. It also supplies the validated config front candidate or no candidate.
+선택된 입력 형식도 `layout: theora | markdown`으로 전달한다. 자동 선택과 명시 선택
+모두 실제 선택된 형식을 전달하며, emitter는 원문이나 역할 이름에서 형식을 추측하지 않는다.
 This is sufficient emitter input; source capabilities are not executable fields.
 No persistent intermediate store is needed. Exact exported function signatures
 belong to the implementation tasks; these data semantics are fixed here.
@@ -205,8 +208,8 @@ Config validation still follows `CVT-IN-003`. One-role input is valid.
 **CVT-NET-001 — Identity and resolved envelope.** The output network name is
 `converted_team`, independent of the input directory's basename, host path,
 layout, and chosen front. Its filename is `converted_team.network.json`.
-The fixed description is `Converted Markdown role conversation network.`
-Emit exactly these top-level fields in this order:
+설명은 `CVT-META-001`에 따라 선택된 입력 형식에서 만든다.
+Emit exactly these top-level fields in this order (Markdown example):
 
 ```json
 {
@@ -231,7 +234,8 @@ not alphabetically first: the vendored `find_front_man` selects the first agent
 with instructions, not a network-level `front_man` field. Each agent has exactly
 `name`, `function`, `instructions`, `tools`, in that order. Map `name` unchanged,
 `function.description` from the parsed description, and `instructions` from the
-sanitized body. Within `function`, emit `description` then `parameters`.
+sanitized body followed by the converter-owned output rule (`CVT-NET-005`).
+Within `function`, emit `description` then `parameters`.
 
 **CVT-NET-003 — Common inquiry schema.** Every agent's `function.parameters` is
 exactly:
@@ -260,9 +264,36 @@ this graph. Availability of a callable role is not proof that an LLM will choose
 it; real delegation must be observed separately. Do not append delegation prose
 to source instructions to manufacture semantic equivalence.
 
+**CVT-NET-005 — 변환기 소유 출력 규칙.** 각 역할의 정화된 원문 뒤에 LF 두 개,
+`## Converter-owned output rule`, LF 하나, 다음 규칙을 붙인다. 원문의 내부 서식과
+순서는 바꾸지 않는다. 규칙은 역할 이름이 아니라 최종 선택된 front에 따라 정한다.
+단일 역할도 front 규칙을 받으며, front를 바꾸면 이전 front는 specialist 규칙을 받는다.
+
+front는 방문자에게 최종 답만 내고 초안·계획·과정 메모·다른 역할에게 하는 말을
+내지 않도록 다음 문장을 붙인다:
+
+```text
+Return only the final answer intended for the visitor. Do not include drafts, plans, process notes, or messages addressed to other roles.
+```
+
+specialist는 front가 보낸 inquiry에 대한 답만 내도록 다음 문장을 붙인다:
+
+```text
+Return only the answer to the inquiry sent by the front agent. Do not include drafts, plans, process notes, or messages addressed to other roles.
+```
+
+이는 새 도구·권한·위임 간선을 만들거나 모델의 실제 준수를 증명하지 않는다.
+
+**CVT-META-001 — 입력 형식별 설명.** `parseRoles`가 선택한 `layout`으로 network의
+`metadata.description`과 manifest의 `networks[0].description`을 동일하게 만든다.
+`theora`는 `Converted Theora role conversation network.`, `markdown`은
+`Converted Markdown role conversation network.`를 쓴다. emitter는 형식 누락이나
+잘못된 값을 오류로 거부한다. CLI와 웹은 동일한 파서 결과의 형식을 전달한다.
+원본 config나 frontmatter의 설명으로 이 네트워크 설명을 덮어쓰지 않는다.
+
 ## Manifest, links, and serialization
 
-**CVT-MAN-001 — Public manifest.** Emit exactly:
+**CVT-MAN-001 — Public manifest.** Emit exactly (Markdown example):
 
 ```json
 {
@@ -286,7 +317,8 @@ to source instructions to manufacture semantic equivalence.
 }
 ```
 
-Only `<selected role name>` is a placeholder. The router and model hint reuse the
+`<selected role name>`은 선택된 front이며, `description`은 위 Markdown 예시와 달리
+`CVT-META-001`에 따라 입력 형식별로 정한다. The router and model hint reuse the
 site defaults, not config credentials. Inference requires the visitor's setup in
 the existing runtime settings; there is no new credential/settings UI. These are
 public recommendations, never a peer's authority to replace the caller's router.
@@ -362,11 +394,11 @@ Subsequent tests must cover these distinct promises:
 | Area | Rule references | Observable assertions |
 | --- | --- | --- |
 | Fixture integrity | `CVT-IN-001`, `CVT-IN-003`, `CVT-TEST-001` | Virtual file structure, parseable virtual config, at least two Markdown files |
-| Parsing | `CVT-IN-*`, `CVT-MD-001`, `CVT-ROLE-*` | Both layouts, no-frontmatter filename/title fallback, quoted/block descriptions, ignored metadata, malformed frontmatter/config, name collision, empty/no roles |
+| Parsing | `CVT-IN-*`, `CVT-MD-001`, `CVT-ROLE-*`, `CVT-IR-001` | Both layouts and selected format; source instruction expectations derived from input, not emitted snapshots; no-frontmatter filename/title fallback, quoted/block descriptions, ignored metadata, malformed frontmatter/config, name collision, empty/no roles |
 | Public text | `CVT-SEC-*` | Synthetic secret/PEM/path removal, description sanitation, literal public URLs retained, no raw-value diagnostics |
 | Selection | `CVT-FRONT-001` | Explicit over config over sorted default, unknown front refusal, invalid config refusal even with override |
-| Network | `CVT-NET-*` | Exact common schema, star edges, selected non-first front emitted first, single-role case, no executable/peer capability passthrough |
-| Publication | `CVT-MAN-001`, `CVT-LINK-001`, `CVT-OUT-001` | Manifest front/reference and empty bindings match network; byte snapshots and shuffled-input determinism |
+| Network | `CVT-NET-*`, `CVT-META-001` | Exact common schema, star edges, selected non-first front emitted first, single-role case, output-rule suffix for the selected front and specialists, format-specific description, no executable/peer capability passthrough |
+| Publication | `CVT-MAN-001`, `CVT-META-001`, `CVT-LINK-001`, `CVT-OUT-001` | Manifest front/reference/format-specific description and empty bindings match network; byte snapshots and shuffled-input determinism |
 | Adapters | `CVT-CLI-001`, `CVT-WEB-001`, `CVT-ERR-001` | CLI fixture-to-files snapshots and invalid-input failures; shared web pipeline, validated consume-once handoff without execution |
 
 **CVT-VERIFY-001 — Static versus browser evidence.** The later AW5 validation task
