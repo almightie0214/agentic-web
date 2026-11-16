@@ -463,7 +463,7 @@ runtimeTest('settings use only an explicit mock router', async (t, runtime) => {
 });
 
 runtimeTest('settings model selection preserves declared temperature after reload', async (t, runtime) => {
-  const { boot } = await import(new URL('index.js', runtime));
+  const { boot } = await import(new URL('index.js?temperature-settings', runtime));
   const originals = new Map(['document', 'location', 'history', 'sessionStorage', 'localStorage', 'fetch'].map(name =>
     [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   t.after(() => {
