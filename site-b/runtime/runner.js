@@ -438,6 +438,9 @@ async function runAgentManual(ctx, agentName, userText, chain) {
   messages.push({ role: "user", content: userText });
 
   const model = agentModel(ctx, spec);
+  // Sampling belongs to the executing agent, not the caller's model policy.
+  const temperature = spec.llm_config?.temperature !== undefined
+    ? spec.llm_config.temperature : network.config.llm_config?.temperature;
   // A partner context carries this site's step limit (engine.js _makeCtx), so a partner
   // network cannot raise it.
   const maxSteps = Math.min(spec.max_steps || network.config.max_steps || 12, ctx.maxSteps || Infinity);
@@ -450,7 +453,7 @@ async function runAgentManual(ctx, agentName, userText, chain) {
     }
     const onContentDelta = isTopFrontMan ? (t) => ctx.onAnswerDelta?.(t) : undefined;
     const attempt = await runInterruptibleModelCall(isTopFrontMan ? ctx.turnControl : null, (signal) =>
-      scoped(ctx.signal, () => llm.chat({ model, messages, tools: toolSchemas, origin, parentSpan: agentSpan, onContentDelta,
+      scoped(ctx.signal, () => llm.chat({ model, temperature, messages, tools: toolSchemas, origin, parentSpan: agentSpan, onContentDelta,
         signal: signal && ctx.signal ? AbortSignal.any([ctx.signal, signal]) : ctx.signal || signal })));
     assertActive(ctx.signal);
     if (attempt.interrupted) {

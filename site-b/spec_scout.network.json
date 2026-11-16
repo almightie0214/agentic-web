@@ -3,7 +3,8 @@
     "description": "Spec Scout explains selected Worldwide Agentic Web MVP Profile 0.2 requirements using embedded, cited excerpts. Informational only; no site actions or external tools."
   },
   "llm_config": {
-    "model_name": "alibaba/qwen3.8-flash"
+    "model_name": "alibaba/qwen3.8-flash",
+    "temperature": 0.2
   },
   "max_execution_seconds": 180,
   "tools": [

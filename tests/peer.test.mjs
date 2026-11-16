@@ -216,6 +216,7 @@ test('peer: Site B manifest resolves to the informational one-agent network', as
   const [entry] = manifest.networks;
   const config = await readJSON(new URL(entry.hocon, siteB));
   assert.equal(config.max_execution_seconds, 180);
+  assert.equal(config.llm_config.temperature, 0.2);
   assert.deepEqual(config.tools.map(agent => agent.name), ['spec_scout']);
   const [scout] = config.tools;
   assert.deepEqual(scout.tools, []);
@@ -259,6 +260,116 @@ for (const site of ['site-a', 'site-b']) {
     return { engine, network, manifest, llm, ctx, chain };
   };
   const toolCall = entry => ({ id: 'call', name: 'test_tool', args: {}, entry });
+
+  const completion = delta => new Response(`data: ${JSON.stringify({ model: 'test-model', choices: [{ delta, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`, {
+    headers: { 'Content-Type': 'text/event-stream' },
+  });
+
+  test(site + ': runtime sends agent temperature independently of model override', async t => {
+    const { LlmClient } = await import(new URL('llm.js', runtime));
+    const originalFetch = globalThis.fetch;
+    t.after(() => { globalThis.fetch = originalFetch; });
+    for (const [label, networkConfig, agentConfig, expected] of [
+      ['agent wins', { temperature: 0.7 }, { temperature: 0.2 }, 0.2],
+      ['network fallback', { temperature: 0.7 }, undefined, 0.7],
+      ['model-only agent fallback', { temperature: 0.7 }, { model_name: 'agent-model' }, 0.7],
+      ['absent', {}, undefined, undefined],
+      ['zero agent', { temperature: 0.7 }, { temperature: 0 }, 0],
+      ['zero network', { temperature: 0 }, { model_name: 'agent-model' }, 0],
+      ['upper boundary', { temperature: 2 }, undefined, 2],
+    ]) {
+      for (const override of ['', 'settings-model']) {
+        const { ctx, engine, chain } = fixture({ llm_config: { model_name: 'network-model', ...networkConfig },
+          tools: [{ name: 'front', instructions: 'Answer.', tools: [], ...(agentConfig ? { llm_config: agentConfig } : {}) }] });
+        const bodies = [];
+        globalThis.fetch = async (url, options) => {
+          assert.equal(url, 'https://router.invalid/v1/chat/completions');
+          bodies.push(JSON.parse(options.body));
+          return completion({ content: 'A valid answer.' });
+        };
+        ctx.modelOverride = override;
+        ctx.llm = new LlmClient({ baseUrl: 'https://router.invalid/v1', apiKey: 'test-key', trace: engine.trace });
+        assert.equal((await runAgent(ctx, 'front', 'question', null, chain)).text, 'A valid answer.');
+        assert.equal(bodies.length, 1, label);
+        assert.equal(bodies[0].model, override || agentConfig?.model_name || 'network-model', label);
+        assert.equal(bodies[0].stream, true, label);
+        assert.equal(Object.hasOwn(bodies[0], 'temperature'), expected !== undefined, label);
+        assert.equal(bodies[0].temperature, expected, label);
+      }
+    }
+  });
+
+  test(site + ': runtime peer uses its own temperature with caller routing and model', async t => {
+    const originalFetch = globalThis.fetch;
+    t.after(() => { globalThis.fetch = originalFetch; });
+    for (const override of ['', 'settings-model']) {
+      const manifest = { networks: [{ name: 'test', hocon: 'test.json' }], allowed_peers: [peerBase],
+        llm_router: { base_url: 'https://caller-router.invalid/v1', byok_router: 'https://caller-router.invalid/v1' } };
+      const caller = { llm_config: { model_name: 'caller-model', temperature: 0.7 },
+        tools: [{ name: 'front', instructions: 'Caller.', tools: [peerBase + '/peer'] }] };
+      const peer = { llm_config: { model_name: 'peer-model', temperature: 0.2 },
+        tools: [{ name: 'peer', instructions: 'Peer.', tools: [] }] };
+      const requests = [];
+      globalThis.fetch = async (url, options) => {
+        if (options?.method === 'POST') {
+          assert.equal(url, 'https://caller-router.invalid/v1/chat/completions');
+          assert.equal(options.headers.Authorization, 'Bearer caller-key');
+          const body = JSON.parse(options.body);
+          requests.push(body);
+          assert.equal(body.model, override || 'caller-model');
+          if (body.messages[0].content === 'Peer.') return completion({ content: 'Peer answer.' });
+          if (body.messages.some(message => message.role === 'tool')) return completion({ content: 'Final answer.' });
+          return completion({ tool_calls: [{ index: 0, id: 'peer-call', type: 'function', function: { name: 'peer', arguments: '{"request":"question"}' } }] });
+        }
+        assert.equal(options?.headers?.Authorization, undefined, 'artifact fetches never carry the caller key');
+        const documents = {
+          [base + '/test.json']: caller,
+          [base + '/links.json']: {},
+          [peerBase + '/agent-manifest.json']: { networks: [{ name: 'peer', hocon: 'peer.json' }], llm_router: { base_url: 'https://peer-router.invalid/v1' } },
+          [peerBase + '/peer.json']: peer,
+          [peerBase + '/links.json']: {},
+        };
+        assert.ok(Object.hasOwn(documents, String(url)), String(url));
+        return new Response(JSON.stringify(documents[url]));
+      };
+      const engine = new RuntimeEngine({ originUrl: base, byokKey: 'caller-key', modelOverride: override });
+      engine.top = { ...await engine._compile(base, manifest, manifest.networks[0], { isTop: true }), base, manifest };
+      assert.equal((await engine.runTurn('question')).text, 'Final answer.');
+      assert.deepEqual(requests.map(body => body.temperature), [0.7, 0.2, 0.7]);
+      assert.deepEqual(requests.map(body => body.stream), [true, true, true]);
+      assert.match(requests[2].messages.find(message => message.role === 'tool').content, /Peer answer/);
+    }
+  });
+
+  test(site + ': runtime compiles only valid temperature declarations', async t => {
+    const { validateNetwork } = await import(new URL('kernel.js', runtime));
+    const originalFetch = globalThis.fetch;
+    t.after(() => { globalThis.fetch = originalFetch; });
+    for (const level of ['network', 'agent']) {
+      for (const value of [null, '0.2', NaN, Infinity, -Infinity, -0.01, 2.01, true, [], {}]) {
+        const config = { tools: [{ name: 'front', instructions: 'Answer.', tools: [], llm_config: { temperature: 0.2 } }],
+          llm_config: { temperature: 0.7 } };
+        (level === 'network' ? config : config.tools[0]).llm_config.temperature = value;
+        const message = `${level === 'network' ? 'Network' : "Agent 'front'"} llm_config.temperature must be a finite number between 0 and 2.`;
+        assert.ok(validateNetwork(new RuntimeNetwork(config, 'test')).errors.includes(message), `${level}: ${String(value)}`);
+        const text = JSON.stringify(config, (_key, v) => typeof v === 'number' && !Number.isFinite(v) ? '__NONFINITE__' : v)
+          .replace('"__NONFINITE__"', value === -Infinity ? '-1e999' : value === Infinity ? '1e999' : 'NaN');
+        globalThis.fetch = async url => new Response(String(url).endsWith('/links.json') ? '{}' : text);
+        const { engine, manifest } = fixture();
+        await assert.rejects(engine._compile(base, manifest, manifest.networks[0], { isTop: true }), /failed validation:.*temperature/);
+      }
+    }
+    for (const level of ['network', 'agent']) {
+      for (const temperature of [undefined, 0, 0.2, 2]) {
+        const config = { tools: [{ name: 'front', instructions: 'Answer.', tools: [] }] };
+        if (temperature !== undefined) (level === 'network' ? config : config.tools[0]).llm_config = { temperature };
+        globalThis.fetch = async url => new Response(JSON.stringify(String(url).endsWith('/links.json') ? {} : config));
+        const { engine, manifest } = fixture();
+        assert.deepEqual(validateNetwork(new RuntimeNetwork(config, 'test')).errors, []);
+        await engine._compile(base, manifest, manifest.networks[0], { isTop: true });
+      }
+    }
+  });
 
   test(site + ': runtime compiles only valid execution limit declarations', async t => {
     const { validateNetwork } = await import(new URL('kernel.js', runtime));

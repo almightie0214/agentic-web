@@ -1,5 +1,5 @@
 // kernel.js — the pure, framework-free orchestration logic.
-// Changed by Agent Review Desk + Spec Scout: reject duplicate names and invalid execution limits.
+// Changed by Agent Review Desk + Spec Scout: reject duplicate names, invalid execution limits and temperature.
 //
 // This module is the browser-side reference for what the plan calls the
 // "cross-compilable kernel": config filter chain, AgentNetwork, the activation
@@ -224,7 +224,7 @@ export function validateNetwork(network) {
   const errors = validate_network(network.config).filter((message) =>
     ![...network.linkSlots].some((ref) => message.includes(`references missing tool '${ref}'.`))
   );
-  // Execution bounds are part of structural validation, not just static advice.
+  // Execution bounds and sampling are structural validation, not just static advice.
   // Check the network separately: an agent override cannot hide a bad default.
   for (const [label, config] of [
     ["Network", network.config],
@@ -238,6 +238,12 @@ export function validateNetwork(network) {
     if (Object.hasOwn(config, "max_steps")
         && !(Number.isInteger(config.max_steps) && config.max_steps > 0)) {
       errors.push(`${label} max_steps must be a positive integer.`);
+    }
+    const llmConfig = config.llm_config;
+    if (llmConfig && Object.hasOwn(llmConfig, "temperature")
+        && !(typeof llmConfig.temperature === "number" && Number.isFinite(llmConfig.temperature)
+          && llmConfig.temperature >= 0 && llmConfig.temperature <= 2)) {
+      errors.push(`${label} llm_config.temperature must be a finite number between 0 and 2.`);
     }
   }
   const warnings = [];

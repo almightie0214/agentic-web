@@ -51,6 +51,7 @@ test('conformance: actual artifacts preserve shared AW2 reports and runtime unce
   for (const site of ['site-a', 'site-b']) {
     const manifest = await readJSON(join(repository, site, 'agent-manifest.json'));
     const network = await readJSON(join(repository, site, manifest.networks[0].hocon));
+    assert.equal(network.llm_config.temperature, 0.2);
     const links = site === 'site-a' ? await readJSON(join(repository, site, 'links.json')) : undefined;
     const expected = validateNetwork({ manifest, network, links, networkName: manifest.networks[0].name });
     assert.deepEqual(report.checks.filter(check => check.site === site && !check.sample && !check.ruleId.startsWith('publication.'))

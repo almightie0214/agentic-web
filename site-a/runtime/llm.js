@@ -58,7 +58,7 @@ export class LlmClient {
   // messages: [{role, content, tool_calls?, tool_call_id?, name?}]
   // tools: [{type:'function', function:{name, description, parameters}}]
   // onContentDelta: (text) => void  — streamed natural-language tokens
-  async chat({ model, messages, tools, origin, parentSpan, onContentDelta, signal }) {
+  async chat({ model, temperature, messages, tools, origin, parentSpan, onContentDelta, signal }) {
     assertActive(signal);
     model = normalizeModelName(model);
     // A real (non-mock) router with no API key: refuse rather than forward the
@@ -85,6 +85,7 @@ export class LlmClient {
       messages,
       stream: true,
     };
+    if (temperature !== undefined) body.temperature = temperature;
     if (tools && tools.length) {
       body.tools = tools;
       body.tool_choice = "auto";

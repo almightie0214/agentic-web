@@ -3,7 +3,8 @@
     "description": "Agent Review Desk reviews supplied portable agent-network artifacts against the Worldwide Agentic Web MVP Profile 0.2."
   },
   "llm_config": {
-    "model_name": "alibaba/qwen3.8-flash"
+    "model_name": "alibaba/qwen3.8-flash",
+    "temperature": 0.2
   },
   "max_execution_seconds": 240,
   "link_slots": {

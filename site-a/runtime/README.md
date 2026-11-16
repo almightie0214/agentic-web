@@ -49,6 +49,12 @@ Model and peer I/O and all context functions share that invocation's cancellatio
 scope; pending consent, link and action-confirmation UI close on abort and ignore
 late input. Policy is checked before consent, and every consent decision has one
 trace event with its source. The hosting pages expose sanitized loader errors.
+`runner.js` forwards the executing agent's `llm_config.temperature`, falling back
+only to that agent's own network. `llm.js` includes it in model requests only when
+present, preserving zero. Caller router/key and model-override policies are
+unchanged; choosing a model in settings does not replace temperature. Compilation
+checks both network and agent declarations for finite numbers in [0, 2], even
+when an agent overrides the network value.
 These are local corrections to the copied reference runtime, not a replacement runtime. The license and upstream documentation below are
 preserved; runtime claims there do not replace the local browser evidence ledger.
 

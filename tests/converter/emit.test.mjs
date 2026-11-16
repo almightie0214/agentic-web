@@ -84,7 +84,7 @@ test('CVT-NET-001/003/004: one role has the exact resolved envelope and no outgo
     frontMan: 'solo',
     network: {
       metadata: { description: 'Converted Markdown role conversation network.' },
-      llm_config: { model_name: 'alibaba/qwen3.8-flash' },
+      llm_config: { model_name: 'alibaba/qwen3.8-flash', temperature: 0.2 },
       max_steps: 12,
       max_execution_seconds: 240,
       tools: [{ name: 'solo', function: { description: source.description, parameters: inquirySchema },

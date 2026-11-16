@@ -214,12 +214,17 @@ Emit exactly these top-level fields in this order (Markdown example):
 ```json
 {
   "metadata": { "description": "Converted Markdown role conversation network." },
-  "llm_config": { "model_name": "alibaba/qwen3.8-flash" },
+  "llm_config": { "model_name": "alibaba/qwen3.8-flash", "temperature": 0.2 },
   "max_steps": 12,
   "max_execution_seconds": 240,
   "tools": []
 }
 ```
+
+`llm_config.temperature`는 입력 형식과 무관하게 0.2로 고정한다. 실행되는
+에이전트의 `llm_config.temperature`가 있으면 그 값을, 없으면 해당 네트워크의
+값을 모델 요청에 보낸다. 모델 선택 override와는 별개이며 caller의 temperature
+정책은 없다. 이 선언 자체가 실제 답 품질을 증명하지는 않는다.
 
 `max_execution_seconds`는 입력 형식과 무관하게 240초로 고정한다. 이는 최상위
 질의의 시간 한도 선언이며, 피어로 호출될 때 caller의 더 짧은 한도를 늘리지 않는다.
@@ -400,7 +405,7 @@ Subsequent tests must cover these distinct promises:
 | Parsing | `CVT-IN-*`, `CVT-MD-001`, `CVT-ROLE-*`, `CVT-IR-001` | Both layouts and selected format; source instruction expectations derived from input, not emitted snapshots; no-frontmatter filename/title fallback, quoted/block descriptions, ignored metadata, malformed frontmatter/config, name collision, empty/no roles |
 | Public text | `CVT-SEC-*` | Synthetic secret/PEM/path removal, description sanitation, literal public URLs retained, no raw-value diagnostics |
 | Selection | `CVT-FRONT-001` | Explicit over config over sorted default, unknown front refusal, invalid config refusal even with override |
-| Network | `CVT-NET-*`, `CVT-META-001` | Exact common schema, star edges, selected non-first front emitted first, single-role case, output-rule suffix for the selected front and specialists, format-specific description, no executable/peer capability passthrough |
+| Network | `CVT-NET-*`, `CVT-META-001` | Fixed `llm_config.temperature: 0.2`, exact common schema, star edges, selected non-first front emitted first, single-role case, output-rule suffix for the selected front and specialists, format-specific description, no executable/peer capability passthrough |
 | Publication | `CVT-MAN-001`, `CVT-META-001`, `CVT-LINK-001`, `CVT-OUT-001` | Manifest front/reference/format-specific description and empty bindings match network; byte snapshots and shuffled-input determinism |
 | Adapters | `CVT-CLI-001`, `CVT-WEB-001`, `CVT-ERR-001` | CLI fixture-to-files snapshots and invalid-input failures; shared web pipeline, validated consume-once handoff without execution |
 

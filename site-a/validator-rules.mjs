@@ -302,9 +302,18 @@ function inspectIntegrity(input, entry, agents, emit) {
       'Use https://host/site-base/network-name, not a site base or a local file path.');
     if (identity && active) reentry(identity, path);
   }
+  function inspectTemperature(config, path) {
+    if (!own(config, 'temperature')) return;
+    const value = config.temperature;
+    emit('llm.temperature', typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 2 ? 'pass' : 'fail',
+      `${path}/temperature`, 'temperature must be a finite number from 0 through 2 when declared.',
+      'Omit temperature or use a finite number between 0 and 2, inclusive.');
+  }
+  inspectTemperature(network.llm_config, '/network/llm_config');
   agents.forEach((agent, index) => {
     if (!object(agent)) return;
     const path = `/network/tools/${index}`;
+    inspectTemperature(agent.llm_config, `${path}/llm_config`);
     emit('agent.tools', Array.isArray(agent.tools) ? 'pass' : 'fail', `${path}/tools`,
       'Each agent must declare a tools array.', 'Use an array of local names, peer URLs, or MCP descriptors; use [] for no calls.');
     if (Array.isArray(agent.tools)) agent.tools.forEach((ref, at) => {

@@ -28,6 +28,7 @@ test('smoke: Site A publishes a resolved two-agent network with the read-only va
 
   const config = await readJSON(`site-a/${entry.hocon}`);
   assert.equal(config.llm_config.model_name, 'alibaba/qwen3.8-flash');
+  assert.equal(config.llm_config.temperature, 0.2);
   assert.equal(config.max_execution_seconds, 240);
   assert.deepEqual(config.tools.map(agent => agent.name), ['review_coordinator', 'conformance_reviewer']);
   assert.ok(config.tools.some(agent => agent.name === entry.front_man), 'front_man must belong to tools');
@@ -459,6 +460,72 @@ runtimeTest('settings use only an explicit mock router', async (t, runtime) => {
     mountApp(root, { engine: { ...applied }, trace: new EventTarget(), manifest: { llm_router } });
     assert.equal(fields.get('#ns-router').value, expected, JSON.stringify({ llm_router, applied }));
   }
+});
+
+runtimeTest('settings model selection preserves declared temperature after reload', async (t, runtime) => {
+  const { boot } = await import(new URL('index.js', runtime));
+  const originals = new Map(['document', 'location', 'history', 'sessionStorage', 'localStorage', 'fetch'].map(name =>
+    [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  t.after(() => {
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  });
+  const element = () => ({
+    value: '', dataset: {}, style: {}, fields: new Map(), events: new Map(),
+    classList: { add() {}, remove() {}, toggle() {} },
+    append() {}, prepend() {}, appendChild() {}, insertAdjacentHTML() {},
+    setAttribute() {}, removeAttribute() {}, getAttribute() { return null; }, closest() { return null; },
+    addEventListener(name, callback) { this.events.set(name, callback); }, querySelectorAll() { return []; },
+    querySelector(selector) {
+      if (selector.startsWith('[data-ns-slot=') || selector === '#ns-split') return null;
+      if (!this.fields.has(selector)) this.fields.set(selector, Object.assign(element(), { parentElement: this }));
+      return this.fields.get(selector);
+    },
+  });
+  const storage = () => {
+    const entries = new Map();
+    return { getItem: name => entries.get(name) ?? null,
+      setItem: (name, value) => entries.set(name, String(value)), removeItem: name => entries.delete(name) };
+  };
+  let reloads = 0;
+  const location = Object.assign(new URL('https://desk.invalid/'), { reload() { reloads++; } });
+  const manifest = { networks: [{ name: 'test', hocon: 'test.json' }], deployment: { mode: 'static' },
+    llm_router: { base_url: 'https://router.invalid/v1', byok_router: 'https://router.invalid/v1' } };
+  const config = { llm_config: { model_name: 'network-model', temperature: 0.7 },
+    tools: [{ name: 'front', instructions: 'Answer.', tools: [], llm_config: { temperature: 0.2 } }] };
+  const bodies = [];
+  const fetch = async (url, options) => {
+    if (String(url).endsWith('/chat/completions')) {
+      assert.equal(options.headers.Authorization, 'Bearer settings-key');
+      bodies.push(JSON.parse(options.body));
+      return new Response('data: {"choices":[{"delta":{"content":"Answer."},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n');
+    }
+    const documents = { 'https://desk.invalid/agent-manifest.json': manifest,
+      'https://desk.invalid/test.json': config, 'https://desk.invalid/links.json': {} };
+    if (String(url) === 'https://router.invalid/v1/models') return new Response(JSON.stringify({ data: [{ id: 'settings-model' }] }));
+    if (String(url) === 'https://router.invalid/agent-manifest.json') return new Response('', { status: 404 });
+    assert.ok(Object.hasOwn(documents, String(url)), String(url));
+    return new Response(JSON.stringify(documents[url]));
+  };
+  for (const [name, value] of Object.entries({ document: { createElement: element, head: element() },
+    location, history: { replaceState() {} }, sessionStorage: storage(), localStorage: storage(), fetch })) {
+    Object.defineProperty(globalThis, name, { configurable: true, value });
+  }
+  const mount = element();
+  await boot(mount);
+  mount.querySelector('#ns-key').value = 'settings-key';
+  mount.querySelector('#ns-model').value = 'settings-model';
+  await mount.querySelector('#ns-apply').events.get('click')();
+  assert.equal(reloads, 1, 'Save and start must apply the settings');
+  const { engine } = await boot(element());
+  assert.equal(engine.modelOverride, 'settings-model');
+  assert.equal((await engine.runTurn('question')).text, 'Answer.');
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].model, 'settings-model');
+  assert.equal(bodies[0].temperature, 0.2);
+  assert.equal(engine.top.network.config.llm_config.temperature, 0.7);
 });
 
 runtimeTest('confirm widgets require explicit confirmText', async (_t, runtime) => {

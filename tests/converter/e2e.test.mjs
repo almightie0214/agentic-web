@@ -118,6 +118,7 @@ for (const layout of ['theora', 'markdown']) {
       const { network, manifest } = await bundleInput(ws.output);
       const description = `Converted ${layout === 'theora' ? 'Theora' : 'Markdown'} role conversation network.`;
       assert.equal(network.metadata.description, description);
+      assert.equal(network.llm_config.temperature, 0.2);
       assert.equal(manifest.networks[0].description, description);
     });
   }

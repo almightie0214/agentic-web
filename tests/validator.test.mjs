@@ -669,6 +669,54 @@ test('rules: composition means active peer re-entry, not internal recursion or c
   }
 });
 
+test('rules: temperature accepts omission and finite numbers from zero through two', () => {
+  const input = structuredClone(fixtures.valid);
+  assert.equal(reviewNetwork(input).valid, true);
+  assert.equal(reviewNetwork(input).checks.some(check => check.ruleId === 'llm.temperature'), false);
+  for (const value of [0, 0.2, 2]) {
+    input.network.llm_config = { temperature: value };
+    input.network.tools[1].llm_config = { temperature: value };
+    const before = structuredClone(input);
+    const report = reviewNetwork(input);
+    assert.equal(report.valid, true);
+    assert.deepEqual(report.checks.filter(check => check.ruleId === 'llm.temperature')
+      .map(({ path, status }) => ({ path, status })), [
+      { path: '/network/llm_config/temperature', status: 'pass' },
+      { path: '/network/tools/1/llm_config/temperature', status: 'pass' },
+    ]);
+    assert.deepEqual(input, before);
+  }
+});
+
+test('rules: temperature rejects invalid declarations independently at network and agent scope', () => {
+  for (const value of [undefined, null, false, true, '', '0.2', {}, [], { toString: null },
+    NaN, Infinity, -Infinity, -0.1, 2.1]) {
+    for (const scope of ['network', 'agent', 'masked network']) {
+      const input = structuredClone(fixtures.valid);
+      if (scope === 'agent') {
+        input.network.llm_config = { temperature: 0.7 };
+        input.network.tools[1].llm_config = { temperature: value };
+      } else {
+        input.network.llm_config = { temperature: value };
+        if (scope === 'masked network') {
+          for (const agent of input.network.tools) agent.llm_config = { temperature: 0.2 };
+        }
+      }
+      const before = structuredClone(input);
+      const path = scope === 'agent' ? '/network/tools/1/llm_config/temperature' : '/network/llm_config/temperature';
+      const report = failsAt(input, 'llm.temperature', path);
+      const finding = failures(report).find(check => check.ruleId === 'llm.temperature');
+      assert.ok(finding.message && finding.hint);
+      assert.ok(report.checks.some(check => check.ruleId === 'runtime.safety'));
+      assert.deepEqual(input, before);
+    }
+  }
+  const malformed = structuredClone(fixtures.valid);
+  malformed.network.llm_config = { temperature: null };
+  malformed.network.tools = [];
+  failsAt(malformed, 'llm.temperature', '/network/llm_config/temperature');
+});
+
 test('rules: undeclared execution limits warn while invalid declarations fail and enforcement stays unverified', () => {
   const input = structuredClone(fixtures.valid);
   delete input.network.max_steps;
