@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
 import { parseRoles } from '../../site-a/converter/parse-roles.mjs';
@@ -164,6 +167,67 @@ test('converter web: directory roots and direct Markdown files preserve mapping 
   assert.match(role.instructions, /REDACTED_LOCAL_PATH/);
   assert.doesNotMatch(JSON.stringify(output($)), /synthetic_secret|\/home\/private/);
   assert.equal(requests.length, 0, 'local conversion and handoff never fetch, infer, or contact peers');
+});
+
+// CVT-IN-001 / CVT-OUT-001: adapters preserve BOMs; only the shared parser removes one.
+test('converter web: CLI and web acquisition agree on single and repeated UTF-8 BOMs', async t => {
+  const scratch = fileURLToPath(new URL('.theora/tmp/converter-web/', root));
+  await mkdir(scratch, { recursive: true });
+  for (const count of [1, 2]) {
+    for (const source of ['direct', 'directory', 'sample']) {
+      await t.test(`${source}, ${count} BOMs`, async t => {
+        const work = await mkdtemp(join(scratch, 'bom-'));
+        t.after(() => rm(work, { recursive: true, force: true }));
+        const input = join(work, 'input');
+        const out = join(work, 'output');
+        const filename = source === 'sample' ? 'specialist.md' : 'reader.md';
+        const prefix = source === 'direct' ? '' : '.claude/agents/';
+        const body = '---\nname: specialist\n---\n# Public\nReview supplied text.';
+        const records = [
+          { path: `${prefix}${filename}`, content: '\uFEFF'.repeat(count) + body },
+          { path: `${prefix}coordinator.md`, content: '# Coordinator\nDelegate public reviews.' },
+        ];
+        for (const { path, content } of records) {
+          const target = join(input, path);
+          await mkdir(dirname(target), { recursive: true });
+          await writeFile(target, content, 'utf8');
+        }
+        const cli = spawnSync(process.execPath, [fileURLToPath(new URL('tools/theora2hocon/theora2hocon.mjs', root)), input, out],
+          { encoding: 'utf8', timeout: 15_000 });
+        assert.equal(cli.error, undefined);
+        assert.equal(cli.signal, null);
+        assert.equal(cli.status, 0, cli.stderr);
+        const { $, samples } = await mount(t);
+        if (source === 'sample') {
+          globalThis.fetch = async url => {
+            const record = records.find(({ path }) => String(url).endsWith(path.split('/').at(-1)));
+            assert.ok(record, 'only the selected sample role is requested');
+            return new Response(new TextEncoder().encode(record.content));
+          };
+          await samples.find(sample => sample.dataset.converterSample === 'claude').fire('click');
+        } else {
+          const selector = source === 'direct' ? '#markdown-files' : '#project-files';
+          $(selector).files = records.map(({ path, content }) => ({ ...markdown(path, content),
+            ...(source === 'directory' ? { webkitRelativePath: `selected/${path}` } : {}),
+          }));
+          await $(selector).fire('change');
+          await $('#convert-form').fire('submit');
+        }
+        const converted = output($);
+        assert.deepEqual(converted, bundle(records));
+        const role = converted.network.tools.find(role => role.name !== 'coordinator');
+        assert.equal(role.name, count === 1 ? 'specialist' : filename.slice(0, -3));
+        assert.equal(role.instructions, count === 1 ? '# Public\nReview supplied text.' : body);
+        assert.equal(role.function.description, 'Public');
+        for (const [key, name] of [['network', 'converted_team.network.json'], ['manifest', 'agent-manifest.json'], ['links', 'links.json']]) {
+          const expected = await readFile(join(out, name));
+          assert.deepEqual(Buffer.from($(`#converted-${key}`).value, 'utf8'), expected);
+          const download = $('#converter-downloads').children.find(link => link.download === name);
+          assert.deepEqual(Buffer.from(await (await originalFetch(download.href)).arrayBuffer()), expected);
+        }
+      });
+    }
+  }
 });
 
 test('converter web: acquisition reads only layout-selected roles and config, ignoring unrelated binary files', async t => {

@@ -3,6 +3,8 @@ import { emitNetwork } from './converter/emit-network.mjs';
 import { emitManifest } from './converter/emit-manifest.mjs';
 import { validateNetwork } from './validator-rules.mjs';
 
+// Preserve BOMs during acquisition; the shared parser owns single-BOM normalization.
+const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const $ = selector => document.querySelector(selector);
 let files;
 let localFiles;
@@ -107,7 +109,7 @@ async function readLocalFiles() {
     const selected = layout === 'theora'
       ? theoraRole.test(path) || path === '.theora/config/theora.json' : markdownRole.test(path);
     // Preserve every path for the shared parser's path/duplicate validation, without reading unrelated bytes.
-    return { path, content: selected ? new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer()) : '' };
+    return { path, content: selected ? decoder.decode(await file.arrayBuffer()) : '' };
   }));
 }
 
@@ -132,7 +134,7 @@ for (const button of document.querySelectorAll('[data-converter-sample]')) {
       };
       if (button.dataset.converterSample === 'theora') return (await get('theora/layout.json')).json();
       return Promise.all(['coordinator', 'specialist'].map(async name => ({
-        path: `.claude/agents/${name}.md`, content: await (await get(`claude-agents/${name}.md`)).text(),
+        path: `.claude/agents/${name}.md`, content: decoder.decode(await (await get(`claude-agents/${name}.md`)).arrayBuffer()),
       })));
     }, true);
   });
